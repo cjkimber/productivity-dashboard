@@ -440,12 +440,23 @@ function DeepWorkTab({ year, month }) {
         ))}
       </div>
 
-      <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>Deep work hours — trend</div>
-      <div style={{ height: 180, marginBottom: '1.5rem' }}>
-        <Bar data={{
-          labels,
-          datasets: [{ data: chartData, backgroundColor: chartData.map(h => h >= 3 ? COLORS.green1 : h >= 1.5 ? COLORS.green2 : h > 0 ? COLORS.amber : COLORS.none), borderRadius: 3 }]
-        }} options={{ ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, min: 0, ticks: { color: '#999', font: { size: 11 }, callback: v => v + 'h' } } } }} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginBottom: '1.5rem' }}>
+        {[
+          { label: 'Overall', color: '#1a1a1a', data: chartData },
+          { label: 'A — Ozzy Wizzpop', color: DW_COLORS.A, data: labels.map(d => { const s = (byDate[toDateStr(year,month,d)]||[]).filter(x=>x.subject==='A'); return s.reduce((t,x)=>t+x.hours,0)||null; }) },
+          { label: 'B — Reading', color: DW_COLORS.B, data: labels.map(d => { const s = (byDate[toDateStr(year,month,d)]||[]).filter(x=>x.subject==='B'); return s.reduce((t,x)=>t+x.hours,0)||null; }) },
+          { label: 'C — Magic study', color: DW_COLORS.C, data: labels.map(d => { const s = (byDate[toDateStr(year,month,d)]||[]).filter(x=>x.subject==='C'); return s.reduce((t,x)=>t+x.hours,0)||null; }) },
+        ].map(({ label, color, data: d }) => (
+          <div key={label}>
+            <div style={{ fontSize: 12, color: '#888', marginBottom: 6 }}>{label}</div>
+            <div style={{ height: 120 }}>
+              <Line data={{
+                labels,
+                datasets: [{ data: d, borderColor: color, backgroundColor: color+'15', borderWidth: 2, pointRadius: 3, pointBackgroundColor: color, tension: 0.35, fill: true, spanGaps: true }]
+              }} options={{ ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, min: 0, ticks: { color: '#999', font: { size: 10 }, callback: v => v+'h' } } } }} />
+            </div>
+          </div>
+        ))}
       </div>
 
       {allSessions.length > 0 && (
