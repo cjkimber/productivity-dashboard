@@ -1,4 +1,5 @@
 import clientPromise from '../../lib/mongodb';
+import { ObjectId } from 'mongodb';
 
 export default async function handler(req, res) {
   const client = await clientPromise;
@@ -18,23 +19,19 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    const { date, hours, subject, replace } = req.body;
-    const existing = await collection.findOne({ date });
-    if (existing && !replace) {
-      const newHours = parseFloat((existing.hours + parseFloat(hours)).toFixed(2));
-      await collection.updateOne({ date }, { $set: { hours: newHours, subject } });
-      return res.status(200).json({ date, hours: newHours, subject });
-    } else {
-      await collection.deleteOne({ date });
-      const entry = { date, hours: parseFloat(hours), subject };
-      await collection.insertOne(entry);
-      return res.status(201).json(entry);
-    }
+    const { date, hours, subject } = req.body;
+    const entry = { date, hours: parseFloat(hours), subject };
+    await collection.insertOne(entry);
+    return res.status(201).json(entry);
   }
 
   if (req.method === 'DELETE') {
-    const { date } = req.body;
-    await collection.deleteOne({ date });
+    const { date, id } = req.body;
+    if (id) {
+      await collection.deleteOne({ _id: new ObjectId(id) });
+    } else if (date) {
+      await collection.deleteMany({ date });
+    }
     return res.status(200).json({ deleted: true });
   }
 
