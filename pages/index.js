@@ -64,10 +64,19 @@ const chartDefaults = {
 };
 
 // ─── WORKOUT TAB ───────────────────────────────────────────────────────────────
+const WORKOUT_TYPES = [
+  { key: 'L',  label: 'Legs',              color: '#3B6D11', hasIntensity: true  },
+  { key: 'B',  label: 'Back & biceps',     color: '#185FA5', hasIntensity: true  },
+  { key: 'C',  label: 'Chest & triceps',   color: '#7B2D8B', hasIntensity: true  },
+  { key: 'D',  label: 'Delts',             color: '#BA7517', hasIntensity: true  },
+  { key: 'R',  label: 'Rowing',            color: '#993556', hasIntensity: false },
+  { key: 'OC', label: 'Other cardio',      color: '#2A7F7F', hasIntensity: false },
+];
+
 function WorkoutTab({ year, month }) {
   const [data, setData] = useState([]);
   const [modal, setModal] = useState(null);
-  const [form, setForm] = useState({ type: 'gym', intensity: '3' });
+  const [form, setForm] = useState({ type: 'L', intensity: '3' });
 
   useEffect(() => { fetchData(); }, [year, month]);
 
@@ -77,10 +86,11 @@ function WorkoutTab({ year, month }) {
   }
 
   async function save() {
+    const wt = WORKOUT_TYPES.find(w => w.key === form.type);
     await fetch('/api/workouts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date: modal, ...form })
+      body: JSON.stringify({ date: modal, type: form.type, intensity: wt.hasIntensity ? form.intensity : null })
     });
     setModal(null); fetchData();
   }
@@ -97,44 +107,56 @@ function WorkoutTab({ year, month }) {
   const byDate = {};
   data.forEach(d => { byDate[d.date] = d; });
 
-  function getCellStyle(day) {
-    const dateStr = toDateStr(year, month, day);
-    const entry = byDate[dateStr];
-    if (!entry) return { border: '2px solid #ddd', color: '#bbb' };
-    const colorMap = {
-      rowing: '#993556',
-      gym_1: '#BA7517',
-      gym_2: '#185FA5',
-      gym_3: '#3B6D11',
-    };
-    const key = entry.type === 'rowing' ? 'rowing' : `gym_${entry.intensity}`;
-    const c = colorMap[key] || '#ddd';
-    return { border: `2.5px solid ${c}`, color: c, fontWeight: 500 };
-  }
-
   const totalSessions = data.length;
-  const level3 = data.filter(d => d.type === 'gym' && d.intensity === 3).length;
-  const rowing = data.filter(d => d.type === 'rowing').length;
+  const bestSessions = data.filter(d => d.intensity == 3).length;
+  const cardio = data.filter(d => d.type === 'R' || d.type === 'OC').length;
+
+  const days = getDaysInMonth(year, month);
+  const firstDay = getFirstDayOfMonth(year, month);
 
   return (
     <div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: '1.5rem' }}>
         <StatCard label="Sessions this month" value={totalSessions} sub={`${new Date(year, month).toLocaleString('default', { month: 'long' })} ${year}`} />
-        <StatCard label="Level 3 sessions" value={level3} sub="best intensity" />
-        <StatCard label="Rowing sessions" value={rowing} sub="this month" />
+        <StatCard label="Intensity 3 sessions" value={bestSessions} sub="best sessions" />
+        <StatCard label="Cardio sessions" value={cardio} sub="rowing + other" />
       </div>
 
-      <CalendarGrid year={year} month={month} getCellStyle={getCellStyle} onDayClick={day => {
-        const existing = byDate[toDateStr(year, month, day)];
-        if (existing) setForm({ type: existing.type, intensity: String(existing.intensity || 3) });
-        else setForm({ type: 'gym', intensity: '3' });
-        setModal(toDateStr(year, month, day));
-      }} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 4, marginBottom: '1.5rem' }}>
+        {['S','M','T','W','T','F','S'].map((d, i) => (
+          <div key={i} style={{ textAlign: 'center', fontSize: 11, color: '#bbb', paddingBottom: 4 }}>{d}</div>
+        ))}
+        {Array.from({ length: firstDay }).map((_, i) => <div key={`e${i}`} />)}
+        {Array.from({ length: days }, (_, i) => i + 1).map(day => {
+          const dateStr = toDateStr(year, month, day);
+          const entry = byDate[dateStr];
+          const wt = entry ? WORKOUT_TYPES.find(w => w.key === entry.type) : null;
+          const bg = wt ? wt.color : 'transparent';
+          const border = wt ? 'none' : '1.5px solid #e0e0e0';
+          return (
+            <div key={day} onClick={() => {
+              if (entry) setForm({ type: entry.type, intensity: String(entry.intensity || '3') });
+              else setForm({ type: 'L', intensity: '3' });
+              setModal(dateStr);
+            }}
+              style={{ aspectRatio: '1', borderRadius: 6, background: bg, border, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: wt ? '#fff' : '#bbb', position: 'relative', cursor: 'pointer', fontWeight: wt ? 500 : 400 }}>
+              {day}
+              {entry && wt && (
+                <>
+                  <span style={{ position: 'absolute', bottom: 2, left: 4, fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.9)' }}>{entry.type}</span>
+                  {entry.intensity && <span style={{ position: 'absolute', bottom: 2, right: 4, fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.9)' }}>{entry.intensity}</span>}
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: '1rem' }}>
-        {[['#3B6D11','Level 3 — gym'],['#185FA5','Level 2 — gym'],['#BA7517','Level 1 — gym'],['#993556','Rowing']].map(([c,l]) => (
-          <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#666' }}>
-            <div style={{ width: 12, height: 12, borderRadius: '50%', border: `2.5px solid ${c}` }} />{l}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: '1.5rem' }}>
+        {WORKOUT_TYPES.map(w => (
+          <div key={w.key} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#666' }}>
+            <div style={{ width: 12, height: 12, borderRadius: 3, background: w.color }} />
+            <span style={{ fontWeight: 600 }}>{w.key}</span> {w.label}
           </div>
         ))}
       </div>
@@ -143,19 +165,24 @@ function WorkoutTab({ year, month }) {
         <Modal title={`Log workout — ${modal}`} onClose={() => setModal(null)}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div>
-              <label style={{ fontSize: 13, color: '#666', display: 'block', marginBottom: 4 }}>Session type</label>
-              <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))} style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid #ddd', fontSize: 14 }}>
-                <option value="gym">Gym</option>
-                <option value="rowing">Rowing</option>
-              </select>
+              <label style={{ fontSize: 13, color: '#666', display: 'block', marginBottom: 6 }}>Workout type</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {WORKOUT_TYPES.map(w => (
+                  <button key={w.key} onClick={() => setForm(f => ({ ...f, type: w.key }))}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 8, border: `2px solid ${form.type === w.key ? w.color : '#ddd'}`, background: form.type === w.key ? w.color+'15' : '#fff', textAlign: 'left', cursor: 'pointer' }}>
+                    <span style={{ width: 28, height: 28, borderRadius: 6, background: w.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{w.key}</span>
+                    <span style={{ fontSize: 14, color: form.type === w.key ? w.color : '#444', fontWeight: form.type === w.key ? 500 : 400 }}>{w.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-            {form.type === 'gym' && (
+            {WORKOUT_TYPES.find(w => w.key === form.type)?.hasIntensity && (
               <div>
                 <label style={{ fontSize: 13, color: '#666', display: 'block', marginBottom: 4 }}>Intensity</label>
                 <div style={{ display: 'flex', gap: 8 }}>
                   {['1','2','3'].map(n => (
                     <button key={n} onClick={() => setForm(f => ({ ...f, intensity: n }))}
-                      style={{ flex: 1, padding: '10px', borderRadius: 8, border: `2px solid ${form.intensity === n ? '#3B6D11' : '#ddd'}`, background: form.intensity === n ? '#EAF3DE' : '#fff', fontWeight: 500, fontSize: 16, color: form.intensity === n ? '#3B6D11' : '#888' }}>
+                      style={{ flex: 1, padding: '10px', borderRadius: 8, border: `2px solid ${form.intensity === n ? '#1a1a1a' : '#ddd'}`, background: form.intensity === n ? '#1a1a1a' : '#fff', fontWeight: 500, fontSize: 16, color: form.intensity === n ? '#fff' : '#888' }}>
                       {n}
                     </button>
                   ))}
