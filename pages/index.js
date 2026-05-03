@@ -498,17 +498,10 @@ function DeepWorkTab({ year, month }) {
             )}
             <div>
               <label style={{ fontSize: 13, color: '#666', display: 'block', marginBottom: 4 }}>Add minutes</label>
-              <input type="number" min="20" max="480" step="20" value={form.minutes} onChange={e => setForm(f => ({ ...f, minutes: e.target.value }))}
+              <input type="number" min="1" max="480" value={form.minutes} onChange={e => setForm(f => ({ ...f, minutes: e.target.value }))}
+                placeholder="e.g. 45"
                 style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #ddd', fontSize: 16 }} />
               <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>= {(parseInt(form.minutes || 0) / 60).toFixed(1)} hours</div>
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {[20,40,60,90,120,180].map(n => (
-                <button key={n} onClick={() => setForm(f => ({ ...f, minutes: String(n) }))}
-                  style={{ padding: '8px 12px', borderRadius: 8, border: `1px solid ${form.minutes == n ? '#1a1a1a' : '#ddd'}`, background: form.minutes == n ? '#1a1a1a' : '#fff', color: form.minutes == n ? '#fff' : '#666', fontSize: 13 }}>
-                  {n}m
-                </button>
-              ))}
             </div>
             <div>
               <label style={{ fontSize: 13, color: '#666', display: 'block', marginBottom: 4 }}>Subject</label>
