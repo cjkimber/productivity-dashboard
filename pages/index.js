@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { Line, Bar } from 'react-chartjs-2';
 import {
@@ -32,7 +32,7 @@ function toDateStr(year, month, day) {
 function Modal({ title, onClose, children }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-      <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', width: 320, maxWidth: '90vw' }}>
+      <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', width: 320, maxWidth: '90vw', maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <span style={{ fontWeight: 500, fontSize: 16 }}>{title}</span>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, color: '#888', padding: '0 4px' }}>×</button>
@@ -125,10 +125,10 @@ function WorkoutTab({ year, month }) {
       </div>
 
       <CalendarGrid year={year} month={month} getCellStyle={getCellStyle} onDayClick={day => {
-        setModal(toDateStr(year, month, day));
         const existing = byDate[toDateStr(year, month, day)];
         if (existing) setForm({ type: existing.type, intensity: String(existing.intensity || 3) });
         else setForm({ type: 'gym', intensity: '3' });
+        setModal(toDateStr(year, month, day));
       }} />
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: '1rem' }}>
@@ -243,9 +243,9 @@ function SwitchOffTab({ year, month }) {
         const { bg, text } = getHeatColor(day);
         return { background: bg, color: text, border: 'none', borderRadius: 6, fontWeight: 400 };
       }} onDayClick={day => {
-        setModal(toDateStr(year, month, day));
         const e = byDate[toDateStr(year, month, day)];
         setTime(e ? e.time : '19:00');
+        setModal(toDateStr(year, month, day));
       }} />
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: '1.5rem' }}>
@@ -284,7 +284,7 @@ function SwitchOffTab({ year, month }) {
 function DeepWorkTab({ year, month }) {
   const [data, setData] = useState([]);
   const [modal, setModal] = useState(null);
-  const [form, setForm] = useState({ hours: '2', subject: 'A' });
+  const [form, setForm] = useState({ minutes: '60', subject: 'A' });
 
   useEffect(() => { fetchData(); }, [year, month]);
 
@@ -294,10 +294,11 @@ function DeepWorkTab({ year, month }) {
   }
 
   async function save() {
+    const hours = parseFloat((parseInt(form.minutes) / 60).toFixed(2));
     await fetch('/api/deepwork', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date: modal, ...form })
+      body: JSON.stringify({ date: modal, hours, subject: form.subject, replace: false })
     });
     setModal(null); fetchData();
   }
@@ -316,18 +317,16 @@ function DeepWorkTab({ year, month }) {
 
   function getHeatColor(hours) {
     if (!hours) return { bg: COLORS.none, text: COLORS.noneText };
-    if (hours >= 4) return { bg: COLORS.green1, text: COLORS.green1Text };
-    if (hours >= 2) return { bg: COLORS.green2, text: COLORS.green2Text };
+    if (hours >= 3) return { bg: COLORS.green1, text: COLORS.green1Text };
+    if (hours >= 1.5) return { bg: COLORS.green2, text: COLORS.green2Text };
     return { bg: COLORS.amber, text: COLORS.amberText };
   }
 
   const subjectColors = { A: '#3B6D11', B: '#185FA5', C: '#993556' };
-
   const totalHours = data.reduce((s, d) => s + (d.hours || 0), 0);
   const sessions = data.length;
   const avg = sessions ? (totalHours / sessions).toFixed(1) : '0';
   const best = data.reduce((m, d) => d.hours > m ? d.hours : m, 0);
-
   const days = getDaysInMonth(year, month);
   const labels = Array.from({ length: days }, (_, i) => i + 1);
   const chartData = labels.map(d => {
@@ -353,8 +352,13 @@ function DeepWorkTab({ year, month }) {
           const entry = byDate[dateStr];
           const { bg, text } = getHeatColor(entry?.hours);
           return (
-            <div key={day} onClick={() => { setModal(dateStr); if (entry) setForm({ hours: String(entry.hours), subject: entry.subject || 'A' }); else setForm({ hours: '2', subject: 'A' }); }}
-              style={{ aspectRatio: '1', borderRadius: 6, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: text, position: 'relative', cursor: 'pointer' }}>
+            <div key={day}
+              onClick={() => {
+                const mins = entry ? String(Math.round(entry.hours * 60)) : '60';
+                setForm({ minutes: mins, subject: entry?.subject || 'A' });
+                setModal(dateStr);
+              }}
+              style={{ aspectRatio: '1', borderRadius: 6, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: text, position: 'relative', cursor: 'pointer', userSelect: 'none' }}>
               {day}
               {entry?.subject && (
                 <span style={{ position: 'absolute', top: 2, right: 3, fontSize: 9, fontWeight: 500, color: subjectColors[entry.subject] || text }}>
@@ -367,7 +371,7 @@ function DeepWorkTab({ year, month }) {
       </div>
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 8 }}>
-        {[[COLORS.green1,'1h'],[COLORS.green2,'2–3h'],[COLORS.amber,'4h+']].map(([c,l]) => (
+        {[[COLORS.amber,'under 1.5h'],[COLORS.green2,'1.5–3h'],[COLORS.green1,'3h+']].map(([c,l]) => (
           <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#666' }}>
             <div style={{ width: 12, height: 12, borderRadius: 3, background: c }} />{l}
           </div>
@@ -385,17 +389,34 @@ function DeepWorkTab({ year, month }) {
       <div style={{ height: 180 }}>
         <Bar data={{
           labels,
-          datasets: [{ data: chartData, backgroundColor: chartData.map(h => h >= 4 ? COLORS.green1 : h >= 2 ? COLORS.green2 : h > 0 ? COLORS.amber : COLORS.none), borderRadius: 3 }]
+          datasets: [{ data: chartData, backgroundColor: chartData.map(h => h >= 3 ? COLORS.green1 : h >= 1.5 ? COLORS.green2 : h > 0 ? COLORS.amber : COLORS.none), borderRadius: 3 }]
         }} options={{ ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, min: 0, ticks: { color: '#999', font: { size: 11 }, callback: v => v + 'h' } } } }} />
       </div>
 
       {modal && (
         <Modal title={`Log deep work — ${modal}`} onClose={() => setModal(null)}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {byDate[modal] && (
+              <div style={{ background: '#f0f0ee', borderRadius: 8, padding: '10px 12px', fontSize: 13, color: '#444' }}>
+                Already logged today: <strong>{Math.round(byDate[modal].hours * 60)} min ({byDate[modal].hours.toFixed(1)}h)</strong> — adding to this
+              </div>
+            )}
             <div>
-              <label style={{ fontSize: 13, color: '#666', display: 'block', marginBottom: 4 }}>Hours</label>
-              <input type="number" min="0.5" max="12" step="0.5" value={form.hours} onChange={e => setForm(f => ({ ...f, hours: e.target.value }))}
+              <label style={{ fontSize: 13, color: '#666', display: 'block', marginBottom: 4 }}>Add minutes</label>
+              <input type="number" min="20" max="480" step="20" value={form.minutes} onChange={e => setForm(f => ({ ...f, minutes: e.target.value }))}
                 style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #ddd', fontSize: 16 }} />
+              <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>
+                = {(parseInt(form.minutes || 0) / 60).toFixed(1)} hours
+                {byDate[modal] && ` → total will be ${((byDate[modal].hours) + parseInt(form.minutes || 0) / 60).toFixed(1)}h`}
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {[20,40,60,90,120,180].map(n => (
+                <button key={n} onClick={() => setForm(f => ({ ...f, minutes: String(n) }))}
+                  style={{ padding: '8px 12px', borderRadius: 8, border: `1px solid ${form.minutes == n ? '#1a1a1a' : '#ddd'}`, background: form.minutes == n ? '#1a1a1a' : '#fff', color: form.minutes == n ? '#fff' : '#666', fontSize: 13 }}>
+                  {n}m
+                </button>
+              ))}
             </div>
             <div>
               <label style={{ fontSize: 13, color: '#666', display: 'block', marginBottom: 4 }}>Subject</label>
@@ -408,8 +429,8 @@ function DeepWorkTab({ year, month }) {
                 ))}
               </div>
             </div>
-            <button onClick={save} style={{ background: '#1a1a1a', color: '#fff', border: 'none', borderRadius: 8, padding: '12px', fontWeight: 500, fontSize: 14 }}>Save</button>
-            {byDate[modal] && <button onClick={remove} style={{ background: 'none', border: '1px solid #ddd', borderRadius: 8, padding: '10px', color: '#E24B4A', fontSize: 14 }}>Remove entry</button>}
+            <button onClick={save} style={{ background: '#1a1a1a', color: '#fff', border: 'none', borderRadius: 8, padding: '12px', fontWeight: 500, fontSize: 14 }}>Add to today</button>
+            {byDate[modal] && <button onClick={remove} style={{ background: 'none', border: '1px solid #ddd', borderRadius: 8, padding: '10px', color: '#E24B4A', fontSize: 14 }}>Clear today's total</button>}
           </div>
         </Modal>
       )}
@@ -481,9 +502,9 @@ function LyingInTab({ year, month }) {
         const { bg, text } = getHeatColor(entry?.minutes);
         return { background: bg, color: text, border: 'none', borderRadius: 6, fontWeight: 400 };
       }} onDayClick={day => {
-        setModal(toDateStr(year, month, day));
         const e = byDate[toDateStr(year, month, day)];
         setMinutes(e ? String(e.minutes) : '15');
+        setModal(toDateStr(year, month, day));
       }} />
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: '1.5rem' }}>
@@ -581,7 +602,6 @@ export default function Dashboard() {
           <div style={{ fontSize: 24, fontWeight: 500 }}>Chris's productivity tracker</div>
         </div>
 
-        {/* Tabs */}
         <div style={{ display: 'flex', borderBottom: '1px solid #e5e5e5', marginBottom: '1.5rem', overflowX: 'auto' }}>
           {TABS.map((t, i) => (
             <button key={t} onClick={() => setTab(i)}
@@ -591,7 +611,6 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {/* Month nav */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
           <button onClick={prevMonth} style={{ background: 'none', border: '1px solid #e5e5e5', borderRadius: 8, padding: '6px 14px', fontSize: 16, color: '#666' }}>‹</button>
           <span style={{ fontWeight: 500, fontSize: 14, color: '#444' }}>{monthLabel}</span>
