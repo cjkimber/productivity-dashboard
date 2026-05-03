@@ -308,6 +308,9 @@ function SwitchOffTab({ year, month }) {
 }
 
 // ─── DEEP WORK TAB ─────────────────────────────────────────────────────────────
+const DW_SUBJECTS = { A: 'Ozzy Wizzpop', B: 'Reading', C: 'Magic study' };
+const DW_COLORS = { A: '#3B6D11', B: '#185FA5', C: '#993556' };
+
 function DeepWorkTab({ year, month }) {
   const [data, setData] = useState([]);
   const [modal, setModal] = useState(null);
@@ -330,7 +333,16 @@ function DeepWorkTab({ year, month }) {
     setModal(null); fetchData();
   }
 
-  async function remove() {
+  async function removeSession(id) {
+    await fetch('/api/deepwork', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    });
+    fetchData();
+  }
+
+  async function clearDay() {
     await fetch('/api/deepwork', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
@@ -339,34 +351,51 @@ function DeepWorkTab({ year, month }) {
     setModal(null); fetchData();
   }
 
+  // Group sessions by date
   const byDate = {};
-  data.forEach(d => { byDate[d.date] = d; });
+  data.forEach(d => {
+    if (!byDate[d.date]) byDate[d.date] = [];
+    byDate[d.date].push(d);
+  });
 
-  function getHeatColor(hours) {
-    if (!hours) return { bg: COLORS.none, text: COLORS.noneText };
-    if (hours >= 3) return { bg: COLORS.green1, text: COLORS.green1Text };
-    if (hours >= 1.5) return { bg: COLORS.green2, text: COLORS.green2Text };
+  function getDayTotals(dateStr) {
+    const sessions = byDate[dateStr] || [];
+    const total = sessions.reduce((s, d) => s + (d.hours || 0), 0);
+    // dominant subject = most time
+    const subTotals = {};
+    sessions.forEach(s => { subTotals[s.subject] = (subTotals[s.subject] || 0) + s.hours; });
+    const dominant = Object.entries(subTotals).sort((a,b) => b[1]-a[1])[0]?.[0] || null;
+    return { total, dominant, sessions, subTotals };
+  }
+
+  function getHeatColor(total) {
+    if (!total) return { bg: COLORS.none, text: COLORS.noneText };
+    if (total >= 3) return { bg: COLORS.green1, text: COLORS.green1Text };
+    if (total >= 1.5) return { bg: COLORS.green2, text: COLORS.green2Text };
     return { bg: COLORS.amber, text: COLORS.amberText };
   }
 
-  const subjectColors = { A: '#3B6D11', B: '#185FA5', C: '#993556' };
+  const allSessions = [...data].sort((a,b) => b.date.localeCompare(a.date));
   const totalHours = data.reduce((s, d) => s + (d.hours || 0), 0);
-  const sessions = data.length;
-  const avg = sessions ? (totalHours / sessions).toFixed(1) : '0';
-  const best = data.reduce((m, d) => d.hours > m ? d.hours : m, 0);
+  const uniqueDays = Object.keys(byDate).length;
+  const best = Object.values(byDate).reduce((m, sessions) => {
+    const t = sessions.reduce((s,d) => s + d.hours, 0);
+    return t > m ? t : m;
+  }, 0);
+
   const days = getDaysInMonth(year, month);
   const labels = Array.from({ length: days }, (_, i) => i + 1);
   const chartData = labels.map(d => {
-    const e = byDate[toDateStr(year, month, d)];
-    return e ? e.hours : 0;
+    const { total } = getDayTotals(toDateStr(year, month, d));
+    return total;
   });
 
   return (
     <div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: '1.5rem' }}>
         <StatCard label="Hours this month" value={`${totalHours.toFixed(1)}h`} sub={`${new Date(year, month).toLocaleString('default', { month: 'long' })} ${year}`} />
-        <StatCard label="Avg per session" value={`${avg}h`} sub={`${sessions} sessions`} />
-        <StatCard label="Best day" value={`${best}h`} sub="this month" />
+        <StatCard label="Days with deep work" value={uniqueDays} sub="this month" />
+        <StatCard label="Best day" value={`${best.toFixed(1)}h`} sub="this month" />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 4, marginBottom: '1.5rem' }}>
@@ -376,20 +405,19 @@ function DeepWorkTab({ year, month }) {
         {Array.from({ length: getFirstDayOfMonth(year, month) }).map((_, i) => <div key={`e${i}`} />)}
         {Array.from({ length: days }, (_, i) => i + 1).map(day => {
           const dateStr = toDateStr(year, month, day);
-          const entry = byDate[dateStr];
-          const { bg, text } = getHeatColor(entry?.hours);
+          const { total, dominant, subTotals } = getDayTotals(dateStr);
+          const { bg, text } = getHeatColor(total);
           return (
             <div key={day}
               onClick={() => {
-                const mins = entry ? String(Math.round(entry.hours * 60)) : '60';
-                setForm({ minutes: mins, subject: entry?.subject || 'A' });
+                setForm({ minutes: '60', subject: 'A' });
                 setModal(dateStr);
               }}
               style={{ aspectRatio: '1', borderRadius: 6, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: text, position: 'relative', cursor: 'pointer', userSelect: 'none' }}>
               {day}
-              {entry?.subject && (
-                <span style={{ position: 'absolute', top: 2, right: 3, fontSize: 9, fontWeight: 500, color: subjectColors[entry.subject] || text }}>
-                  {entry.subject}
+              {dominant && (
+                <span style={{ position: 'absolute', bottom: 2, left: 3, fontSize: 8, fontWeight: 700, color: text, opacity: 0.85 }}>
+                  {Object.keys(subTotals).sort().join('')}
                 </span>
               )}
             </div>
@@ -405,37 +433,63 @@ function DeepWorkTab({ year, month }) {
         ))}
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: '1.5rem' }}>
-        {[['A','Ozzy Wizzpop'],['B','Reading'],['C','Magic study']].map(([k,l]) => (
+        {Object.entries(DW_SUBJECTS).map(([k,l]) => (
           <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#666' }}>
-            <span style={{ fontWeight: 500, color: subjectColors[k], fontSize: 13 }}>{k}</span>{l}
+            <span style={{ fontWeight: 500, color: DW_COLORS[k], fontSize: 13 }}>{k}</span>{l}
           </div>
         ))}
       </div>
 
       <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>Deep work hours — trend</div>
-      <div style={{ height: 180 }}>
+      <div style={{ height: 180, marginBottom: '1.5rem' }}>
         <Bar data={{
           labels,
           datasets: [{ data: chartData, backgroundColor: chartData.map(h => h >= 3 ? COLORS.green1 : h >= 1.5 ? COLORS.green2 : h > 0 ? COLORS.amber : COLORS.none), borderRadius: 3 }]
         }} options={{ ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, min: 0, ticks: { color: '#999', font: { size: 11 }, callback: v => v + 'h' } } } }} />
       </div>
 
+      {allSessions.length > 0 && (
+        <div>
+          <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>Session log</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {allSessions.map((s, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: '#f5f5f3', borderRadius: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ width: 24, height: 24, borderRadius: 6, background: DW_COLORS[s.subject] || '#888', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, fontWeight: 700 }}>{s.subject}</span>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 500 }}>{DW_SUBJECTS[s.subject] || s.subject}</div>
+                    <div style={{ fontSize: 11, color: '#888' }}>{s.date}</div>
+                  </div>
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 500, color: '#444' }}>{Math.round(s.hours * 60)}m</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {modal && (
         <Modal title={`Log deep work — ${modal}`} onClose={() => setModal(null)}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {byDate[modal] && (
-              <div style={{ background: '#f0f0ee', borderRadius: 8, padding: '10px 12px', fontSize: 13, color: '#444' }}>
-                Already logged today: <strong>{Math.round(byDate[modal].hours * 60)} min ({byDate[modal].hours.toFixed(1)}h)</strong> — adding to this
+            {byDate[modal] && byDate[modal].length > 0 && (
+              <div style={{ background: '#f0f0ee', borderRadius: 8, padding: '10px 12px' }}>
+                <div style={{ fontSize: 12, color: '#666', marginBottom: 6 }}>Already logged today:</div>
+                {byDate[modal].map((s, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, marginBottom: 4 }}>
+                    <span><strong style={{ color: DW_COLORS[s.subject] }}>{s.subject}</strong> — {DW_SUBJECTS[s.subject]}</span>
+                    <span style={{ color: '#444', fontWeight: 500 }}>{Math.round(s.hours * 60)}m</span>
+                  </div>
+                ))}
+                <div style={{ fontSize: 12, color: '#888', marginTop: 4, borderTop: '1px solid #ddd', paddingTop: 4 }}>
+                  Total: {Math.round(byDate[modal].reduce((s,d) => s + d.hours, 0) * 60)}m ({byDate[modal].reduce((s,d) => s + d.hours, 0).toFixed(1)}h)
+                </div>
               </div>
             )}
             <div>
               <label style={{ fontSize: 13, color: '#666', display: 'block', marginBottom: 4 }}>Add minutes</label>
               <input type="number" min="20" max="480" step="20" value={form.minutes} onChange={e => setForm(f => ({ ...f, minutes: e.target.value }))}
                 style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #ddd', fontSize: 16 }} />
-              <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>
-                = {(parseInt(form.minutes || 0) / 60).toFixed(1)} hours
-                {byDate[modal] && ` → total will be ${((byDate[modal].hours) + parseInt(form.minutes || 0) / 60).toFixed(1)}h`}
-              </div>
+              <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>= {(parseInt(form.minutes || 0) / 60).toFixed(1)} hours</div>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {[20,40,60,90,120,180].map(n => (
@@ -448,16 +502,18 @@ function DeepWorkTab({ year, month }) {
             <div>
               <label style={{ fontSize: 13, color: '#666', display: 'block', marginBottom: 4 }}>Subject</label>
               <div style={{ display: 'flex', gap: 8 }}>
-                {[['A','Ozzy Wizzpop'],['B','Reading'],['C','Magic study']].map(([k, l]) => (
+                {Object.entries(DW_SUBJECTS).map(([k, l]) => (
                   <button key={k} onClick={() => setForm(f => ({ ...f, subject: k }))}
-                    style={{ flex: 1, padding: '8px 4px', borderRadius: 8, border: `2px solid ${form.subject === k ? subjectColors[k] : '#ddd'}`, background: form.subject === k ? '#f5f5f5' : '#fff', fontSize: 12, color: form.subject === k ? subjectColors[k] : '#888', fontWeight: form.subject === k ? 500 : 400 }}>
+                    style={{ flex: 1, padding: '8px 4px', borderRadius: 8, border: `2px solid ${form.subject === k ? DW_COLORS[k] : '#ddd'}`, background: form.subject === k ? '#f5f5f5' : '#fff', fontSize: 12, color: form.subject === k ? DW_COLORS[k] : '#888', fontWeight: form.subject === k ? 500 : 400 }}>
                     <span style={{ fontWeight: 700, display: 'block', fontSize: 16 }}>{k}</span>{l}
                   </button>
                 ))}
               </div>
             </div>
-            <button onClick={save} style={{ background: '#1a1a1a', color: '#fff', border: 'none', borderRadius: 8, padding: '12px', fontWeight: 500, fontSize: 14 }}>Add to today</button>
-            {byDate[modal] && <button onClick={remove} style={{ background: 'none', border: '1px solid #ddd', borderRadius: 8, padding: '10px', color: '#E24B4A', fontSize: 14 }}>Clear today's total</button>}
+            <button onClick={save} style={{ background: '#1a1a1a', color: '#fff', border: 'none', borderRadius: 8, padding: '12px', fontWeight: 500, fontSize: 14 }}>Add session</button>
+            {byDate[modal] && byDate[modal].length > 0 && (
+              <button onClick={clearDay} style={{ background: 'none', border: '1px solid #ddd', borderRadius: 8, padding: '10px', color: '#E24B4A', fontSize: 14 }}>Clear all today's sessions</button>
+            )}
           </div>
         </Modal>
       )}
