@@ -8,7 +8,7 @@ import {
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler);
 
-const TABS = ['Workouts', 'Switch-off', 'Deep Work', 'Lying In'];
+const TABS = ['Workouts', 'Switch-off', 'Deep Work'];
 
 const COLORS = {
   green1: '#C0DD97', green1Text: '#27500A',
@@ -465,116 +465,6 @@ function DeepWorkTab({ year, month }) {
   );
 }
 
-// ─── LYING IN TAB ──────────────────────────────────────────────────────────────
-function LyingInTab({ year, month }) {
-  const [data, setData] = useState([]);
-  const [modal, setModal] = useState(null);
-  const [minutes, setMinutes] = useState('15');
-
-  useEffect(() => { fetchData(); }, [year, month]);
-
-  async function fetchData() {
-    const res = await fetch(`/api/lyingin?year=${year}&month=${month + 1}`);
-    setData(await res.json());
-  }
-
-  async function save() {
-    await fetch('/api/lyingin', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date: modal, minutes })
-    });
-    setModal(null); fetchData();
-  }
-
-  async function remove() {
-    await fetch('/api/lyingin', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date: modal })
-    });
-    setModal(null); fetchData();
-  }
-
-  const byDate = {};
-  data.forEach(d => { byDate[d.date] = d; });
-
-  function getHeatColor(mins) {
-    if (!mins && mins !== 0) return { bg: COLORS.none, text: COLORS.noneText };
-    if (mins < 10) return { bg: COLORS.green1, text: COLORS.green1Text };
-    if (mins < 20) return { bg: COLORS.green2, text: COLORS.green2Text };
-    if (mins < 40) return { bg: COLORS.amber, text: COLORS.amberText };
-    return { bg: COLORS.red, text: COLORS.redText };
-  }
-
-  const under10 = data.filter(d => d.minutes < 10).length;
-  const avgMins = data.length ? Math.round(data.reduce((s, d) => s + d.minutes, 0) / data.length) : 0;
-  const days = getDaysInMonth(year, month);
-  const labels = Array.from({ length: days }, (_, i) => i + 1);
-  const chartData = labels.map(d => {
-    const e = byDate[toDateStr(year, month, d)];
-    return e ? e.minutes : null;
-  });
-
-  return (
-    <div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: '1.5rem' }}>
-        <StatCard label="Avg lying-in" value={`${avgMins} min`} sub="this month" />
-        <StatCard label="Days under 10 min" value={under10} sub={`of ${data.length} logged`} />
-        <StatCard label="Target" value="Under 10 min" sub="goal to reach" />
-      </div>
-
-      <CalendarGrid year={year} month={month} getCellStyle={day => {
-        const entry = byDate[toDateStr(year, month, day)];
-        const { bg, text } = getHeatColor(entry?.minutes);
-        return { background: bg, color: text, border: 'none', borderRadius: 6, fontWeight: 400 };
-      }} onDayClick={day => {
-        const e = byDate[toDateStr(year, month, day)];
-        setMinutes(e ? String(e.minutes) : '15');
-        setModal(toDateStr(year, month, day));
-      }} />
-
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: '1.5rem' }}>
-        {[[COLORS.green1,'Under 10 min'],[COLORS.green2,'10–20 min'],[COLORS.amber,'20–40 min'],[COLORS.red,'40+ min']].map(([c,l]) => (
-          <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#666' }}>
-            <div style={{ width: 12, height: 12, borderRadius: 3, background: c }} />{l}
-          </div>
-        ))}
-      </div>
-
-      <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>Lying-in duration — trend</div>
-      <div style={{ height: 180 }}>
-        <Line data={{
-          labels,
-          datasets: [{ data: chartData, borderColor: '#E24B4A', backgroundColor: 'rgba(226,75,74,0.07)', borderWidth: 2, pointRadius: 3, tension: 0.35, fill: true, spanGaps: true }]
-        }} options={{ ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, min: 0, ticks: { color: '#999', font: { size: 11 }, callback: v => v + 'm' } } } }} />
-      </div>
-
-      {modal && (
-        <Modal title={`Log lying-in — ${modal}`} onClose={() => setModal(null)}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div>
-              <label style={{ fontSize: 13, color: '#666', display: 'block', marginBottom: 4 }}>Minutes in bed after waking</label>
-              <input type="number" min="0" max="180" step="1" value={minutes} onChange={e => setMinutes(e.target.value)}
-                style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #ddd', fontSize: 16 }} />
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {[5,10,15,20,30,45,60].map(n => (
-                <button key={n} onClick={() => setMinutes(String(n))}
-                  style={{ padding: '8px 12px', borderRadius: 8, border: `1px solid ${minutes == n ? '#1a1a1a' : '#ddd'}`, background: minutes == n ? '#1a1a1a' : '#fff', color: minutes == n ? '#fff' : '#666', fontSize: 13 }}>
-                  {n}m
-                </button>
-              ))}
-            </div>
-            <button onClick={save} style={{ background: '#1a1a1a', color: '#fff', border: 'none', borderRadius: 8, padding: '12px', fontWeight: 500, fontSize: 14 }}>Save</button>
-            {byDate[modal] && <button onClick={remove} style={{ background: 'none', border: '1px solid #ddd', borderRadius: 8, padding: '10px', color: '#E24B4A', fontSize: 14 }}>Remove entry</button>}
-          </div>
-        </Modal>
-      )}
-    </div>
-  );
-}
-
 // ─── CALENDAR GRID (shared) ────────────────────────────────────────────────────
 function CalendarGrid({ year, month, getCellStyle, onDayClick }) {
   const days = getDaysInMonth(year, month);
@@ -647,7 +537,6 @@ export default function Dashboard() {
         {tab === 0 && <WorkoutTab year={year} month={month} />}
         {tab === 1 && <SwitchOffTab year={year} month={month} />}
         {tab === 2 && <DeepWorkTab year={year} month={month} />}
-        {tab === 3 && <LyingInTab year={year} month={month} />}
       </div>
     </>
   );
