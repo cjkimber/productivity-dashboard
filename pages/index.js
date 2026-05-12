@@ -249,15 +249,22 @@ function GymLog() {
     setInactive(iMap);
   }
 
-  // Workouts that are in calendar but not yet completed (not in logged)
-  const loggedDates = new Set(logged.map(l => l.date));
+  // Workouts that are in calendar but not yet completed (not in logged with real data)
+  const completedDates = new Set(logged.filter(l => !l.noData).map(l => l.date));
+  const noDataDates = new Set(logged.filter(l => l.noData).map(l => l.date));
   const pending = workouts
-    .filter(w => !loggedDates.has(w.date))
+    .filter(w => !completedDates.has(w.date))
     .sort((a,b) => b.date.localeCompare(a.date));
 
   async function markNoData(workout) {
     await fetch('/api/exercise-log', { method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ date:workout.date, workoutType:workout.type, noData:true, exercises:[] }) });
+    loadAll();
+  }
+
+  async function undoNoData(date) {
+    await fetch('/api/exercise-log', { method:'DELETE', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ date }) });
     loadAll();
   }
 
@@ -331,19 +338,27 @@ function GymLog() {
       {pending.map(w => {
         const wt = WORKOUT_TYPES.find(x => x.key === w.type);
         const draft = drafts.find(d => d.date === w.date);
+        const isNoData = noDataDates.has(w.date);
         return (
-          <div key={w.date} style={{ display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 14px',background:'#f5f5f3',borderRadius:10,marginBottom:8 }}>
+          <div key={w.date} style={{ display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 14px',background: isNoData ? '#fff8f8' : '#f5f5f3',borderRadius:10,marginBottom:8,border: isNoData ? '1px solid #f5c6c6' : 'none' }}>
             <div>
               <div style={{ fontSize:13,fontWeight:500 }}>{fmtDate(w.date)}</div>
               <div style={{ display:'flex',alignItems:'center',gap:6,marginTop:3 }}>
                 <span style={{ background:wt?.color,color:'#fff',borderRadius:4,fontSize:11,fontWeight:700,padding:'2px 6px' }}>{w.type}</span>
                 <span style={{ fontSize:12,color:'#666' }}>{wt?.label}</span>
                 {draft && <span style={{ fontSize:11,color:'#BA7517',fontWeight:500 }}>● in progress</span>}
+                {isNoData && <span style={{ fontSize:11,color:'#E24B4A',fontWeight:500 }}>● no data</span>}
               </div>
             </div>
             <div style={{ display:'flex',gap:8 }}>
-              <Btn onClick={() => openSession(w)} style={{ padding:'8px 14px',fontSize:13 }}>Record</Btn>
-              <Btn onClick={() => markNoData(w)} variant="secondary" style={{ padding:'8px 14px',fontSize:13 }}>No data</Btn>
+              {isNoData ? (
+                <Btn onClick={() => undoNoData(w.date)} variant="secondary" style={{ padding:'8px 14px',fontSize:13 }}>Undo</Btn>
+              ) : (
+                <>
+                  <Btn onClick={() => openSession(w)} style={{ padding:'8px 14px',fontSize:13 }}>Record</Btn>
+                  <Btn onClick={() => markNoData(w)} variant="secondary" style={{ padding:'8px 14px',fontSize:13 }}>No data</Btn>
+                </>
+              )}
             </div>
           </div>
         );
