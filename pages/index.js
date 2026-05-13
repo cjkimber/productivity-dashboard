@@ -10,11 +10,11 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, T
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const WORKOUT_TYPES = [
-  { key: 'L',  label: 'Legs',            color: '#D6E5BD', textColor: '#3B5A1A', hasIntensity: true  },
+  { key: 'L',  label: 'Legs',            color: '#FFCBE1', textColor: '#8A2050', hasIntensity: true  },
   { key: 'B',  label: 'Back & Biceps',   color: '#BCD8EC', textColor: '#1A4A7A', hasIntensity: true  },
   { key: 'C',  label: 'Chest & Triceps', color: '#DCCCEC', textColor: '#5A2D70', hasIntensity: true  },
   { key: 'D',  label: 'Delts',           color: '#F9E1A8', textColor: '#6B4A0A', hasIntensity: true  },
-  { key: 'R',  label: 'Rowing',          color: '#FFCBE1', textColor: '#8A2050', hasIntensity: false },
+  { key: 'R',  label: 'Rowing',          color: '#D6E5BD', textColor: '#3B5A1A', hasIntensity: false },
   { key: 'OC', label: 'Other Cardio',    color: '#FFDAB4', textColor: '#7A3A10', hasIntensity: false },
 ];
 
@@ -550,7 +550,7 @@ function SessionLogger({ session, onSave, onMoveInactive, inactive, allLogs }) {
           <div style={{ display:'flex',gap:8,marginBottom:12 }}>
             {['time','distance'].map(t => (
               <button key={t} onClick={() => setRowingType(t)}
-                style={{ flex:1,padding:'10px',borderRadius:8,border:`2px solid ${rowingType===t?'#8A2050':'#ddd'}`,background:rowingType===t?'#FFF0F6':'#fff',color:rowingType===t?'#8A2050':'#888',fontWeight:500,cursor:'pointer',fontFamily:'inherit',fontSize:14 }}>
+                style={{ flex:1,padding:'10px',borderRadius:8,border:`2px solid ${rowingType===t?'#3B5A1A':'#ddd'}`,background:rowingType===t?'#D6E5BD':'#fff',color:rowingType===t?'#3B5A1A':'#888',fontWeight:500,cursor:'pointer',fontFamily:'inherit',fontSize:14 }}>
                 {t === 'time' ? '⏱ Time (mins)' : '📏 Distance (m)'}
               </button>
             ))}
