@@ -269,7 +269,7 @@ function GymCalendar({ year, month }) {
                     {editSession.workoutType !== 'R' && editSession.workoutType !== 'OC' && (editSession.exercises||[]).map((ex,exIdx) => (
                       <div key={exIdx} style={{ padding:'8px 0',borderBottom:`1px solid ${TH.border}` }}>
                         <div style={{ fontWeight:600,fontSize:13,color:TH.text,marginBottom:6 }}>{ex.name}</div>
-                        {ex.sets.filter(s=>s.reps||s.weight).map((set,setIdx) => (
+                        {ex.sets.map((set,setIdx) => (
                           <div key={setIdx} style={{ display:'flex',alignItems:'center',gap:6,marginBottom:5 }}>
                             <span style={{ fontSize:11,color:TH.textMuted,width:22,flexShrink:0 }}>S{setIdx+1}</span>
                             <input type="number" value={set.weight} onChange={e => updateEditSet(exIdx,setIdx,'weight',e.target.value)} style={{ width:52,padding:'5px 4px',borderRadius:6,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:13,textAlign:'center',fontFamily:'inherit' }} />
