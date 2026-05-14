@@ -129,6 +129,7 @@ function GymCalendar({ year, month }) {
   const [detailModal, setDetailModal] = useState(null); // date string for completed session view
   const [form, setForm] = useState({ type:'L' });
   const [editSession, setEditSession] = useState(null); // editable session data
+  const [editing, setEditing] = useState(false);
 
   useEffect(() => {
     fetch(`/api/workouts?year=${year}&month=${month+1}`).then(r=>r.json()).then(setData);
@@ -160,6 +161,7 @@ function GymCalendar({ year, month }) {
     await fetch('/api/exercise-log', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ ...editSession, noData:false }) });
     setDetailModal(null);
     setEditSession(null);
+    setEditing(false);
     fetch('/api/exercise-log').then(r=>r.json()).then(setLogs);
   }
 
@@ -232,68 +234,107 @@ function GymCalendar({ year, month }) {
         </Modal>
       )}
 
-      {/* Completed session detail/edit modal */}
+      {/* Completed session detail modal — read-only with edit toggle */}
       {detailModal && editSession && (
-        <Modal title={`Session — ${fmtDate(detailModal)}`} onClose={() => { setDetailModal(null); setEditSession(null); }} wide>
-          <div style={{ display:'flex',flexDirection:'column',gap:12 }}>
-            {(() => {
-              const wt = WORKOUT_TYPES.find(w => w.key === editSession.workoutType);
-              return (
-                <div style={{ display:'flex',alignItems:'center',gap:10,marginBottom:4 }}>
+        <Modal title={`Session — ${fmtDate(detailModal)}`} onClose={() => { setDetailModal(null); setEditSession(null); setEditing(false); }}>
+          {(() => {
+            const wt = WORKOUT_TYPES.find(w => w.key === editSession.workoutType);
+            return (
+              <div style={{ display:'flex',flexDirection:'column',gap:10 }}>
+                <div style={{ display:'flex',alignItems:'center',gap:10,marginBottom:2 }}>
                   <span style={{ background:wt?.color,color:wt?.textColor,borderRadius:6,fontSize:12,fontWeight:700,padding:'4px 10px',border:'1px solid rgba(0,0,0,0.08)' }}>{editSession.workoutType}</span>
                   <span style={{ fontWeight:500,fontSize:15 }}>{wt?.label}</span>
                   {editSession.intensity && <span style={{ fontSize:12,color:'#888' }}>Intensity {editSession.intensity}</span>}
                 </div>
-              );
-            })()}
 
-            {editSession.workoutType === 'R' && (
-              <div style={{ padding:'12px',background:'#f5f5f3',borderRadius:10 }}>
-                <div style={{ fontSize:13,color:'#666',marginBottom:6 }}>{editSession.rowingType === 'time' ? 'Time (minutes)' : 'Distance (metres)'}</div>
-                <input type="number" value={editSession.rowingValue||''} onChange={e => setEditSession(prev => ({ ...prev, rowingValue:e.target.value }))}
-                  style={{ width:'100%',padding:'8px',borderRadius:6,border:'1px solid #ddd',fontSize:14,fontFamily:'inherit' }} />
+                {!editing ? (
+                  <>
+                    {editSession.workoutType === 'R' && (
+                      <div style={{ fontSize:14,color:'#444',padding:'6px 0' }}>
+                        {editSession.rowingType === 'time' ? `${editSession.rowingValue} minutes` : `${editSession.rowingValue} metres`}
+                      </div>
+                    )}
+
+                    {editSession.workoutType === 'OC' && (
+                      <div style={{ fontSize:14,color:'#444',padding:'6px 0' }}>{editSession.cardioNote}</div>
+                    )}
+
+                    {editSession.workoutType !== 'R' && editSession.workoutType !== 'OC' && (editSession.exercises||[]).map((ex,exIdx) => {
+                      const filledSets = ex.sets.filter(s=>s.reps||s.weight);
+                      if (filledSets.length === 0) return null;
+                      return (
+                        <div key={exIdx} style={{ padding:'8px 0',borderBottom:'1px solid #eee' }}>
+                          <div style={{ fontWeight:500,fontSize:13,color:'#333',marginBottom:5 }}>{ex.name}</div>
+                          <div style={{ display:'flex',flexWrap:'wrap',gap:6 }}>
+                            {filledSets.map((s,i) => (
+                              <span key={i} style={{ background:'#f0f0ee',borderRadius:6,padding:'4px 10px',fontSize:12,color:'#555' }}>
+                                {s.reps} × {s.weight}kg
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {editSession.sessionNotes && (
+                      <div style={{ padding:'8px 0',borderTop:'1px solid #eee',marginTop:2 }}>
+                        <div style={{ fontSize:11,color:'#888',marginBottom:3 }}>Notes</div>
+                        <div style={{ fontSize:13,color:'#555' }}>{editSession.sessionNotes}</div>
+                      </div>
+                    )}
+
+                    <Btn onClick={() => setEditing(true)} variant="secondary" style={{ marginTop:4 }}>Edit session</Btn>
+                  </>
+                ) : (
+                  <>
+                    {editSession.workoutType === 'R' && (
+                      <div>
+                        <div style={{ fontSize:13,color:'#666',marginBottom:4 }}>{editSession.rowingType === 'time' ? 'Time (minutes)' : 'Distance (metres)'}</div>
+                        <input type="number" value={editSession.rowingValue||''} onChange={e => setEditSession(prev => ({ ...prev, rowingValue:e.target.value }))}
+                          style={{ width:'100%',padding:'8px',borderRadius:6,border:'1px solid #ddd',fontSize:14,fontFamily:'inherit' }} />
+                      </div>
+                    )}
+
+                    {editSession.workoutType === 'OC' && (
+                      <div>
+                        <textarea value={editSession.cardioNote||''} onChange={e => setEditSession(prev => ({ ...prev, cardioNote:e.target.value }))}
+                          rows={3} style={{ width:'100%',padding:'8px',borderRadius:6,border:'1px solid #ddd',fontSize:14,fontFamily:'inherit',resize:'vertical' }} />
+                      </div>
+                    )}
+
+                    {editSession.workoutType !== 'R' && editSession.workoutType !== 'OC' && (editSession.exercises||[]).map((ex,exIdx) => (
+                      <div key={exIdx} style={{ background:'#f5f5f3',borderRadius:8,padding:'10px 12px' }}>
+                        <div style={{ fontWeight:500,fontSize:13,marginBottom:6 }}>{ex.name}</div>
+                        <div style={{ display:'grid',gridTemplateColumns:'32px 1fr 1fr',gap:4,marginBottom:4 }}>
+                          <div /><div style={{ fontSize:10,color:'#999',textAlign:'center' }}>kg</div><div style={{ fontSize:10,color:'#999',textAlign:'center' }}>reps</div>
+                        </div>
+                        {ex.sets.filter(s=>s.reps||s.weight).map((set,setIdx) => (
+                          <div key={setIdx} style={{ display:'grid',gridTemplateColumns:'32px 1fr 1fr',gap:4,marginBottom:4,alignItems:'center' }}>
+                            <div style={{ fontSize:11,color:'#888',textAlign:'center' }}>S{setIdx+1}</div>
+                            <input type="number" value={set.weight} onChange={e => updateEditSet(exIdx,setIdx,'weight',e.target.value)}
+                              style={{ padding:'5px',borderRadius:5,border:'1px solid #ddd',fontSize:13,textAlign:'center',fontFamily:'inherit' }} />
+                            <input type="number" value={set.reps} onChange={e => updateEditSet(exIdx,setIdx,'reps',e.target.value)}
+                              style={{ padding:'5px',borderRadius:5,border:'1px solid #ddd',fontSize:13,textAlign:'center',fontFamily:'inherit' }} />
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+
+                    {editSession.sessionNotes !== undefined && (
+                      <div>
+                        <div style={{ fontSize:11,color:'#888',marginBottom:3 }}>Notes</div>
+                        <textarea value={editSession.sessionNotes||''} onChange={e => setEditSession(prev => ({ ...prev, sessionNotes:e.target.value }))}
+                          rows={2} style={{ width:'100%',padding:'8px',borderRadius:6,border:'1px solid #ddd',fontSize:13,fontFamily:'inherit',resize:'vertical' }} />
+                      </div>
+                    )}
+
+                    <Btn onClick={saveEditedSession}>Save changes</Btn>
+                    <Btn onClick={() => setEditing(false)} variant="secondary">Cancel</Btn>
+                  </>
+                )}
               </div>
-            )}
-
-            {editSession.workoutType === 'OC' && (
-              <div style={{ padding:'12px',background:'#f5f5f3',borderRadius:10 }}>
-                <div style={{ fontSize:13,color:'#666',marginBottom:6 }}>Session note</div>
-                <textarea value={editSession.cardioNote||''} onChange={e => setEditSession(prev => ({ ...prev, cardioNote:e.target.value }))}
-                  rows={3} style={{ width:'100%',padding:'8px',borderRadius:6,border:'1px solid #ddd',fontSize:14,fontFamily:'inherit',resize:'vertical' }} />
-              </div>
-            )}
-
-            {editSession.workoutType !== 'R' && editSession.workoutType !== 'OC' && (editSession.exercises||[]).map((ex,exIdx) => (
-              <div key={exIdx} style={{ background:'#f5f5f3',borderRadius:10,padding:'12px 14px' }}>
-                <div style={{ fontWeight:500,fontSize:14,marginBottom:8 }}>{ex.name}</div>
-                <div style={{ display:'grid',gridTemplateColumns:'32px 1fr 1fr',gap:6,marginBottom:4 }}>
-                  <div />
-                  <div style={{ fontSize:11,color:'#999',textAlign:'center' }}>Weight (kg)</div>
-                  <div style={{ fontSize:11,color:'#999',textAlign:'center' }}>Reps</div>
-                </div>
-                {ex.sets.filter(s=>s.reps||s.weight).map((set,setIdx) => (
-                  <div key={setIdx} style={{ display:'grid',gridTemplateColumns:'32px 1fr 1fr',gap:6,marginBottom:4,alignItems:'center' }}>
-                    <div style={{ fontSize:12,color:'#888',textAlign:'center' }}>S{setIdx+1}</div>
-                    <input type="number" value={set.weight} onChange={e => updateEditSet(exIdx,setIdx,'weight',e.target.value)}
-                      style={{ padding:'6px',borderRadius:6,border:'1px solid #ddd',fontSize:13,textAlign:'center',fontFamily:'inherit' }} />
-                    <input type="number" value={set.reps} onChange={e => updateEditSet(exIdx,setIdx,'reps',e.target.value)}
-                      style={{ padding:'6px',borderRadius:6,border:'1px solid #ddd',fontSize:13,textAlign:'center',fontFamily:'inherit' }} />
-                  </div>
-                ))}
-              </div>
-            ))}
-
-            {editSession.sessionNotes && (
-              <div style={{ background:'#f5f5f3',borderRadius:10,padding:'12px 14px' }}>
-                <div style={{ fontSize:12,color:'#888',marginBottom:4 }}>Session notes</div>
-                <textarea value={editSession.sessionNotes} onChange={e => setEditSession(prev => ({ ...prev, sessionNotes:e.target.value }))}
-                  rows={2} style={{ width:'100%',padding:'8px',borderRadius:6,border:'1px solid #ddd',fontSize:13,fontFamily:'inherit',resize:'vertical' }} />
-              </div>
-            )}
-
-            <Btn onClick={saveEditedSession}>Save changes</Btn>
-            <Btn onClick={() => { setDetailModal(null); setEditSession(null); }} variant="secondary">Close</Btn>
-          </div>
+            );
+          })()}
         </Modal>
       )}
     </div>
