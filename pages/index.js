@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Head from 'next/head';
 import { Line } from 'react-chartjs-2';
 import {
@@ -537,6 +537,30 @@ function SessionLogger({ session, onSave, onMoveInactive, inactive, allLogs }) {
     });
     setPreviousData(prevMap);
   }, [allLogs, session.workoutType, session.date]);
+
+  // Auto-save draft after 1.5s of no changes
+  const isFirstRender = useRef(true);
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    const timer = setTimeout(() => {
+      const draftData = {
+        date: session.date,
+        workoutType: session.workoutType,
+        workoutLabel: session.workoutLabel,
+        intensity: wt?.hasIntensity ? intensity : null,
+        exercises: session.workoutType === 'R' ? [] : session.workoutType === 'OC' ? [] : exercises,
+        rowingType: session.workoutType === 'R' ? rowingType : null,
+        rowingValue: session.workoutType === 'R' ? rowingValue : null,
+        cardioNote: session.workoutType === 'OC' ? cardioNote : null,
+        sessionNotes,
+      };
+      fetch('/api/exercise-draft', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(draftData) });
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [exercises, intensity, rowingType, rowingValue, cardioNote, sessionNotes]);
 
   function updateSet(exIdx, setIdx, field, value) {
     setExercises(prev => prev.map((ex, i) => i !== exIdx ? ex : {
