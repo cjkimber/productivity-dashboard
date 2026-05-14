@@ -348,6 +348,7 @@ function GymLog() {
   const [drafts, setDrafts]       = useState([]);
   const [session, setSession]     = useState(null);
   const [inactive, setInactive]   = useState({});
+  const [exerciseOrder, setExerciseOrder] = useState({});
   const [showInactive, setShowInactive] = useState(false);
   const [inactiveBodyPart, setInactiveBodyPart] = useState(null);
 
@@ -356,19 +357,23 @@ function GymLog() {
   async function loadAll() {
     const now = new Date();
     const y = now.getFullYear(), m = now.getMonth()+1;
-    const [wRes, lRes, dRes, iRes] = await Promise.all([
+    const [wRes, lRes, dRes, iRes, oRes] = await Promise.all([
       fetch(`/api/workouts?year=${y}&month=${m}`),
       fetch('/api/exercise-log'),
       fetch('/api/exercise-draft'),
       fetch('/api/inactive-exercises'),
+      fetch('/api/exercise-order'),
     ]);
-    const [w, l, d, i] = await Promise.all([wRes.json(), lRes.json(), dRes.json(), iRes.json()]);
+    const [w, l, d, i, o] = await Promise.all([wRes.json(), lRes.json(), dRes.json(), iRes.json(), oRes.json()]);
     setWorkouts(w);
     setLogged(l);
     setDrafts(d);
     const iMap = {};
     i.forEach(x => { if (!iMap[x.bodyPart]) iMap[x.bodyPart] = []; iMap[x.bodyPart].push(x); });
     setInactive(iMap);
+    const oMap = {};
+    o.forEach(x => { oMap[x.bodyPart] = x.exercises; });
+    setExerciseOrder(oMap);
   }
 
   const loggedDates = new Set(logged.map(l => l.date));
@@ -388,10 +393,19 @@ function GymLog() {
       setSession(draft);
     } else {
       const wt = WORKOUT_TYPES.find(w => w.key === workout.type);
-      const activeExercises = DEFAULT_EXERCISES[workout.type]?.filter(ex => {
-        const inactiveList = inactive[workout.type] || [];
-        return !inactiveList.find(i => i.exercise === ex);
-      }) || [];
+      const inactiveList = inactive[workout.type] || [];
+      const inactiveNames = inactiveList.map(i => i.exercise);
+      const savedOrder = exerciseOrder[workout.type];
+      const defaultList = DEFAULT_EXERCISES[workout.type] || [];
+      // Use saved order if available, otherwise default. Include any new defaults not in saved order.
+      let orderedList;
+      if (savedOrder) {
+        const extras = defaultList.filter(ex => !savedOrder.includes(ex));
+        orderedList = [...savedOrder, ...extras];
+      } else {
+        orderedList = defaultList;
+      }
+      const activeExercises = orderedList.filter(ex => !inactiveNames.includes(ex));
       setSession({
         date: workout.date,
         workoutType: workout.type,
@@ -545,6 +559,20 @@ function SessionLogger({ session, onSave, onMoveInactive, inactive, allLogs }) {
     setExercises(prev => prev.filter((_,i) => i !== exIdx));
   }
 
+  function moveExercise(fromIdx, direction) {
+    const toIdx = fromIdx + direction;
+    if (toIdx < 0 || toIdx >= exercises.length) return;
+    setExercises(prev => {
+      const updated = [...prev];
+      [updated[fromIdx], updated[toIdx]] = [updated[toIdx], updated[fromIdx]];
+      // Save new order to DB
+      const orderList = updated.map(ex => ex.name);
+      fetch('/api/exercise-order', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ bodyPart: session.workoutType, exercises: orderList }) });
+      return updated;
+    });
+  }
+
   function getSessionData() {
     return {
       date: session.date,
@@ -645,7 +673,15 @@ function SessionLogger({ session, onSave, onMoveInactive, inactive, allLogs }) {
             return (
               <div key={exIdx} style={{ marginBottom:'1.5rem',background:'#f5f5f3',borderRadius:10,padding:'12px 14px' }}>
                 <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'0.75rem' }}>
-                  <span style={{ fontWeight:500,fontSize:14 }}>{ex.name}</span>
+                  <div style={{ display:'flex',alignItems:'center',gap:6 }}>
+                    <div style={{ display:'flex',flexDirection:'column',gap:2 }}>
+                      <button onClick={() => moveExercise(exIdx, -1)} disabled={exIdx === 0}
+                        style={{ background:'none',border:'1px solid #ddd',borderRadius:4,padding:'1px 6px',fontSize:11,color:exIdx===0?'#ccc':'#666',cursor:exIdx===0?'default':'pointer',lineHeight:'1' }}>▲</button>
+                      <button onClick={() => moveExercise(exIdx, 1)} disabled={exIdx === exercises.length - 1}
+                        style={{ background:'none',border:'1px solid #ddd',borderRadius:4,padding:'1px 6px',fontSize:11,color:exIdx===exercises.length-1?'#ccc':'#666',cursor:exIdx===exercises.length-1?'default':'pointer',lineHeight:'1' }}>▼</button>
+                    </div>
+                    <span style={{ fontWeight:500,fontSize:14 }}>{ex.name}</span>
+                  </div>
                   <button onClick={() => moveToInactive(exIdx)}
                     style={{ fontSize:11,color:'#888',background:'none',border:'1px solid #ddd',borderRadius:6,padding:'4px 8px',cursor:'pointer',fontFamily:'inherit' }}>
                     Move to inactive
