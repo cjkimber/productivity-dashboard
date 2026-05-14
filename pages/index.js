@@ -674,11 +674,11 @@ function SessionLogger({ session, onSave, onMoveInactive, inactive, allLogs }) {
               <div key={exIdx} style={{ marginBottom:'1.5rem',background:'#f5f5f3',borderRadius:10,padding:'12px 14px' }}>
                 <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'0.75rem' }}>
                   <div style={{ display:'flex',alignItems:'center',gap:6 }}>
-                    <div style={{ display:'flex',flexDirection:'column',gap:2 }}>
+                    <div style={{ display:'flex',flexDirection:'column',gap:3 }}>
                       <button onClick={() => moveExercise(exIdx, -1)} disabled={exIdx === 0}
-                        style={{ background:'none',border:'1px solid #ddd',borderRadius:4,padding:'1px 6px',fontSize:11,color:exIdx===0?'#ccc':'#666',cursor:exIdx===0?'default':'pointer',lineHeight:'1' }}>▲</button>
+                        style={{ background:'#fff',border:'1px solid #ddd',borderRadius:6,padding:'6px 10px',fontSize:16,color:exIdx===0?'#ccc':'#555',cursor:exIdx===0?'default':'pointer',lineHeight:'1' }}>▲</button>
                       <button onClick={() => moveExercise(exIdx, 1)} disabled={exIdx === exercises.length - 1}
-                        style={{ background:'none',border:'1px solid #ddd',borderRadius:4,padding:'1px 6px',fontSize:11,color:exIdx===exercises.length-1?'#ccc':'#666',cursor:exIdx===exercises.length-1?'default':'pointer',lineHeight:'1' }}>▼</button>
+                        style={{ background:'#fff',border:'1px solid #ddd',borderRadius:6,padding:'6px 10px',fontSize:16,color:exIdx===exercises.length-1?'#ccc':'#555',cursor:exIdx===exercises.length-1?'default':'pointer',lineHeight:'1' }}>▼</button>
                     </div>
                     <span style={{ fontWeight:500,fontSize:14 }}>{ex.name}</span>
                   </div>
