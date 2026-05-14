@@ -303,18 +303,18 @@ function GymCalendar({ year, month }) {
                     )}
 
                     {editSession.workoutType !== 'R' && editSession.workoutType !== 'OC' && (editSession.exercises||[]).map((ex,exIdx) => (
-                      <div key={exIdx} style={{ background:'#f5f5f3',borderRadius:8,padding:'10px 12px' }}>
-                        <div style={{ fontWeight:500,fontSize:13,marginBottom:6 }}>{ex.name}</div>
-                        <div style={{ display:'grid',gridTemplateColumns:'32px 1fr 1fr',gap:4,marginBottom:4 }}>
-                          <div /><div style={{ fontSize:10,color:'#999',textAlign:'center' }}>kg</div><div style={{ fontSize:10,color:'#999',textAlign:'center' }}>reps</div>
-                        </div>
+                      <div key={exIdx} style={{ padding:'8px 0',borderBottom:'1px solid #eee' }}>
+                        <div style={{ fontWeight:500,fontSize:13,color:'#333',marginBottom:6 }}>{ex.name}</div>
                         {ex.sets.filter(s=>s.reps||s.weight).map((set,setIdx) => (
-                          <div key={setIdx} style={{ display:'grid',gridTemplateColumns:'32px 1fr 1fr',gap:4,marginBottom:4,alignItems:'center' }}>
-                            <div style={{ fontSize:11,color:'#888',textAlign:'center' }}>S{setIdx+1}</div>
+                          <div key={setIdx} style={{ display:'flex',alignItems:'center',gap:6,marginBottom:5 }}>
+                            <span style={{ fontSize:11,color:'#888',width:22,flexShrink:0 }}>S{setIdx+1}</span>
                             <input type="number" value={set.weight} onChange={e => updateEditSet(exIdx,setIdx,'weight',e.target.value)}
-                              style={{ padding:'5px',borderRadius:5,border:'1px solid #ddd',fontSize:13,textAlign:'center',fontFamily:'inherit' }} />
+                              style={{ width:52,padding:'5px 4px',borderRadius:5,border:'1px solid #ddd',fontSize:13,textAlign:'center',fontFamily:'inherit' }} />
+                            <span style={{ fontSize:11,color:'#999' }}>kg</span>
+                            <span style={{ fontSize:11,color:'#ccc' }}>×</span>
                             <input type="number" value={set.reps} onChange={e => updateEditSet(exIdx,setIdx,'reps',e.target.value)}
-                              style={{ padding:'5px',borderRadius:5,border:'1px solid #ddd',fontSize:13,textAlign:'center',fontFamily:'inherit' }} />
+                              style={{ width:44,padding:'5px 4px',borderRadius:5,border:'1px solid #ddd',fontSize:13,textAlign:'center',fontFamily:'inherit' }} />
+                            <span style={{ fontSize:11,color:'#999' }}>reps</span>
                           </div>
                         ))}
                       </div>
