@@ -178,6 +178,13 @@ function GymCalendar({ year, month }) {
   function updateEditSet(exIdx, setIdx, field, value) {
     setEditSession(prev => ({ ...prev, exercises: prev.exercises.map((ex,i) => i !== exIdx ? ex : { ...ex, sets: ex.sets.map((s,j) => j !== setIdx ? s : { ...s, [field]: value }) }) }));
   }
+  function addEditSet(exIdx) {
+    setEditSession(prev => ({ ...prev, exercises: prev.exercises.map((ex,i) => i !== exIdx ? ex : { ...ex, sets: [...ex.sets, {weight:'',reps:''}] }) }));
+  }
+  function startEditing() {
+    setEditSession(prev => ({ ...prev, exercises: (prev.exercises||[]).map(ex => ({ ...ex, sets: (!ex.sets || ex.sets.length < 3) ? [...(ex.sets||[]), ...Array.from({length: 3 - (ex.sets||[]).length}, () => ({weight:'',reps:''}))] : ex.sets })) }));
+    setEditing(true);
+  }
 
   return (
     <div>
@@ -253,7 +260,7 @@ function GymCalendar({ year, month }) {
                         <div style={{ fontSize:13,color:TH.textSec }}>{editSession.sessionNotes}</div>
                       </div>
                     )}
-                    <Btn onClick={() => setEditing(true)} variant="secondary" style={{ marginTop:4 }}>Edit session</Btn>
+                    <Btn onClick={startEditing} variant="secondary" style={{ marginTop:4 }}>Edit session</Btn>
                   </>
                 ) : (
                   <>
@@ -278,6 +285,7 @@ function GymCalendar({ year, month }) {
                             <span style={{ fontSize:11,color:TH.textMuted }}>reps</span>
                           </div>
                         ))}
+                        <button onClick={() => addEditSet(exIdx)} style={{ fontSize:11,color:TH.textMuted,background:'none',border:`1px dashed ${TH.borderMed}`,borderRadius:6,padding:'5px 10px',cursor:'pointer',width:'100%',marginTop:3,fontFamily:'inherit' }}>+ Add set</button>
                       </div>
                     ))}
                     {editSession.sessionNotes !== undefined && (
