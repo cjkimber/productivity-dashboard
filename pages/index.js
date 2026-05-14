@@ -505,11 +505,11 @@ function SessionLogger({ session, onSave, onMoveInactive, inactive, allLogs }) {
                   </div>
                   <button onClick={() => moveToInactive(exIdx)} style={{ fontSize:11,color:TH.textMuted,background:'none',border:`1px solid ${TH.border}`,borderRadius:6,padding:'4px 8px',cursor:'pointer',fontFamily:'inherit' }}>Move to inactive</button>
                 </div>
-                <div style={{ display:'grid',gridTemplateColumns:'32px 1fr 1fr auto',gap:6,marginBottom:6 }}>
+                <div style={{ display:'grid',gridTemplateColumns:'32px 80px 80px auto',gap:6,marginBottom:6 }}>
                   <div /><div style={{ fontSize:11,color:TH.textMuted,textAlign:'center',fontWeight:500 }}>Weight (kg)</div><div style={{ fontSize:11,color:TH.textMuted,textAlign:'center',fontWeight:500 }}>Reps</div><div />
                 </div>
                 {ex.sets.map((set, setIdx) => (
-                  <div key={setIdx} style={{ display:'grid',gridTemplateColumns:'32px 1fr 1fr auto',gap:6,marginBottom:6,alignItems:'center' }}>
+                  <div key={setIdx} style={{ display:'grid',gridTemplateColumns:'32px 80px 80px auto',gap:6,marginBottom:6,alignItems:'center' }}>
                     <div style={{ fontSize:12,color:TH.textMuted,textAlign:'center',fontWeight:500 }}>S{setIdx+1}</div>
                     <input type="number" value={set.weight} onChange={e => updateSet(exIdx,setIdx,'weight',e.target.value)} placeholder="kg" style={{ padding:'9px',borderRadius:8,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:14,textAlign:'center',fontFamily:'inherit' }} />
                     <input type="number" value={set.reps} onChange={e => updateSet(exIdx,setIdx,'reps',e.target.value)} placeholder="reps" style={{ padding:'9px',borderRadius:8,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:14,textAlign:'center',fontFamily:'inherit' }} />
