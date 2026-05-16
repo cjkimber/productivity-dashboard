@@ -30,21 +30,23 @@ const TH = {
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const WORKOUT_TYPES = [
-  { key: 'L',  label: 'Legs',            color: '#FFCBE1', textColor: '#8A2050', hasIntensity: true  },
-  { key: 'B',  label: 'Back & Biceps',   color: '#BCD8EC', textColor: '#1A4A7A', hasIntensity: true  },
-  { key: 'C',  label: 'Chest & Triceps', color: '#DCCCEC', textColor: '#5A2D70', hasIntensity: true  },
-  { key: 'D',  label: 'Delts',           color: '#F9E1A8', textColor: '#6B4A0A', hasIntensity: true  },
-  { key: 'R',  label: 'Rowing',          color: '#D6E5BD', textColor: '#3B5A1A', hasIntensity: false },
-  { key: 'OC', label: 'Other Cardio',    color: '#FFDAB4', textColor: '#7A3A10', hasIntensity: false },
+  { key: 'L',   label: 'Legs',            color: '#EC7480', textColor: '#6B1D25', hasIntensity: true  },
+  { key: 'B',   label: 'Back & Biceps',   color: '#FFB069', textColor: '#5A3010', hasIntensity: true  },
+  { key: 'C',   label: 'Chest & Triceps', color: '#FFF296', textColor: '#6B5A00', hasIntensity: true  },
+  { key: 'D',   label: 'Delts',           color: '#9EF0DE', textColor: '#0A4A3A', hasIntensity: true  },
+  { key: 'R',   label: 'Rowing',          color: '#85D2FF', textColor: '#0C3A6B', hasIntensity: false },
+  { key: 'KB',  label: 'KB',              color: '#9884E8', textColor: '#2A1F6B', hasIntensity: false },
+  { key: 'KBR', label: 'KB + Rowing',     color: '#9884E8', textColor: '#FFFFFF', hasIntensity: false, isSplit: true, color2: '#85D2FF' },
 ];
 
 const DEFAULT_EXERCISES = {
-  L:  ['Squats','Smith Squats','Leg Extensions','Single Leg KB Squats','KB Lunges','Lying Ham Curl','Seated Leg Curl'],
-  B:  ['Lying EZ Rows','Wide Grip Pulldowns','Seated Cable Row','Close Grip Pulldowns','Dbell Rows','Fixed Pulldowns','Assisted Pull Ups','Dbell Curls','Standing EZ Curls','EZ Preacher Curls','Preacher Dbell Curls','Cable Curls','Single Cable Curls','21s'],
-  C:  ['Incline Bench Press','Incline Dbell Press','Pec Dec','Incline Smith Press','Flye Machine','Flat Dbell Press','Cable Cross Overs','Bench Dips','Dbell Raises','KB Kick Back','DB Kick Backs','Cable Pushdowns','Tri Bar Push Downs','Close Grip Bench'],
-  D:  ['Dbell Press','Side Raises','Leaning Side Raises','Bar Raises','KB Swings','B.O Dbell Rows','Single Arm B.O Rows','EZ Rear Rows'],
-  R:  [],
-  OC: [],
+  L:   ['Squats','Smith Squats','Leg Extensions','Single Leg KB Squats','KB Lunges','Lying Ham Curl','Seated Leg Curl'],
+  B:   ['Lying EZ Rows','Wide Grip Pulldowns','Seated Cable Row','Close Grip Pulldowns','Dbell Rows','Fixed Pulldowns','Assisted Pull Ups','Dbell Curls','Standing EZ Curls','EZ Preacher Curls','Preacher Dbell Curls','Cable Curls','Single Cable Curls','21s'],
+  C:   ['Incline Bench Press','Incline Dbell Press','Pec Dec','Incline Smith Press','Flye Machine','Flat Dbell Press','Cable Cross Overs','Bench Dips','Dbell Raises','KB Kick Back','DB Kick Backs','Cable Pushdowns','Tri Bar Push Downs','Close Grip Bench'],
+  D:   ['Dbell Press','Side Raises','Leaning Side Raises','Bar Raises','KB Swings','B.O Dbell Rows','Single Arm B.O Rows','EZ Rear Rows'],
+  R:   [],
+  KB:  [],
+  KBR: [],
 };
 
 const HEAT = {
@@ -102,6 +104,17 @@ function Btn({ onClick, children, variant='primary', style={} }) {
   return <button onClick={onClick} style={{ ...base,...variants[variant],...style }}>{children}</button>;
 }
 
+function SplitIcon({ size=30, radius=8 }) {
+  return (
+    <span style={{ display:'inline-block',width:size,height:size,borderRadius:radius,overflow:'hidden',position:'relative',flexShrink:0,verticalAlign:'middle' }}>
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position:'absolute',inset:0,width:'100%',height:'100%' }}>
+        <polygon points="0,0 100,0 0,100" fill="#9884E8" />
+        <polygon points="100,0 100,100 0,100" fill="#85D2FF" />
+      </svg>
+    </span>
+  );
+}
+
 const TOP_SECTIONS = [
   { key:'gym',       label:'GYM'       },
   { key:'nutrition', label:'NUTRITION'  },
@@ -120,12 +133,19 @@ function CalendarGrid({ year, month, getCellStyle, onDayClick }) {
       {Array.from({ length:firstDay }).map((_,i) => <div key={`e${i}`} />)}
       {Array.from({ length:days },(_,i) => i+1).map(day => {
         const s = getCellStyle(day);
+        const isSplit = !!s.splitBg;
         return (
           <div key={day} onClick={() => onDayClick(day)}
-            style={{ aspectRatio:'1',borderRadius:s.borderRadius||TH.radiusSm,border:s.border||'none',background:s.background||TH.cardAlt,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,color:s.color||TH.textMuted,fontWeight:s.fontWeight||500,cursor:'pointer',position:'relative',transition:'transform 150ms ease' }}>
-            {day}
-            {s.letter && <span style={{ position:'absolute',bottom:2,left:3,fontSize:8,fontWeight:700,color:s.color,opacity:0.85 }}>{s.letter}</span>}
-            {s.intensity && <span style={{ position:'absolute',bottom:2,right:3,fontSize:8,fontWeight:700,color:s.color,opacity:0.85 }}>{s.intensity}</span>}
+            style={{ aspectRatio:'1',borderRadius:s.borderRadius||TH.radiusSm,border:s.border||'none',background:isSplit?'transparent':(s.background||TH.cardAlt),display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,color:s.color||TH.textMuted,fontWeight:s.fontWeight||500,cursor:'pointer',position:'relative',transition:'transform 150ms ease',overflow:'hidden' }}>
+            {isSplit && (
+              <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position:'absolute',inset:0,width:'100%',height:'100%' }}>
+                <polygon points="0,0 100,0 0,100" fill={s.splitBg[0]} />
+                <polygon points="100,0 100,100 0,100" fill={s.splitBg[1]} />
+              </svg>
+            )}
+            <span style={{ position:'relative',zIndex:1,textShadow:isSplit?'0 0 3px rgba(0,0,0,0.35)':'none' }}>{day}</span>
+            {s.letter && <span style={{ position:'absolute',bottom:2,left:3,fontSize:8,fontWeight:700,color:s.color,opacity:0.85,zIndex:1,textShadow:isSplit?'0 0 3px rgba(0,0,0,0.35)':'none' }}>{s.letter}</span>}
+            {s.intensity && <span style={{ position:'absolute',bottom:2,right:3,fontSize:8,fontWeight:700,color:s.color,opacity:0.85,zIndex:1 }}>{s.intensity}</span>}
           </div>
         );
       })}
@@ -193,6 +213,7 @@ function GymCalendar({ year, month }) {
           const entry = byDate[toDateStr(year,month,day)];
           if (!entry) return { border:`1px solid ${TH.border}`, color:TH.textMuted, borderRadius:TH.radiusSm };
           const wt = WORKOUT_TYPES.find(w => w.key === entry.type);
+          if (wt?.isSplit) return { splitBg: [wt.color, wt.color2], color: '#FFFFFF', borderRadius:TH.radiusSm, fontWeight:600, letter: entry.type, intensity: entry.intensity||null };
           return { background: wt?.color||'#888', color: wt?.textColor||'#fff', borderRadius:TH.radiusSm, fontWeight:600, letter: entry.type, intensity: entry.intensity||null };
         }}
         onDayClick={day => openDay(day)}
@@ -200,7 +221,7 @@ function GymCalendar({ year, month }) {
       <div style={{ display:'flex',flexWrap:'wrap',gap:12,marginBottom:'1.5rem' }}>
         {WORKOUT_TYPES.map(w => (
           <div key={w.key} style={{ display:'flex',alignItems:'center',gap:6,fontSize:12,color:TH.textSec }}>
-            <div style={{ width:12,height:12,borderRadius:4,background:w.color }} />
+            {w.isSplit ? <SplitIcon size={12} radius={4} /> : <div style={{ width:12,height:12,borderRadius:4,background:w.color }} />}
             <span style={{ fontWeight:700,color:TH.text }}>{w.key}</span> {w.label}
           </div>
         ))}
@@ -214,8 +235,12 @@ function GymCalendar({ year, month }) {
               <div style={{ display:'flex',flexDirection:'column',gap:8 }}>
                 {WORKOUT_TYPES.map(w => (
                   <button key={w.key} onClick={() => setForm(f => ({ ...f, type:w.key }))}
-                    style={{ display:'flex',alignItems:'center',gap:10,padding:'11px 14px',borderRadius:TH.radiusSm,border:`2px solid ${form.type===w.key?w.color:TH.border}`,background:form.type===w.key?w.color+'20':TH.cardAlt,textAlign:'left',cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease' }}>
-                    <span style={{ width:30,height:30,borderRadius:8,background:w.color,display:'flex',alignItems:'center',justifyContent:'center',color:w.textColor,fontSize:12,fontWeight:700,flexShrink:0 }}>{w.key}</span>
+                    style={{ display:'flex',alignItems:'center',gap:10,padding:'11px 14px',borderRadius:TH.radiusSm,border:`2px solid ${form.type===w.key?(w.isSplit?'#B0A0F0':w.color):TH.border}`,background:form.type===w.key?(w.isSplit?'rgba(152,132,232,0.12)':w.color+'20'):TH.cardAlt,textAlign:'left',cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease' }}>
+                    {w.isSplit ? (
+                      <SplitIcon size={30} radius={8} />
+                    ) : (
+                      <span style={{ width:30,height:30,borderRadius:8,background:w.color,display:'flex',alignItems:'center',justifyContent:'center',color:w.textColor,fontSize:12,fontWeight:700,flexShrink:0 }}>{w.key}</span>
+                    )}
                     <span style={{ fontSize:14,color:form.type===w.key?TH.text:TH.textSec,fontWeight:form.type===w.key?600:400 }}>{w.label}</span>
                   </button>
                 ))}
@@ -231,18 +256,22 @@ function GymCalendar({ year, month }) {
         <Modal title={`Session — ${fmtDate(detailModal)}`} onClose={() => { setDetailModal(null); setEditSession(null); setEditing(false); }}>
           {(() => {
             const wt = WORKOUT_TYPES.find(w => w.key === editSession.workoutType);
+            const isRowingType = editSession.workoutType === 'R' || editSession.workoutType === 'KBR';
             return (
               <div style={{ display:'flex',flexDirection:'column',gap:10 }}>
                 <div style={{ display:'flex',alignItems:'center',gap:10,marginBottom:2 }}>
-                  <span style={{ background:wt?.color,color:wt?.textColor,borderRadius:8,fontSize:12,fontWeight:700,padding:'5px 12px' }}>{editSession.workoutType}</span>
+                  {wt?.isSplit ? (
+                    <SplitIcon size={30} radius={8} />
+                  ) : (
+                    <span style={{ background:wt?.color,color:wt?.textColor,borderRadius:8,fontSize:12,fontWeight:700,padding:'5px 12px' }}>{editSession.workoutType}</span>
+                  )}
                   <span style={{ fontWeight:700,fontSize:15,fontFamily:TH.heading,color:TH.text }}>{wt?.label}</span>
                   {editSession.intensity && <span style={{ fontSize:12,color:TH.textSec }}>Intensity {editSession.intensity}</span>}
                 </div>
                 {!editing ? (
                   <>
-                    {editSession.workoutType === 'R' && <div style={{ fontSize:14,color:TH.textSec,padding:'6px 0' }}>{editSession.rowingType === 'time' ? `${editSession.rowingValue} minutes` : `${editSession.rowingValue} metres`}</div>}
-                    {editSession.workoutType === 'OC' && <div style={{ fontSize:14,color:TH.textSec,padding:'6px 0' }}>{editSession.cardioNote}</div>}
-                    {editSession.workoutType !== 'R' && editSession.workoutType !== 'OC' && (editSession.exercises||[]).map((ex,exIdx) => {
+                    {isRowingType && <div style={{ fontSize:14,color:TH.textSec,padding:'6px 0' }}>{editSession.rowingType === 'time' ? `${editSession.rowingValue} minutes` : `${editSession.rowingValue} metres`}</div>}
+                    {!isRowingType && (editSession.exercises||[]).map((ex,exIdx) => {
                       const filledSets = ex.sets.filter(s=>s.reps||s.weight);
                       if (filledSets.length === 0) return null;
                       return (
@@ -264,16 +293,13 @@ function GymCalendar({ year, month }) {
                   </>
                 ) : (
                   <>
-                    {editSession.workoutType === 'R' && (
+                    {isRowingType && (
                       <div>
                         <div style={{ fontSize:12,color:TH.textSec,marginBottom:4 }}>{editSession.rowingType === 'time' ? 'Time (minutes)' : 'Distance (metres)'}</div>
                         <input type="number" value={editSession.rowingValue||''} onChange={e => setEditSession(prev => ({ ...prev, rowingValue:e.target.value }))} style={{ width:'100%',padding:'8px',borderRadius:8,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:14,fontFamily:'inherit' }} />
                       </div>
                     )}
-                    {editSession.workoutType === 'OC' && (
-                      <div><textarea value={editSession.cardioNote||''} onChange={e => setEditSession(prev => ({ ...prev, cardioNote:e.target.value }))} rows={3} style={{ width:'100%',padding:'8px',borderRadius:8,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:14,fontFamily:'inherit',resize:'vertical' }} /></div>
-                    )}
-                    {editSession.workoutType !== 'R' && editSession.workoutType !== 'OC' && (editSession.exercises||[]).map((ex,exIdx) => (
+                    {!isRowingType && (editSession.exercises||[]).map((ex,exIdx) => (
                       <div key={exIdx} style={{ padding:'8px 0',borderBottom:`1px solid ${TH.border}` }}>
                         <div style={{ fontWeight:600,fontSize:13,color:TH.text,marginBottom:6 }}>{ex.name}</div>
                         {ex.sets.map((set,setIdx) => (
@@ -361,7 +387,7 @@ function GymLog() {
             <div>
               <div style={{ fontSize:13,fontWeight:600,color:TH.text }}>{fmtDate(w.date)}</div>
               <div style={{ display:'flex',alignItems:'center',gap:6,marginTop:4 }}>
-                <span style={{ background:wt?.color,color:wt?.textColor,borderRadius:6,fontSize:11,fontWeight:700,padding:'2px 7px' }}>{w.type}</span>
+                {wt?.isSplit ? <SplitIcon size={20} radius={6} /> : <span style={{ background:wt?.color,color:wt?.textColor,borderRadius:6,fontSize:11,fontWeight:700,padding:'2px 7px' }}>{w.type}</span>}
                 <span style={{ fontSize:12,color:TH.textSec }}>{wt?.label}</span>
                 {draft && <span style={{ fontSize:11,color:TH.accent,fontWeight:600 }}>● in progress</span>}
               </div>
@@ -400,13 +426,13 @@ function SessionLogger({ session, onSave, onMoveInactive, inactive, allLogs }) {
   const [showInactive, setShowInactive] = useState(false);
   const [previousData, setPreviousData] = useState({});
   const wt = WORKOUT_TYPES.find(w => w.key === session.workoutType);
+  const isRowingType = session.workoutType === 'R' || session.workoutType === 'KBR';
   const [rowingType, setRowingType] = useState(session.rowingType || 'time');
   const [rowingValue, setRowingValue] = useState(session.rowingValue || '');
-  const [cardioNote, setCardioNote] = useState(session.cardioNote || '');
   const [sessionNotes, setSessionNotes] = useState(session.sessionNotes || '');
 
   useEffect(() => {
-    if (!allLogs || session.workoutType === 'R' || session.workoutType === 'OC') return;
+    if (!allLogs || isRowingType) return;
     const sameBPLogs = allLogs.filter(l => l.workoutType === session.workoutType && !l.noData && l.date !== session.date).sort((a,b) => b.date.localeCompare(a.date));
     if (sameBPLogs.length === 0) return;
     const prevMap = {}; (sameBPLogs[0].exercises || []).forEach(ex => { prevMap[ex.name] = { sets: ex.sets, date: sameBPLogs[0].date }; });
@@ -417,11 +443,11 @@ function SessionLogger({ session, onSave, onMoveInactive, inactive, allLogs }) {
   useEffect(() => {
     if (isFirstRender.current) { isFirstRender.current = false; return; }
     const timer = setTimeout(() => {
-      const draftData = { date:session.date, workoutType:session.workoutType, workoutLabel:session.workoutLabel, intensity:wt?.hasIntensity?intensity:null, exercises:session.workoutType==='R'?[]:session.workoutType==='OC'?[]:exercises, rowingType:session.workoutType==='R'?rowingType:null, rowingValue:session.workoutType==='R'?rowingValue:null, cardioNote:session.workoutType==='OC'?cardioNote:null, sessionNotes };
+      const draftData = { date:session.date, workoutType:session.workoutType, workoutLabel:session.workoutLabel, intensity:wt?.hasIntensity?intensity:null, exercises:isRowingType?[]:exercises, rowingType:isRowingType?rowingType:null, rowingValue:isRowingType?rowingValue:null, sessionNotes };
       fetch('/api/exercise-draft', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(draftData) });
     }, 1500);
     return () => clearTimeout(timer);
-  }, [exercises, intensity, rowingType, rowingValue, cardioNote, sessionNotes]);
+  }, [exercises, intensity, rowingType, rowingValue, sessionNotes]);
 
   function updateSet(exIdx, setIdx, field, value) { setExercises(prev => prev.map((ex,i) => i!==exIdx ? ex : { ...ex, sets: ex.sets.map((s,j) => j!==setIdx ? s : { ...s, [field]: value }) })); }
   function addSet(exIdx) { setExercises(prev => prev.map((ex,i) => i!==exIdx ? ex : { ...ex, sets: [...ex.sets, {weight:'',reps:''}] })); }
@@ -433,13 +459,13 @@ function SessionLogger({ session, onSave, onMoveInactive, inactive, allLogs }) {
       fetch('/api/exercise-order', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ bodyPart: session.workoutType, exercises: updated.map(ex => ex.name) }) });
       return updated; });
   }
-  function getSessionData() { return { date:session.date, workoutType:session.workoutType, workoutLabel:session.workoutLabel, intensity:wt?.hasIntensity?intensity:null, exercises:session.workoutType==='R'?[]:session.workoutType==='OC'?[]:exercises, rowingType:session.workoutType==='R'?rowingType:null, rowingValue:session.workoutType==='R'?rowingValue:null, cardioNote:session.workoutType==='OC'?cardioNote:null, sessionNotes }; }
+  function getSessionData() { return { date:session.date, workoutType:session.workoutType, workoutLabel:session.workoutLabel, intensity:wt?.hasIntensity?intensity:null, exercises:isRowingType?[]:exercises, rowingType:isRowingType?rowingType:null, rowingValue:isRowingType?rowingValue:null, sessionNotes }; }
   const inactiveList = inactive[session.workoutType] || [];
 
   return (
     <div>
       <div style={{ display:'flex',alignItems:'center',gap:10,marginBottom:'1.25rem' }}>
-        <span style={{ background:wt?.color,color:wt?.textColor,borderRadius:8,fontSize:12,fontWeight:700,padding:'5px 12px' }}>{session.workoutType}</span>
+        {wt?.isSplit ? <SplitIcon size={34} radius={8} /> : <span style={{ background:wt?.color,color:wt?.textColor,borderRadius:8,fontSize:12,fontWeight:700,padding:'5px 12px' }}>{session.workoutType}</span>}
         <div>
           <div style={{ fontWeight:700,fontSize:18,fontFamily:TH.heading,color:TH.text }}>{session.workoutLabel}</div>
           <div style={{ fontSize:12,color:TH.textMuted }}>{fmtDate(session.date)}</div>
@@ -455,11 +481,11 @@ function SessionLogger({ session, onSave, onMoveInactive, inactive, allLogs }) {
           </div>
         </div>
       )}
-      {session.workoutType === 'R' && (
+      {isRowingType && (
         <div style={{ marginBottom:'1.5rem' }}>
           <div style={{ display:'flex',gap:8,marginBottom:12 }}>
             {['time','distance'].map(t => (
-              <button key={t} onClick={() => setRowingType(t)} style={{ flex:1,padding:'11px',borderRadius:TH.radiusSm,border:`2px solid ${rowingType===t?'#D6E5BD':TH.border}`,background:rowingType===t?'#D6E5BD20':'transparent',color:rowingType===t?'#D6E5BD':TH.textMuted,fontWeight:600,cursor:'pointer',fontFamily:'inherit',fontSize:14,transition:'all 150ms ease' }}>
+              <button key={t} onClick={() => setRowingType(t)} style={{ flex:1,padding:'11px',borderRadius:TH.radiusSm,border:`2px solid ${rowingType===t?'#85D2FF':TH.border}`,background:rowingType===t?'#85D2FF20':'transparent',color:rowingType===t?'#85D2FF':TH.textMuted,fontWeight:600,cursor:'pointer',fontFamily:'inherit',fontSize:14,transition:'all 150ms ease' }}>
                 {t === 'time' ? '⏱ Time (mins)' : '📏 Distance (m)'}
               </button>
             ))}
@@ -467,12 +493,7 @@ function SessionLogger({ session, onSave, onMoveInactive, inactive, allLogs }) {
           <input type="number" value={rowingValue} onChange={e => setRowingValue(e.target.value)} placeholder={rowingType === 'time' ? 'Minutes rowed' : 'Metres rowed'} style={{ width:'100%',padding:'12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:16,fontFamily:'inherit' }} />
         </div>
       )}
-      {session.workoutType === 'OC' && (
-        <div style={{ marginBottom:'1.5rem' }}>
-          <textarea value={cardioNote} onChange={e => setCardioNote(e.target.value)} placeholder="Describe your cardio session..." rows={4} style={{ width:'100%',padding:'12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:14,fontFamily:'inherit',resize:'vertical' }} />
-        </div>
-      )}
-      {session.workoutType !== 'R' && session.workoutType !== 'OC' && (
+      {!isRowingType && (
         <>
           {inactiveList.length > 0 && (
             <button onClick={() => setShowInactive(!showInactive)} style={{ fontSize:12,color:TH.textMuted,background:TH.cardAlt,border:'none',borderRadius:8,padding:'7px 14px',cursor:'pointer',marginBottom:'1rem',fontFamily:'inherit',fontWeight:500 }}>
@@ -490,6 +511,9 @@ function SessionLogger({ session, onSave, onMoveInactive, inactive, allLogs }) {
                 </div>
               ))}
             </div>
+          )}
+          {exercises.length === 0 && (
+            <div style={{ textAlign:'center',padding:'2rem',color:TH.textMuted,fontSize:14 }}>No exercises added yet</div>
           )}
           {exercises.map((ex, exIdx) => {
             const prev = previousData[ex.name];
@@ -551,12 +575,12 @@ function ExerciseHistory() {
   const filtered = filterType === 'bodypart' ? logs.filter(l => l.workoutType === selectedBP) : logs.filter(l => (l.exercises||[]).some(e => e.name === selectedEx));
   function renderRow(log) {
     const cardStyle = { padding:'14px 16px',background:TH.card,borderRadius:TH.radiusSm,marginBottom:8,boxShadow:TH.shadowSm,border:`1px solid ${TH.border}` };
+    const isRowingType = log.workoutType === 'R' || log.workoutType === 'KBR';
     if (filterType === 'exercise') {
       const ex = (log.exercises||[]).find(e => e.name === selectedEx); if (!ex) return null;
       return (<div key={log.date} style={cardStyle}><div style={{ fontSize:12,color:TH.textMuted,marginBottom:6 }}>{fmtDate(log.date)}</div><div style={{ fontSize:13,fontWeight:600,marginBottom:6,color:TH.text }}>{ex.name}</div><div style={{ display:'flex',flexWrap:'wrap',gap:6 }}>{ex.sets.filter(s=>s.reps||s.weight).map((s,i) => <span key={i} style={{ background:TH.cardAlt,border:`1px solid ${TH.border}`,borderRadius:6,padding:'4px 10px',fontSize:13,color:TH.textSec }}>{s.reps} reps × {s.weight}kg</span>)}</div></div>);
     }
-    if (log.workoutType === 'R') return (<div key={log.date} style={cardStyle}><div style={{ fontSize:12,color:TH.textMuted,marginBottom:4 }}>{fmtDate(log.date)}</div><div style={{ fontSize:13,color:TH.text }}>{log.rowingType === 'time' ? `${log.rowingValue} minutes` : `${log.rowingValue} metres`}</div></div>);
-    if (log.workoutType === 'OC') return (<div key={log.date} style={cardStyle}><div style={{ fontSize:12,color:TH.textMuted,marginBottom:4 }}>{fmtDate(log.date)}</div><div style={{ fontSize:13,color:TH.text }}>{log.cardioNote}</div></div>);
+    if (isRowingType) return (<div key={log.date} style={cardStyle}><div style={{ fontSize:12,color:TH.textMuted,marginBottom:4 }}>{fmtDate(log.date)}</div><div style={{ fontSize:13,color:TH.text }}>{log.rowingType === 'time' ? `${log.rowingValue} minutes` : `${log.rowingValue} metres`}</div></div>);
     return (<div key={log.date} style={cardStyle}><div style={{ fontSize:12,color:TH.textMuted,marginBottom:8 }}>{fmtDate(log.date)}</div>{(log.exercises||[]).map((ex,i) => (<div key={i} style={{ marginBottom:10 }}><div style={{ fontSize:13,fontWeight:600,marginBottom:4,color:TH.text }}>{ex.name}</div><div style={{ display:'flex',flexWrap:'wrap',gap:6 }}>{ex.sets.filter(s=>s.reps||s.weight).map((s,si) => <span key={si} style={{ background:TH.cardAlt,border:`1px solid ${TH.border}`,borderRadius:6,padding:'4px 10px',fontSize:12,color:TH.textSec }}>{s.reps} reps × {s.weight}kg</span>)}</div></div>))}</div>);
   }
   return (
@@ -568,7 +592,7 @@ function ExerciseHistory() {
       </div>
       {filterType === 'bodypart' && (
         <div style={{ display:'flex',flexWrap:'wrap',gap:8,marginBottom:'1rem' }}>
-          {WORKOUT_TYPES.map(w => (<button key={w.key} onClick={() => setSelectedBP(w.key)} style={{ padding:'8px 12px',borderRadius:8,border:`2px solid ${selectedBP===w.key?w.color:TH.border}`,background:selectedBP===w.key?w.color+'20':'transparent',color:selectedBP===w.key?w.color:TH.textMuted,fontSize:13,fontWeight:selectedBP===w.key?600:400,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease' }}>{w.key} — {w.label}</button>))}
+          {WORKOUT_TYPES.map(w => (<button key={w.key} onClick={() => setSelectedBP(w.key)} style={{ padding:'8px 12px',borderRadius:8,border:`2px solid ${selectedBP===w.key?(w.isSplit?'#B0A0F0':w.color):TH.border}`,background:selectedBP===w.key?(w.isSplit?'rgba(152,132,232,0.12)':w.color+'20'):'transparent',color:selectedBP===w.key?(w.isSplit?'#B0A0F0':w.color):TH.textMuted,fontSize:13,fontWeight:selectedBP===w.key?600:400,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease' }}>{w.key} — {w.label}</button>))}
         </div>
       )}
       {filterType === 'exercise' && (
