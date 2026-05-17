@@ -146,6 +146,7 @@ function CalendarGrid({ year, month, getCellStyle, onDayClick }) {
             <span style={{ position:'relative',zIndex:1,textShadow:isSplit?'0 0 3px rgba(0,0,0,0.35)':'none' }}>{day}</span>
             {s.letter && <span style={{ position:'absolute',bottom:2,left:3,fontSize:8,fontWeight:700,color:s.color,opacity:0.85,zIndex:1,textShadow:isSplit?'0 0 3px rgba(0,0,0,0.35)':'none' }}>{s.letter}</span>}
             {s.intensity && <span style={{ position:'absolute',bottom:2,right:3,fontSize:8,fontWeight:700,color:s.color,opacity:0.85,zIndex:1 }}>{s.intensity}</span>}
+            {s.bottomLabel && <span style={{ position:'absolute',bottom:2,fontSize:8,fontWeight:600,color:s.color,opacity:0.85,zIndex:1 }}>{s.bottomLabel}</span>}
           </div>
         );
       })}
@@ -604,8 +605,186 @@ function ExerciseHistory() {
   );
 }
 
+// ─── GYM: WEIGHT TAB ─────────────────────────────────────────────────────────
+function WeightTab({ year, month }) {
+  const [data, setData] = useState([]);
+  const [allData, setAllData] = useState([]);
+  const [modal, setModal] = useState(null);
+  const [input, setInput] = useState('');
+
+  useEffect(() => { fetchData(); }, [year, month]);
+
+  async function fetchData() {
+    // Fetch current month
+    const res = await fetch(`/api/weight?year=${year}&month=${month + 1}`);
+    const monthData = await res.json();
+    setData(monthData);
+
+    // Fetch previous month to get the last entry before this month (for comparison)
+    const prevMonth = month === 0 ? 12 : month;
+    const prevYear = month === 0 ? year - 1 : year;
+    const prevRes = await fetch(`/api/weight?year=${prevYear}&month=${prevMonth}`);
+    const prevData = await prevRes.json();
+
+    // Combine: previous month entries + current month entries, sorted
+    const combined = [...prevData, ...monthData].sort((a, b) => a.date.localeCompare(b.date));
+    setAllData(combined);
+  }
+
+  // Build direction map using all data (including previous month for context)
+  const sorted = [...allData].sort((a, b) => a.date.localeCompare(b.date));
+  const weightByDate = {};
+  sorted.forEach(e => { weightByDate[e.date] = e.weight; });
+
+  const directionByDate = {};
+  sorted.forEach((entry, i) => {
+    if (i === 0) {
+      directionByDate[entry.date] = 'neutral';
+    } else {
+      const prev = sorted[i - 1].weight;
+      if (entry.weight < prev) directionByDate[entry.date] = 'down';
+      else if (entry.weight > prev) directionByDate[entry.date] = 'up';
+      else directionByDate[entry.date] = 'same';
+    }
+  });
+
+  // Stats (current month only)
+  const monthSorted = [...data].sort((a, b) => a.date.localeCompare(b.date));
+  const latest = monthSorted.length > 0 ? monthSorted[monthSorted.length - 1].weight : null;
+  const lowest = monthSorted.length > 0 ? Math.min(...monthSorted.map(e => e.weight)) : null;
+  const highest = monthSorted.length > 0 ? Math.max(...monthSorted.map(e => e.weight)) : null;
+  const change = monthSorted.length >= 2 ? (monthSorted[monthSorted.length - 1].weight - monthSorted[0].weight).toFixed(1) : null;
+
+  // Chart data (current month only)
+  const days = getDaysInMonth(year, month);
+  const labels = Array.from({ length: days }, (_, i) => i + 1);
+  const chartData = labels.map(d => {
+    const dateStr = toDateStr(year, month, d);
+    return weightByDate[dateStr] !== undefined ? weightByDate[dateStr] : null;
+  });
+
+  function openModal(day) {
+    const dateStr = toDateStr(year, month, day);
+    const existing = weightByDate[dateStr];
+    setInput(existing !== undefined ? String(existing) : '');
+    setModal(dateStr);
+  }
+
+  async function save() {
+    if (!input || isNaN(parseFloat(input))) return;
+    await fetch('/api/weight', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date: modal, weight: parseFloat(input) }) });
+    setModal(null); setInput(''); fetchData();
+  }
+
+  async function remove() {
+    await fetch('/api/weight', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date: modal }) });
+    setModal(null); setInput(''); fetchData();
+  }
+
+  return (
+    <div>
+      {/* Stats */}
+      {monthSorted.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: change !== null ? 'repeat(4,1fr)' : 'repeat(3,1fr)', gap: 10, marginBottom: '1.5rem' }}>
+          <StatCard label="Latest" value={`${latest}`} sub="kg" />
+          {change !== null && (
+            <StatCard
+              label="Change"
+              value={`${parseFloat(change) > 0 ? '+' : ''}${change}`}
+              sub={<span style={{ color: parseFloat(change) < 0 ? HEAT.green1 : parseFloat(change) > 0 ? HEAT.red : TH.textMuted }}>kg this month</span>}
+            />
+          )}
+          <StatCard label="Lowest" value={`${lowest}`} sub="kg" />
+          <StatCard label="Highest" value={`${highest}`} sub="kg" />
+        </div>
+      )}
+
+      {/* Calendar */}
+      <CalendarGrid year={year} month={month}
+        getCellStyle={day => {
+          const dateStr = toDateStr(year, month, day);
+          const hasEntry = weightByDate[dateStr] !== undefined;
+          if (!hasEntry) return { border: `1px solid ${TH.border}`, color: TH.textMuted, borderRadius: TH.radiusSm };
+
+          const direction = directionByDate[dateStr];
+          let bg = TH.cardAlt;
+          let color = TH.textSec;
+
+          if (direction === 'down') { bg = HEAT.green1; color = HEAT.green1Text; }
+          else if (direction === 'up') { bg = HEAT.red; color = HEAT.redText; }
+          else { bg = TH.cardAlt; color = TH.textSec; } // neutral or same
+
+          return { background: bg, color, borderRadius: TH.radiusSm, fontWeight: 600, bottomLabel: `${weightByDate[dateStr]}` };
+        }}
+        onDayClick={day => openModal(day)}
+      />
+
+      {/* Legend */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: '1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: TH.textSec }}>
+          <div style={{ width: 12, height: 12, borderRadius: 4, background: TH.cardAlt }} /> First / same
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: TH.textSec }}>
+          <div style={{ width: 12, height: 12, borderRadius: 4, background: HEAT.green1 }} /> Down
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: TH.textSec }}>
+          <div style={{ width: 12, height: 12, borderRadius: 4, background: HEAT.red }} /> Up
+        </div>
+      </div>
+
+      {/* Line chart */}
+      {monthSorted.length >= 2 && (
+        <div>
+          <div style={{ fontSize: 12, color: TH.textMuted, marginBottom: 8, fontWeight: 500 }}>Weight trend</div>
+          <div style={{ height: 180 }}>
+            <Line
+              data={{
+                labels,
+                datasets: [{
+                  data: chartData,
+                  borderColor: '#7CB3D4',
+                  backgroundColor: 'rgba(124, 179, 212, 0.1)',
+                  borderWidth: 2,
+                  pointRadius: 4,
+                  pointBackgroundColor: '#7CB3D4',
+                  tension: 0.35,
+                  fill: true,
+                  spanGaps: true,
+                }]
+              }}
+              options={darkChartOpts({ yTicks: { callback: v => `${v}kg` } })}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Modal */}
+      {modal && (
+        <Modal title={`Log weight — ${fmtDate(modal)}`} onClose={() => setModal(null)}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div>
+              <label style={{ fontSize: 12, color: TH.textSec, display: 'block', marginBottom: 4, fontWeight: 500 }}>Weight (kg)</label>
+              <input
+                type="number"
+                step="0.1"
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                placeholder="e.g. 82.5"
+                autoFocus
+                style={{ width: '100%', padding: '12px', borderRadius: TH.radiusSm, border: `1px solid ${TH.borderMed}`, background: TH.input, color: TH.text, fontSize: 18, fontWeight: 600, textAlign: 'center', fontFamily: 'inherit' }}
+              />
+            </div>
+            <Btn onClick={save}>{weightByDate[modal] !== undefined ? 'Update' : 'Save'}</Btn>
+            {weightByDate[modal] !== undefined && <Btn onClick={remove} variant="danger">Remove entry</Btn>}
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
 // ─── GYM SECTION ──────────────────────────────────────────────────────────────
-const GYM_TABS = [{ key:'calendar', label:'Calendar' },{ key:'log', label:'Log' },{ key:'history', label:'History' }];
+const GYM_TABS = [{ key:'calendar', label:'Calendar' },{ key:'log', label:'Log' },{ key:'history', label:'History' },{ key:'weight', label:'Weight' }];
 function GymSection() {
   const now = new Date(); const [tab, setTab] = useState('calendar'); const [year, setYear] = useState(now.getFullYear()); const [month, setMonth] = useState(now.getMonth());
   function prevMonth() { if(month===0){setMonth(11);setYear(y=>y-1);}else setMonth(m=>m-1); }
@@ -616,18 +795,17 @@ function GymSection() {
       <div style={{ display:'flex',gap:4,marginBottom:'1.5rem',background:TH.card,borderRadius:TH.radiusSm,padding:4,border:`1px solid ${TH.border}` }}>
         {GYM_TABS.map(t => (<button key={t.key} onClick={() => setTab(t.key)} style={{ flex:1,padding:'10px 0',background:tab===t.key?TH.accent:'transparent',border:'none',borderRadius:8,color:tab===t.key?'#fff':TH.textMuted,fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease' }}>{t.label}</button>))}
       </div>
-      {tab === 'calendar' && (
-        <>
-          <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'1.25rem' }}>
-            <button onClick={prevMonth} style={{ background:TH.card,border:`1px solid ${TH.border}`,borderRadius:8,padding:'7px 16px',fontSize:16,color:TH.textSec,cursor:'pointer' }}>‹</button>
-            <span style={{ fontWeight:700,fontSize:15,fontFamily:TH.heading,color:TH.text }}>{monthLabel}</span>
-            <button onClick={nextMonth} style={{ background:TH.card,border:`1px solid ${TH.border}`,borderRadius:8,padding:'7px 16px',fontSize:16,color:TH.textSec,cursor:'pointer' }}>›</button>
-          </div>
-          <GymCalendar year={year} month={month} />
-        </>
+      {(tab === 'calendar' || tab === 'weight') && (
+        <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'1.25rem' }}>
+          <button onClick={prevMonth} style={{ background:TH.card,border:`1px solid ${TH.border}`,borderRadius:8,padding:'7px 16px',fontSize:16,color:TH.textSec,cursor:'pointer' }}>‹</button>
+          <span style={{ fontWeight:700,fontSize:15,fontFamily:TH.heading,color:TH.text }}>{monthLabel}</span>
+          <button onClick={nextMonth} style={{ background:TH.card,border:`1px solid ${TH.border}`,borderRadius:8,padding:'7px 16px',fontSize:16,color:TH.textSec,cursor:'pointer' }}>›</button>
+        </div>
       )}
+      {tab === 'calendar' && <GymCalendar year={year} month={month} />}
       {tab === 'log' && <GymLog />}
       {tab === 'history' && <ExerciseHistory />}
+      {tab === 'weight' && <WeightTab year={year} month={month} />}
     </div>
   );
 }
