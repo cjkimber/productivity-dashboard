@@ -127,11 +127,10 @@ function CalendarGrid({ year, month, getCellStyle, onDayClick }) {
   const firstDay = getFirstDayOfMonth(year, month);
   return (
     <div style={{ display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:5,marginBottom:'1.5rem' }}>
-      {['S','M','T','W','T','F','S'].map((d,i) => (
+{['M','T','W','T','F','S','S'].map((d,i) => (
         <div key={i} style={{ textAlign:'center',fontSize:11,color:TH.textMuted,paddingBottom:6,fontWeight:600 }}>{d}</div>
       ))}
-      {Array.from({ length:firstDay }).map((_,i) => <div key={`e${i}`} />)}
-      {Array.from({ length:days },(_,i) => i+1).map(day => {
+      {Array.from({ length: firstDay === 0 ? 6 : firstDay - 1 }).map((_,i) => <div key={`e${i}`} />)}
         const s = getCellStyle(day);
         const isSplit = !!s.splitBg;
         return (
