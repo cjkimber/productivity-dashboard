@@ -63,6 +63,7 @@ const DW_COLORS   = { A: '#B7D48A', B: '#7CB3D4', C: '#D4A0C0' };
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 function getDaysInMonth(y, m)    { return new Date(y, m + 1, 0).getDate(); }
 function getFirstDayOfMonth(y,m) { return new Date(y, m, 1).getDay(); }
+function getMondayOffset(y, m)   { const fd = getFirstDayOfMonth(y, m); return fd === 0 ? 6 : fd - 1; }
 function pad(n) { return String(n).padStart(2, '0'); }
 function toDateStr(y, m, d) { return `${y}-${pad(m+1)}-${pad(d)}`; }
 function todayStr() { const n=new Date(); return `${n.getFullYear()}-${pad(n.getMonth()+1)}-${pad(n.getDate())}`; }
@@ -124,13 +125,13 @@ const TOP_SECTIONS = [
 // ─── CALENDAR GRID ────────────────────────────────────────────────────────────
 function CalendarGrid({ year, month, getCellStyle, onDayClick }) {
   const days = getDaysInMonth(year, month);
-  const firstDay = getFirstDayOfMonth(year, month);
   return (
     <div style={{ display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:5,marginBottom:'1.5rem' }}>
-{['M','T','W','T','F','S','S'].map((d,i) => (
+      {['M','T','W','T','F','S','S'].map((d,i) => (
         <div key={i} style={{ textAlign:'center',fontSize:11,color:TH.textMuted,paddingBottom:6,fontWeight:600 }}>{d}</div>
       ))}
-      {Array.from({ length: firstDay === 0 ? 6 : firstDay - 1 }).map((_,i) => <div key={`e${i}`} />)}
+      {Array.from({ length: getMondayOffset(year, month) }).map((_,i) => <div key={`e${i}`} />)}
+      {Array.from({ length:days },(_,i) => i+1).map(day => {
         const s = getCellStyle(day);
         const isSplit = !!s.splitBg;
         return (
@@ -614,23 +615,19 @@ function WeightTab({ year, month }) {
   useEffect(() => { fetchData(); }, [year, month]);
 
   async function fetchData() {
-    // Fetch current month
     const res = await fetch(`/api/weight?year=${year}&month=${month + 1}`);
     const monthData = await res.json();
     setData(monthData);
 
-    // Fetch previous month to get the last entry before this month (for comparison)
     const prevMonth = month === 0 ? 12 : month;
     const prevYear = month === 0 ? year - 1 : year;
     const prevRes = await fetch(`/api/weight?year=${prevYear}&month=${prevMonth}`);
     const prevData = await prevRes.json();
 
-    // Combine: previous month entries + current month entries, sorted
     const combined = [...prevData, ...monthData].sort((a, b) => a.date.localeCompare(b.date));
     setAllData(combined);
   }
 
-  // Build direction map using all data (including previous month for context)
   const sorted = [...allData].sort((a, b) => a.date.localeCompare(b.date));
   const weightByDate = {};
   sorted.forEach(e => { weightByDate[e.date] = e.weight; });
@@ -647,14 +644,12 @@ function WeightTab({ year, month }) {
     }
   });
 
-  // Stats (current month only)
   const monthSorted = [...data].sort((a, b) => a.date.localeCompare(b.date));
   const latest = monthSorted.length > 0 ? monthSorted[monthSorted.length - 1].weight : null;
   const lowest = monthSorted.length > 0 ? Math.min(...monthSorted.map(e => e.weight)) : null;
   const highest = monthSorted.length > 0 ? Math.max(...monthSorted.map(e => e.weight)) : null;
   const change = monthSorted.length >= 2 ? (monthSorted[monthSorted.length - 1].weight - monthSorted[0].weight).toFixed(1) : null;
 
-  // Chart data (current month only)
   const days = getDaysInMonth(year, month);
   const labels = Array.from({ length: days }, (_, i) => i + 1);
   const chartData = labels.map(d => {
@@ -682,7 +677,6 @@ function WeightTab({ year, month }) {
 
   return (
     <div>
-      {/* Stats */}
       {monthSorted.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: change !== null ? 'repeat(4,1fr)' : 'repeat(3,1fr)', gap: 10, marginBottom: '1.5rem' }}>
           <StatCard label="Latest" value={`${latest}`} sub="kg" />
@@ -698,7 +692,6 @@ function WeightTab({ year, month }) {
         </div>
       )}
 
-      {/* Calendar */}
       <CalendarGrid year={year} month={month}
         getCellStyle={day => {
           const dateStr = toDateStr(year, month, day);
@@ -711,14 +704,13 @@ function WeightTab({ year, month }) {
 
           if (direction === 'down') { bg = HEAT.green1; color = HEAT.green1Text; }
           else if (direction === 'up') { bg = HEAT.red; color = HEAT.redText; }
-          else { bg = TH.cardAlt; color = TH.textSec; } // neutral or same
+          else { bg = TH.cardAlt; color = TH.textSec; }
 
           return { background: bg, color, borderRadius: TH.radiusSm, fontWeight: 600, bottomLabel: `${weightByDate[dateStr]}` };
         }}
         onDayClick={day => openModal(day)}
       />
 
-      {/* Legend */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: '1.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: TH.textSec }}>
           <div style={{ width: 12, height: 12, borderRadius: 4, background: TH.cardAlt }} /> First / same
@@ -731,7 +723,6 @@ function WeightTab({ year, month }) {
         </div>
       </div>
 
-      {/* Line chart */}
       {monthSorted.length >= 2 && (
         <div>
           <div style={{ fontSize: 12, color: TH.textMuted, marginBottom: 8, fontWeight: 500 }}>Weight trend</div>
@@ -757,7 +748,6 @@ function WeightTab({ year, month }) {
         </div>
       )}
 
-      {/* Modal */}
       {modal && (
         <Modal title={`Log weight — ${fmtDate(modal)}`} onClose={() => setModal(null)}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -842,8 +832,8 @@ function DeepWorkTab({ year, month }) {
       </div>
 
       <div style={{ display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:5,marginBottom:'1.5rem' }}>
-        {['S','M','T','W','T','F','S'].map((d,i)=>(<div key={i} style={{ textAlign:'center',fontSize:11,color:TH.textMuted,paddingBottom:6,fontWeight:600 }}>{d}</div>))}
-        {Array.from({length:getFirstDayOfMonth(year,month)}).map((_,i)=><div key={`e${i}`}/>)}
+        {['M','T','W','T','F','S','S'].map((d,i)=>(<div key={i} style={{ textAlign:'center',fontSize:11,color:TH.textMuted,paddingBottom:6,fontWeight:600 }}>{d}</div>))}
+        {Array.from({length:getMondayOffset(year,month)}).map((_,i)=><div key={`e${i}`}/>)}
         {Array.from({length:days},(_,i)=>i+1).map(day=>{
           const dateStr=toDateStr(year,month,day); const {total,subTotals}=getDayTotals(dateStr); const {bg,text}=getHeatColor(total);
           return (
