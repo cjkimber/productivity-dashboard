@@ -8,18 +8,40 @@ import {
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
+// ─── NEON PERFORMANCE THEME ──────────────────────────────────────────────────
 const TH = {
-  bg:'#141416',card:'#1E1E22',cardAlt:'#252529',input:'#2A2A2E',text:'#F0EDE8',textSec:'#8B8B8F',textMuted:'#5A5A5E',accent:'#D97706',success:'#B7D48A',border:'rgba(255,255,255,0.06)',borderMed:'rgba(255,255,255,0.10)',shadow:'0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.2)',shadowSm:'0 1px 3px rgba(0,0,0,0.25)',radius:20,radiusSm:12,heading:"'Satoshi', sans-serif",
+  bg:'#0B1020',
+  card:'#171D2E',
+  cardAlt:'#12182A',
+  input:'#1A2033',
+  text:'#F4F6FA',
+  textSec:'#A6B0C3',
+  textMuted:'#6F7B91',
+  accent:'#EC7487',
+  success:'#4DD4FF',
+  border:'rgba(77,212,255,0.12)',
+  borderMed:'rgba(77,212,255,0.25)',
+  borderGlow:'rgba(77,212,255,0.35)',
+  shadow:'0 0 16px rgba(77,212,255,0.06), 0 8px 32px rgba(0,0,0,0.35)',
+  shadowSm:'0 0 8px rgba(77,212,255,0.04), 0 2px 12px rgba(0,0,0,0.25)',
+  glow:'0 0 8px rgba(77,212,255,0.08), inset 0 1px 0 rgba(255,255,255,0.03)',
+  radius:18,
+  radiusSm:14,
+  heading:"'Satoshi', sans-serif",
+  cyan:'#4DD4FF',
+  purple:'#8B5CF6',
+  pink:'#EC7487',
 };
 
+// ─── WORKOUT TYPES (Delts ↔ Rowing colors swapped) ─────────────────────────
 const WORKOUT_TYPES = [
   { key:'L',label:'Legs',color:'#EC7480',textColor:'#6B1D25',hasIntensity:true },
   { key:'B',label:'Back & Biceps',color:'#FFB069',textColor:'#5A3010',hasIntensity:true },
   { key:'C',label:'Chest & Triceps',color:'#FFF296',textColor:'#6B5A00',hasIntensity:true },
-  { key:'D',label:'Delts',color:'#9EF0DE',textColor:'#0A4A3A',hasIntensity:true },
-  { key:'R',label:'Rowing',color:'#85D2FF',textColor:'#0C3A6B',hasIntensity:false },
+  { key:'D',label:'Delts',color:'#85D2FF',textColor:'#0C3A6B',hasIntensity:true },
+  { key:'R',label:'Rowing',color:'#9EF0DE',textColor:'#0A4A3A',hasIntensity:false },
   { key:'KB',label:'KB',color:'#9884E8',textColor:'#2A1F6B',hasIntensity:false },
-  { key:'KBR',label:'KB + Rowing',color:'#9884E8',textColor:'#FFFFFF',hasIntensity:false,isSplit:true,color2:'#85D2FF' },
+  { key:'KBR',label:'KB + Rowing',color:'#9884E8',textColor:'#FFFFFF',hasIntensity:false,isSplit:true,color2:'#9EF0DE' },
 ];
 
 const DEFAULT_EXERCISES = {
@@ -30,9 +52,15 @@ const DEFAULT_EXERCISES = {
   R:[],KB:[],KBR:[],
 };
 
-const HEAT = { green1:'#B7D48A',green1Text:'#2A4A10',green2:'#8BBF4A',green2Text:'#1E3A08',amber:'#D97706',amberText:'#FFF8EE',red:'#DC4A47',redText:'#FFF0F0',none:'#252529',noneText:'#5A5A5E' };
+const HEAT = {
+  green1:'#34D399',green1Text:'#022C22',
+  green2:'#10B981',green2Text:'#022C22',
+  amber:'#F59E0B',amberText:'#1C1103',
+  red:'#EF4444',redText:'#FFF0F0',
+  none:'#12182A',noneText:'#6F7B91',
+};
 const DW_SUBJECTS = { A:'Ozzy Wizzpop',B:'Reading',C:'Magic study' };
-const DW_COLORS = { A:'#B7D48A',B:'#7CB3D4',C:'#D4A0C0' };
+const DW_COLORS = { A:'#34D399',B:'#4DD4FF',C:'#C084FC' };
 
 function getDaysInMonth(y,m) { return new Date(y,m+1,0).getDate(); }
 function getFirstDayOfMonth(y,m) { return new Date(y,m,1).getDay(); }
@@ -42,31 +70,51 @@ function toDateStr(y,m,d) { return `${y}-${pad(m+1)}-${pad(d)}`; }
 function todayStr() { const n=new Date(); return `${n.getFullYear()}-${pad(n.getMonth()+1)}-${pad(n.getDate())}`; }
 function fmtDate(str) { if(!str) return ''; const [y,m,d]=str.split('-'); return new Date(y,m-1,d).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}); }
 
+// ─── SHARED COMPONENTS ──────────────────────────────────────────────────────
 function Modal({ title,onClose,children }) {
-  return (<div style={{ position:'fixed',inset:0,background:'rgba(0,0,0,0.7)',display:'flex',alignItems:'flex-start',justifyContent:'center',zIndex:1000,overflowY:'auto',padding:'1rem' }}>
-    <div style={{ background:TH.card,borderRadius:TH.radius,padding:'1.5rem',width:360,maxWidth:'95vw',marginTop:'2rem',marginBottom:'2rem',boxShadow:TH.shadow,border:`1px solid ${TH.border}` }}>
+  return (<div style={{ position:'fixed',inset:0,background:'rgba(4,8,20,0.85)',backdropFilter:'blur(8px)',display:'flex',alignItems:'flex-start',justifyContent:'center',zIndex:1000,overflowY:'auto',padding:'1rem' }}>
+    <div style={{ background:TH.card,borderRadius:TH.radius,padding:'1.5rem',width:360,maxWidth:'95vw',marginTop:'2rem',marginBottom:'2rem',boxShadow:`${TH.shadow}, 0 0 1px ${TH.borderGlow}`,border:`1px solid ${TH.borderMed}` }}>
       <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1.25rem' }}>
         <span style={{ fontWeight:700,fontSize:17,fontFamily:TH.heading,color:TH.text }}>{title}</span>
-        <button onClick={onClose} style={{ background:'none',border:'none',fontSize:22,color:TH.textSec,padding:'0 4px',cursor:'pointer' }}>×</button>
+        <button onClick={onClose} style={{ background:'rgba(77,212,255,0.08)',border:`1px solid ${TH.border}`,fontSize:18,color:TH.textSec,padding:'2px 8px',cursor:'pointer',borderRadius:8,lineHeight:'1.4' }}>×</button>
       </div>{children}</div></div>);
 }
 function StatCard({ label,value,sub }) {
-  return (<div style={{ background:TH.card,borderRadius:TH.radiusSm,padding:'14px 16px',boxShadow:TH.shadowSm,border:`1px solid ${TH.border}` }}>
-    <div style={{ fontSize:11,color:TH.textSec,marginBottom:5,fontWeight:500,textTransform:'uppercase',letterSpacing:'0.05em' }}>{label}</div>
+  return (<div style={{ background:TH.card,borderRadius:TH.radiusSm,padding:'14px 16px',boxShadow:TH.shadowSm,border:`1px solid ${TH.border}`,position:'relative',overflow:'hidden' }}>
+    <div style={{ position:'absolute',top:0,left:0,right:0,height:1,background:`linear-gradient(90deg, transparent, ${TH.borderGlow}, transparent)` }} />
+    <div style={{ fontSize:11,color:TH.textMuted,marginBottom:5,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em' }}>{label}</div>
     <div style={{ fontSize:24,fontWeight:800,fontFamily:TH.heading,color:TH.text }}>{value}</div>
     {sub && <div style={{ fontSize:11,color:TH.textMuted,marginTop:3 }}>{sub}</div>}</div>);
 }
 function Btn({ onClick,children,variant='primary',style={} }) {
   const base = { border:'none',borderRadius:TH.radiusSm,padding:'12px 18px',fontWeight:600,fontSize:14,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease' };
-  const variants = { primary:{background:TH.accent,color:'#fff'},secondary:{background:'transparent',border:`1px solid ${TH.borderMed}`,color:TH.textSec},danger:{background:'transparent',border:'1px solid rgba(220,74,71,0.3)',color:'#DC4A47'},ghost:{background:'none',border:'none',color:TH.textSec,padding:'6px 10px'} };
+  const variants = {
+    primary:{background:TH.pink,color:'#fff',boxShadow:'0 0 20px rgba(236,116,135,0.25)'},
+    secondary:{background:'rgba(77,212,255,0.06)',border:`1px solid ${TH.borderMed}`,color:TH.textSec},
+    danger:{background:'rgba(239,68,68,0.08)',border:'1px solid rgba(239,68,68,0.3)',color:'#EF4444'},
+    ghost:{background:'none',border:'none',color:TH.textSec,padding:'6px 10px'},
+  };
   return <button onClick={onClick} style={{ ...base,...variants[variant],...style }}>{children}</button>;
 }
 function SplitIcon({ size=30,radius=8 }) {
   return (<span style={{ display:'inline-block',width:size,height:size,borderRadius:radius,overflow:'hidden',position:'relative',flexShrink:0,verticalAlign:'middle' }}>
     <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position:'absolute',inset:0,width:'100%',height:'100%' }}>
-      <polygon points="0,0 100,0 0,100" fill="#9884E8" /><polygon points="100,0 100,100 0,100" fill="#85D2FF" /></svg></span>);
+      <polygon points="0,0 100,0 0,100" fill="#9884E8" /><polygon points="100,0 100,100 0,100" fill="#9EF0DE" /></svg></span>);
 }
 const TOP_SECTIONS = [{key:'gym',label:'GYM'},{key:'nutrition',label:'NUTRITION'},{key:'habits',label:'HABITS'}];
+
+// ─── SHARED STYLES ──────────────────────────────────────────────────────────
+const inputStyle = {
+  padding:'9px',borderRadius:10,
+  border:`1px solid ${TH.borderMed}`,
+  background:TH.input,color:TH.text,fontSize:14,textAlign:'center',fontFamily:'inherit',
+  boxShadow:TH.glow,
+};
+const cardStyle = {
+  background:TH.card,borderRadius:TH.radiusSm,
+  boxShadow:TH.shadowSm,border:`1px solid ${TH.border}`,
+  position:'relative',overflow:'hidden',
+};
 
 function CalendarGrid({ year,month,getCellStyle,onDayClick }) {
   const days = getDaysInMonth(year,month);
@@ -87,6 +135,7 @@ function CalendarGrid({ year,month,getCellStyle,onDayClick }) {
     })}</div>);
 }
 
+// ─── GYM CALENDAR ───────────────────────────────────────────────────────────
 function GymCalendar({ year,month }) {
   const [data,setData] = useState([]);
   const [logs,setLogs] = useState([]);
@@ -170,7 +219,7 @@ function GymCalendar({ year,month }) {
             <label style={{ fontSize:12,color:TH.textSec,display:'block',marginBottom:8,fontWeight:500 }}>Workout type</label>
             <div style={{ display:'flex',flexDirection:'column',gap:8 }}>
               {WORKOUT_TYPES.map(w => (<button key={w.key} onClick={() => setForm(f => ({...f,type:w.key}))}
-                style={{ display:'flex',alignItems:'center',gap:10,padding:'11px 14px',borderRadius:TH.radiusSm,border:`2px solid ${form.type===w.key?(w.isSplit?'#B0A0F0':w.color):TH.border}`,background:form.type===w.key?(w.isSplit?'rgba(152,132,232,0.12)':w.color+'20'):TH.cardAlt,textAlign:'left',cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease' }}>
+                style={{ display:'flex',alignItems:'center',gap:10,padding:'11px 14px',borderRadius:TH.radiusSm,border:`2px solid ${form.type===w.key?(w.isSplit?'#B0A0F0':w.color):TH.border}`,background:form.type===w.key?(w.isSplit?'rgba(152,132,232,0.12)':w.color+'20'):TH.cardAlt,textAlign:'left',cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease',boxShadow:form.type===w.key?`0 0 12px ${w.color}30`:'none' }}>
                 {w.isSplit ? <SplitIcon size={30} radius={8} /> : <span style={{ width:30,height:30,borderRadius:8,background:w.color,display:'flex',alignItems:'center',justifyContent:'center',color:w.textColor,fontSize:12,fontWeight:700,flexShrink:0 }}>{w.key}</span>}
                 <span style={{ fontSize:14,color:form.type===w.key?TH.text:TH.textSec,fontWeight:form.type===w.key?600:400 }}>{w.label}</span>
               </button>))}
@@ -182,10 +231,10 @@ function GymCalendar({ year,month }) {
         </>) : (<>
           <div>
             <label style={{ fontSize:12,color:TH.textSec,display:'block',marginBottom:8,fontWeight:500 }}>Move workout to new date</label>
-            <input type="date" value={moveDate} onChange={e => setMoveDate(e.target.value)} style={{ width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:16,fontFamily:'inherit' }} />
+            <input type="date" value={moveDate} onChange={e => setMoveDate(e.target.value)} style={{ width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:16,fontFamily:'inherit',boxShadow:TH.glow }} />
             {moveDate && moveDate!==modal && (<div style={{ fontSize:12,color:TH.textSec,marginTop:8 }}>
               Moving from {fmtDate(modal)} → {fmtDate(moveDate)}
-              {logByDate[modal] && !logByDate[modal].noData && <div style={{ color:TH.accent,marginTop:4 }}>Session data will also be moved</div>}
+              {logByDate[modal] && !logByDate[modal].noData && <div style={{ color:TH.cyan,marginTop:4 }}>Session data will also be moved</div>}
             </div>)}
           </div>
           <Btn onClick={() => {if(moveDate&&moveDate!==modal)moveWorkout(modal,moveDate);}} style={{ opacity:moveDate&&moveDate!==modal?1:0.4 }}>Confirm move</Btn>
@@ -210,7 +259,7 @@ function GymCalendar({ year,month }) {
               const filledSets = ex.sets.filter(s=>s.reps||s.weight); if(filledSets.length===0) return null;
               return (<div key={exIdx} style={{ padding:'8px 0',borderBottom:`1px solid ${TH.border}` }}>
                 <div style={{ fontWeight:600,fontSize:13,color:TH.text,marginBottom:5 }}>{ex.name}</div>
-                <div style={{ display:'flex',flexWrap:'wrap',gap:6 }}>{filledSets.map((s,i) => <span key={i} style={{ background:TH.cardAlt,borderRadius:6,padding:'4px 10px',fontSize:12,color:TH.textSec }}>{s.reps} × {s.weight}kg</span>)}</div>
+                <div style={{ display:'flex',flexWrap:'wrap',gap:6 }}>{filledSets.map((s,i) => <span key={i} style={{ background:TH.cardAlt,borderRadius:6,padding:'4px 10px',fontSize:12,color:TH.textSec,border:`1px solid ${TH.border}` }}>{s.reps} × {s.weight}kg</span>)}</div>
               </div>);
             })}
             {editSession.sessionNotes && (<div style={{ padding:'8px 0',borderTop:`1px solid ${TH.border}`,marginTop:2 }}>
@@ -221,10 +270,10 @@ function GymCalendar({ year,month }) {
           </>) : moveMode ? (<>
             <div>
               <label style={{ fontSize:12,color:TH.textSec,display:'block',marginBottom:8,fontWeight:500 }}>Move workout to new date</label>
-              <input type="date" value={moveDate} onChange={e => setMoveDate(e.target.value)} style={{ width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:16,fontFamily:'inherit' }} />
+              <input type="date" value={moveDate} onChange={e => setMoveDate(e.target.value)} style={{ width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:16,fontFamily:'inherit',boxShadow:TH.glow }} />
               {moveDate && moveDate!==detailModal && (<div style={{ fontSize:12,color:TH.textSec,marginTop:8 }}>
                 Moving from {fmtDate(detailModal)} → {fmtDate(moveDate)}
-                <div style={{ color:TH.accent,marginTop:4 }}>Session data will also be moved</div>
+                <div style={{ color:TH.cyan,marginTop:4 }}>Session data will also be moved</div>
               </div>)}
             </div>
             <Btn onClick={() => {if(moveDate&&moveDate!==detailModal)moveWorkout(detailModal,moveDate);}} style={{ opacity:moveDate&&moveDate!==detailModal?1:0.4 }}>Confirm move</Btn>
@@ -232,21 +281,21 @@ function GymCalendar({ year,month }) {
           </>) : (<>
             {isRowingType && (<div>
               <div style={{ fontSize:12,color:TH.textSec,marginBottom:4 }}>{editSession.rowingType==='time'?'Time (minutes)':'Distance (metres)'}</div>
-              <input type="number" value={editSession.rowingValue||''} onChange={e => setEditSession(prev => ({...prev,rowingValue:e.target.value}))} style={{ width:'100%',padding:'8px',borderRadius:8,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:14,fontFamily:'inherit' }} />
+              <input type="number" value={editSession.rowingValue||''} onChange={e => setEditSession(prev => ({...prev,rowingValue:e.target.value}))} style={{ width:'100%',padding:'8px',borderRadius:10,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:14,fontFamily:'inherit',boxShadow:TH.glow }} />
             </div>)}
             {!isRowingType && (editSession.exercises||[]).map((ex,exIdx) => (<div key={exIdx} style={{ padding:'8px 0',borderBottom:`1px solid ${TH.border}` }}>
               <div style={{ fontWeight:600,fontSize:13,color:TH.text,marginBottom:6 }}>{ex.name}</div>
               {ex.sets.map((set,setIdx) => (<div key={setIdx} style={{ display:'flex',alignItems:'center',gap:6,marginBottom:5 }}>
                 <span style={{ fontSize:11,color:TH.textMuted,width:22,flexShrink:0 }}>S{setIdx+1}</span>
-                <input type="number" value={set.weight} onChange={e => updateEditSet(exIdx,setIdx,'weight',e.target.value)} style={{ width:52,padding:'5px 4px',borderRadius:6,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:13,textAlign:'center',fontFamily:'inherit' }} />
+                <input type="number" value={set.weight} onChange={e => updateEditSet(exIdx,setIdx,'weight',e.target.value)} style={{ width:52,padding:'5px 4px',borderRadius:8,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:13,textAlign:'center',fontFamily:'inherit',boxShadow:TH.glow }} />
                 <span style={{ fontSize:11,color:TH.textMuted }}>kg ×</span>
-                <input type="number" value={set.reps} onChange={e => updateEditSet(exIdx,setIdx,'reps',e.target.value)} style={{ width:44,padding:'5px 4px',borderRadius:6,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:13,textAlign:'center',fontFamily:'inherit' }} />
+                <input type="number" value={set.reps} onChange={e => updateEditSet(exIdx,setIdx,'reps',e.target.value)} style={{ width:44,padding:'5px 4px',borderRadius:8,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:13,textAlign:'center',fontFamily:'inherit',boxShadow:TH.glow }} />
                 <span style={{ fontSize:11,color:TH.textMuted }}>reps</span>
               </div>))}
-              <button onClick={() => addEditSet(exIdx)} style={{ fontSize:11,color:TH.textMuted,background:'none',border:`1px dashed ${TH.borderMed}`,borderRadius:6,padding:'5px 10px',cursor:'pointer',width:'100%',marginTop:3,fontFamily:'inherit' }}>+ Add set</button>
+              <button onClick={() => addEditSet(exIdx)} style={{ fontSize:11,color:TH.textMuted,background:'none',border:`1px dashed ${TH.borderMed}`,borderRadius:8,padding:'5px 10px',cursor:'pointer',width:'100%',marginTop:3,fontFamily:'inherit' }}>+ Add set</button>
             </div>))}
             {editSession.sessionNotes!==undefined && (<div><div style={{ fontSize:11,color:TH.textMuted,marginBottom:3 }}>Notes</div>
-              <textarea value={editSession.sessionNotes||''} onChange={e => setEditSession(prev => ({...prev,sessionNotes:e.target.value}))} rows={2} style={{ width:'100%',padding:'8px',borderRadius:8,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:13,fontFamily:'inherit',resize:'vertical' }} /></div>)}
+              <textarea value={editSession.sessionNotes||''} onChange={e => setEditSession(prev => ({...prev,sessionNotes:e.target.value}))} rows={2} style={{ width:'100%',padding:'8px',borderRadius:10,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:13,fontFamily:'inherit',resize:'vertical',boxShadow:TH.glow }} /></div>)}
             <Btn onClick={saveEditedSession}>Save changes</Btn>
             <Btn onClick={() => setEditing(false)} variant="secondary">Cancel</Btn>
           </>)}
@@ -256,6 +305,7 @@ function GymCalendar({ year,month }) {
   </div>);
 }
 
+// ─── GYM LOG ────────────────────────────────────────────────────────────────
 function GymLog() {
   const [workouts,setWorkouts] = useState([]); const [logged,setLogged] = useState([]); const [drafts,setDrafts] = useState([]);
   const [session,setSession] = useState(null); const [inactive,setInactive] = useState({}); const [exerciseOrder,setExerciseOrder] = useState({});
@@ -300,12 +350,13 @@ function GymLog() {
     {pending.length===0 && <div style={{ textAlign:'center',padding:'2.5rem',color:TH.textMuted,fontSize:14 }}>No workouts waiting to be logged</div>}
     {pending.map(w => {
       const wt = WORKOUT_TYPES.find(x => x.key===w.type); const draft = drafts.find(d => d.date===w.date);
-      return (<div key={w.date} style={{ display:'flex',alignItems:'center',justifyContent:'space-between',padding:'14px 16px',background:TH.card,borderRadius:TH.radiusSm,marginBottom:8,boxShadow:TH.shadowSm,border:`1px solid ${TH.border}` }}>
+      return (<div key={w.date} style={{ display:'flex',alignItems:'center',justifyContent:'space-between',padding:'14px 16px',background:TH.card,borderRadius:TH.radiusSm,marginBottom:8,boxShadow:TH.shadowSm,border:`1px solid ${TH.border}`,position:'relative',overflow:'hidden' }}>
+        <div style={{ position:'absolute',top:0,left:0,right:0,height:1,background:`linear-gradient(90deg, transparent, ${TH.borderGlow}, transparent)` }} />
         <div><div style={{ fontSize:13,fontWeight:600,color:TH.text }}>{fmtDate(w.date)}</div>
           <div style={{ display:'flex',alignItems:'center',gap:6,marginTop:4 }}>
             {wt?.isSplit ? <SplitIcon size={20} radius={6} /> : <span style={{ background:wt?.color,color:wt?.textColor,borderRadius:6,fontSize:11,fontWeight:700,padding:'2px 7px' }}>{w.type}</span>}
             <span style={{ fontSize:12,color:TH.textSec }}>{wt?.label}</span>
-            {draft && <span style={{ fontSize:11,color:TH.accent,fontWeight:600 }}>● in progress</span>}</div></div>
+            {draft && <span style={{ fontSize:11,color:TH.cyan,fontWeight:600 }}>● in progress</span>}</div></div>
         <div style={{ display:'flex',gap:8 }}>
           <Btn onClick={() => openSession(w)} style={{ padding:'8px 16px',fontSize:13 }}>Record</Btn>
           <Btn onClick={() => markNoData(w)} variant="secondary" style={{ padding:'8px 14px',fontSize:13 }}>No data</Btn></div>
@@ -324,6 +375,7 @@ function GymLog() {
   </div>);
 }
 
+// ─── SESSION LOGGER (with + copy-set button) ────────────────────────────────
 function SessionLogger({ session,onSave,onMoveInactive,inactive,allLogs }) {
   const [exercises,setExercises] = useState(session.exercises||[]);
   const [intensity,setIntensity] = useState(session.intensity||'3');
@@ -356,6 +408,23 @@ function SessionLogger({ session,onSave,onMoveInactive,inactive,allLogs }) {
   function updateSet(exIdx,setIdx,field,value) { setExercises(prev => prev.map((ex,i) => i!==exIdx?ex:{...ex,sets:ex.sets.map((s,j) => j!==setIdx?s:{...s,[field]:value})})); }
   function addSet(exIdx) { setExercises(prev => prev.map((ex,i) => i!==exIdx?ex:{...ex,sets:[...ex.sets,{weight:'',reps:''}]})); }
   function removeSet(exIdx,setIdx) { setExercises(prev => prev.map((ex,i) => i!==exIdx?ex:{...ex,sets:ex.sets.filter((_,j) => j!==setIdx)})); }
+
+  // ── NEW: Copy current set's data to the next set ──
+  function copySetToNext(exIdx,setIdx) {
+    setExercises(prev => prev.map((ex,i) => {
+      if(i!==exIdx) return ex;
+      const currentSet = ex.sets[setIdx];
+      const nextIdx = setIdx + 1;
+      if(nextIdx < ex.sets.length) {
+        // Copy into existing next set
+        return {...ex, sets: ex.sets.map((s,j) => j===nextIdx ? {...s, weight:currentSet.weight, reps:currentSet.reps} : s)};
+      } else {
+        // Create a new set with copied values
+        return {...ex, sets: [...ex.sets, {weight:currentSet.weight, reps:currentSet.reps}]};
+      }
+    }));
+  }
+
   function moveToInactive(exIdx) { const ex=exercises[exIdx]; onMoveInactive(session.workoutType,ex.name); setExercises(prev => prev.filter((_,i) => i!==exIdx)); }
   function moveExercise(fromIdx,direction) {
     const toIdx=fromIdx+direction; if(toIdx<0||toIdx>=exercises.length) return;
@@ -374,28 +443,29 @@ function SessionLogger({ session,onSave,onMoveInactive,inactive,allLogs }) {
     {wt?.hasIntensity && (<div style={{ marginBottom:'1.5rem' }}>
       <label style={{ fontSize:12,color:TH.textSec,display:'block',marginBottom:8,fontWeight:500 }}>Intensity</label>
       <div style={{ display:'flex',gap:8 }}>
-        {['1','2','3'].map(n => (<button key={n} onClick={() => setIntensity(n)} style={{ flex:1,padding:'11px',borderRadius:TH.radiusSm,border:`2px solid ${intensity===n?TH.accent:TH.border}`,background:intensity===n?TH.accent:'transparent',fontWeight:700,fontSize:16,color:intensity===n?'#fff':TH.textMuted,cursor:'pointer',fontFamily:TH.heading,transition:'all 150ms ease' }}>{n}</button>))}
+        {['1','2','3'].map(n => (<button key={n} onClick={() => setIntensity(n)} style={{ flex:1,padding:'11px',borderRadius:TH.radiusSm,border:`2px solid ${intensity===n?TH.pink:TH.border}`,background:intensity===n?TH.pink:'transparent',fontWeight:700,fontSize:16,color:intensity===n?'#fff':TH.textMuted,cursor:'pointer',fontFamily:TH.heading,transition:'all 150ms ease',boxShadow:intensity===n?'0 0 16px rgba(236,116,135,0.3)':'none' }}>{n}</button>))}
       </div></div>)}
     {isRowingType && (<div style={{ marginBottom:'1.5rem' }}>
       <div style={{ display:'flex',gap:8,marginBottom:12 }}>
-        {['time','distance'].map(t => (<button key={t} onClick={() => setRowingType(t)} style={{ flex:1,padding:'11px',borderRadius:TH.radiusSm,border:`2px solid ${rowingType===t?'#85D2FF':TH.border}`,background:rowingType===t?'#85D2FF20':'transparent',color:rowingType===t?'#85D2FF':TH.textMuted,fontWeight:600,cursor:'pointer',fontFamily:'inherit',fontSize:14,transition:'all 150ms ease' }}>
+        {['time','distance'].map(t => (<button key={t} onClick={() => setRowingType(t)} style={{ flex:1,padding:'11px',borderRadius:TH.radiusSm,border:`2px solid ${rowingType===t?'#9EF0DE':TH.border}`,background:rowingType===t?'rgba(158,240,222,0.12)':'transparent',color:rowingType===t?'#9EF0DE':TH.textMuted,fontWeight:600,cursor:'pointer',fontFamily:'inherit',fontSize:14,transition:'all 150ms ease',boxShadow:rowingType===t?'0 0 12px rgba(158,240,222,0.15)':'none' }}>
           {t==='time'?'⏱ Time (mins)':'📏 Distance (m)'}</button>))}</div>
-      <input type="number" value={rowingValue} onChange={e => setRowingValue(e.target.value)} placeholder={rowingType==='time'?'Minutes rowed':'Metres rowed'} style={{ width:'100%',padding:'12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:16,fontFamily:'inherit' }} />
+      <input type="number" value={rowingValue} onChange={e => setRowingValue(e.target.value)} placeholder={rowingType==='time'?'Minutes rowed':'Metres rowed'} style={{ width:'100%',padding:'12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:16,fontFamily:'inherit',boxShadow:TH.glow }} />
     </div>)}
     {!isRowingType && (<>
-      {inactiveList.length>0 && (<button onClick={() => setShowInactive(!showInactive)} style={{ fontSize:12,color:TH.textMuted,background:TH.cardAlt,border:'none',borderRadius:8,padding:'7px 14px',cursor:'pointer',marginBottom:'1rem',fontFamily:'inherit',fontWeight:500 }}>
+      {inactiveList.length>0 && (<button onClick={() => setShowInactive(!showInactive)} style={{ fontSize:12,color:TH.textMuted,background:TH.cardAlt,border:`1px solid ${TH.border}`,borderRadius:8,padding:'7px 14px',cursor:'pointer',marginBottom:'1rem',fontFamily:'inherit',fontWeight:500 }}>
         {showInactive?'Hide':'View'} INACTIVE exercises ({inactiveList.length})</button>)}
       {showInactive && (<div style={{ background:TH.card,border:`1px solid ${TH.border}`,borderRadius:TH.radiusSm,padding:'12px',marginBottom:'1rem' }}>
         <div style={{ fontSize:12,color:TH.textMuted,marginBottom:8,fontWeight:500 }}>Inactive exercises</div>
         {inactiveList.map(ex => (<div key={ex._id} style={{ display:'flex',justifyContent:'space-between',alignItems:'center',padding:'6px 0',borderBottom:`1px solid ${TH.border}` }}>
           <span style={{ fontSize:13,color:TH.text }}>{ex.exercise}</span>
           <button onClick={() => {fetch('/api/inactive-exercises',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:ex._id})}).then(()=>{setExercises(prev=>[...prev,{name:ex.exercise,sets:[{weight:'',reps:''},{weight:'',reps:''},{weight:'',reps:''}]}]);setShowInactive(false);});}}
-            style={{ fontSize:12,color:TH.success,background:'none',border:`1px solid ${TH.success}`,borderRadius:6,padding:'4px 10px',cursor:'pointer',fontFamily:'inherit' }}>Add back</button>
+            style={{ fontSize:12,color:TH.cyan,background:'none',border:`1px solid ${TH.cyan}`,borderRadius:6,padding:'4px 10px',cursor:'pointer',fontFamily:'inherit' }}>Add back</button>
         </div>))}</div>)}
       {exercises.length===0 && (<div style={{ textAlign:'center',padding:'2rem',color:TH.textMuted,fontSize:14 }}>No exercises added yet</div>)}
       {exercises.map((ex,exIdx) => {
         const prev = previousData[ex.name];
-        return (<div key={exIdx} style={{ marginBottom:'1.25rem',background:TH.card,borderRadius:TH.radiusSm,padding:'14px 16px',boxShadow:TH.shadowSm,border:`1px solid ${TH.border}` }}>
+        return (<div key={exIdx} style={{ marginBottom:'1.25rem',background:TH.card,borderRadius:TH.radiusSm,padding:'14px 16px',boxShadow:TH.shadowSm,border:`1px solid ${TH.border}`,position:'relative',overflow:'hidden' }}>
+          <div style={{ position:'absolute',top:0,left:0,right:0,height:1,background:`linear-gradient(90deg, transparent, ${TH.borderGlow}, transparent)` }} />
           <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'0.75rem' }}>
             <div style={{ display:'flex',alignItems:'center',gap:8 }}>
               <div style={{ display:'flex',flexDirection:'column',gap:3 }}>
@@ -403,13 +473,16 @@ function SessionLogger({ session,onSave,onMoveInactive,inactive,allLogs }) {
                 <button onClick={() => moveExercise(exIdx,1)} disabled={exIdx===exercises.length-1} style={{ background:TH.cardAlt,border:`1px solid ${TH.border}`,borderRadius:5,padding:'6px 10px',fontSize:16,color:exIdx===exercises.length-1?TH.textMuted:TH.textSec,cursor:exIdx===exercises.length-1?'default':'pointer',lineHeight:'1' }}>▼</button></div>
               <span style={{ fontWeight:600,fontSize:14,color:TH.text }}>{ex.name}</span></div>
             <button onClick={() => moveToInactive(exIdx)} style={{ fontSize:11,color:TH.textMuted,background:'none',border:`1px solid ${TH.border}`,borderRadius:6,padding:'4px 8px',cursor:'pointer',fontFamily:'inherit' }}>Move to inactive</button></div>
-          <div style={{ display:'grid',gridTemplateColumns:'32px 80px 80px auto',gap:6,marginBottom:6 }}>
+          <div style={{ display:'grid',gridTemplateColumns:'32px 1fr 1fr auto',gap:6,marginBottom:6 }}>
             <div /><div style={{ fontSize:11,color:TH.textMuted,textAlign:'center',fontWeight:500 }}>Weight (kg)</div><div style={{ fontSize:11,color:TH.textMuted,textAlign:'center',fontWeight:500 }}>Reps</div><div /></div>
-          {ex.sets.map((set,setIdx) => (<div key={setIdx} style={{ display:'grid',gridTemplateColumns:'32px 80px 80px auto',gap:6,marginBottom:6,alignItems:'center' }}>
+          {ex.sets.map((set,setIdx) => (<div key={setIdx} style={{ display:'grid',gridTemplateColumns:'32px 1fr 1fr auto',gap:6,marginBottom:6,alignItems:'center' }}>
             <div style={{ fontSize:12,color:TH.textMuted,textAlign:'center',fontWeight:500 }}>S{setIdx+1}</div>
-            <input type="number" value={set.weight} onChange={e => updateSet(exIdx,setIdx,'weight',e.target.value)} placeholder="kg" style={{ padding:'9px',borderRadius:8,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:14,textAlign:'center',fontFamily:'inherit' }} />
-            <input type="number" value={set.reps} onChange={e => updateSet(exIdx,setIdx,'reps',e.target.value)} placeholder="reps" style={{ padding:'9px',borderRadius:8,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:14,textAlign:'center',fontFamily:'inherit' }} />
-            {ex.sets.length>1 && <button onClick={() => removeSet(exIdx,setIdx)} style={{ background:'none',border:'none',color:TH.textMuted,fontSize:16,cursor:'pointer',padding:'4px' }}>×</button>}
+            <input type="number" value={set.weight} onChange={e => updateSet(exIdx,setIdx,'weight',e.target.value)} placeholder="kg" style={{ ...inputStyle }} />
+            <input type="number" value={set.reps} onChange={e => updateSet(exIdx,setIdx,'reps',e.target.value)} placeholder="reps" style={{ ...inputStyle }} />
+            <div style={{ display:'flex',alignItems:'center',gap:4 }}>
+              <button onClick={() => copySetToNext(exIdx,setIdx)} title="Copy to next set" style={{ background:'rgba(77,212,255,0.08)',border:`1px solid ${TH.borderMed}`,color:TH.cyan,fontSize:14,fontWeight:700,cursor:'pointer',padding:'4px 7px',borderRadius:6,lineHeight:'1',fontFamily:'inherit' }}>+</button>
+              {ex.sets.length>1 && <button onClick={() => removeSet(exIdx,setIdx)} style={{ background:'none',border:'none',color:TH.textMuted,fontSize:16,cursor:'pointer',padding:'4px',lineHeight:'1' }}>×</button>}
+            </div>
           </div>))}
           <button onClick={() => addSet(exIdx)} style={{ fontSize:12,color:TH.textMuted,background:'none',border:`1px dashed ${TH.borderMed}`,borderRadius:8,padding:'7px 12px',cursor:'pointer',width:'100%',marginTop:4,fontFamily:'inherit',fontWeight:500 }}>+ Add set</button>
           {prev && (<div style={{ marginTop:10,padding:'8px 10px',background:TH.cardAlt,borderRadius:8,border:`1px solid ${TH.border}` }}>
@@ -421,13 +494,14 @@ function SessionLogger({ session,onSave,onMoveInactive,inactive,allLogs }) {
     </>)}
     <div style={{ marginTop:'1rem',marginBottom:'1rem' }}>
       <label style={{ fontSize:12,color:TH.textSec,display:'block',marginBottom:6,fontWeight:500 }}>Session notes</label>
-      <textarea value={sessionNotes} onChange={e => setSessionNotes(e.target.value)} placeholder="How did the session go?" rows={3} style={{ width:'100%',padding:'10px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:14,fontFamily:'inherit',resize:'vertical' }} /></div>
+      <textarea value={sessionNotes} onChange={e => setSessionNotes(e.target.value)} placeholder="How did the session go?" rows={3} style={{ width:'100%',padding:'10px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:14,fontFamily:'inherit',resize:'vertical',boxShadow:TH.glow }} /></div>
     <div style={{ display:'flex',flexDirection:'column',gap:10 }}>
       <Btn onClick={() => onSave(getSessionData(),true)}>Complete & save session</Btn>
       <Btn onClick={() => onSave(getSessionData(),false)} variant="secondary">Save progress & exit</Btn></div>
   </div>);
 }
 
+// ─── EXERCISE HISTORY ───────────────────────────────────────────────────────
 function ExerciseHistory() {
   const [logs,setLogs] = useState([]); const [filterType,setFilterType] = useState('exercise');
   const [selectedBP,setSelectedBP] = useState('L'); const [selectedEx,setSelectedEx] = useState('');
@@ -435,24 +509,25 @@ function ExerciseHistory() {
   const allExercises = [...new Set(logs.flatMap(l => (l.exercises||[]).map(e => e.name)))].sort();
   const filtered = filterType==='bodypart' ? logs.filter(l => l.workoutType===selectedBP) : logs.filter(l => (l.exercises||[]).some(e => e.name===selectedEx));
   function renderRow(log) {
-    const cardStyle = {padding:'14px 16px',background:TH.card,borderRadius:TH.radiusSm,marginBottom:8,boxShadow:TH.shadowSm,border:`1px solid ${TH.border}`};
+    const rowCardStyle = {padding:'14px 16px',background:TH.card,borderRadius:TH.radiusSm,marginBottom:8,boxShadow:TH.shadowSm,border:`1px solid ${TH.border}`,position:'relative',overflow:'hidden'};
     const isRowingType = log.workoutType==='R'||log.workoutType==='KBR';
-    if(filterType==='exercise'){const ex=(log.exercises||[]).find(e=>e.name===selectedEx);if(!ex)return null;return(<div key={log.date} style={cardStyle}><div style={{fontSize:12,color:TH.textMuted,marginBottom:6}}>{fmtDate(log.date)}</div><div style={{fontSize:13,fontWeight:600,marginBottom:6,color:TH.text}}>{ex.name}</div><div style={{display:'flex',flexWrap:'wrap',gap:6}}>{ex.sets.filter(s=>s.reps||s.weight).map((s,i)=><span key={i} style={{background:TH.cardAlt,border:`1px solid ${TH.border}`,borderRadius:6,padding:'4px 10px',fontSize:13,color:TH.textSec}}>{s.reps} reps × {s.weight}kg</span>)}</div></div>);}
-    if(isRowingType) return(<div key={log.date} style={cardStyle}><div style={{fontSize:12,color:TH.textMuted,marginBottom:4}}>{fmtDate(log.date)}</div><div style={{fontSize:13,color:TH.text}}>{log.rowingType==='time'?`${log.rowingValue} minutes`:`${log.rowingValue} metres`}</div></div>);
-    return(<div key={log.date} style={cardStyle}><div style={{fontSize:12,color:TH.textMuted,marginBottom:8}}>{fmtDate(log.date)}</div>{(log.exercises||[]).map((ex,i)=>(<div key={i} style={{marginBottom:10}}><div style={{fontSize:13,fontWeight:600,marginBottom:4,color:TH.text}}>{ex.name}</div><div style={{display:'flex',flexWrap:'wrap',gap:6}}>{ex.sets.filter(s=>s.reps||s.weight).map((s,si)=><span key={si} style={{background:TH.cardAlt,border:`1px solid ${TH.border}`,borderRadius:6,padding:'4px 10px',fontSize:12,color:TH.textSec}}>{s.reps} reps × {s.weight}kg</span>)}</div></div>))}</div>);
+    if(filterType==='exercise'){const ex=(log.exercises||[]).find(e=>e.name===selectedEx);if(!ex)return null;return(<div key={log.date} style={rowCardStyle}><div style={{fontSize:12,color:TH.textMuted,marginBottom:6}}>{fmtDate(log.date)}</div><div style={{fontSize:13,fontWeight:600,marginBottom:6,color:TH.text}}>{ex.name}</div><div style={{display:'flex',flexWrap:'wrap',gap:6}}>{ex.sets.filter(s=>s.reps||s.weight).map((s,i)=><span key={i} style={{background:TH.cardAlt,border:`1px solid ${TH.border}`,borderRadius:6,padding:'4px 10px',fontSize:13,color:TH.textSec}}>{s.reps} reps × {s.weight}kg</span>)}</div></div>);}
+    if(isRowingType) return(<div key={log.date} style={rowCardStyle}><div style={{fontSize:12,color:TH.textMuted,marginBottom:4}}>{fmtDate(log.date)}</div><div style={{fontSize:13,color:TH.text}}>{log.rowingType==='time'?`${log.rowingValue} minutes`:`${log.rowingValue} metres`}</div></div>);
+    return(<div key={log.date} style={rowCardStyle}><div style={{fontSize:12,color:TH.textMuted,marginBottom:8}}>{fmtDate(log.date)}</div>{(log.exercises||[]).map((ex,i)=>(<div key={i} style={{marginBottom:10}}><div style={{fontSize:13,fontWeight:600,marginBottom:4,color:TH.text}}>{ex.name}</div><div style={{display:'flex',flexWrap:'wrap',gap:6}}>{ex.sets.filter(s=>s.reps||s.weight).map((s,si)=><span key={si} style={{background:TH.cardAlt,border:`1px solid ${TH.border}`,borderRadius:6,padding:'4px 10px',fontSize:12,color:TH.textSec}}>{s.reps} reps × {s.weight}kg</span>)}</div></div>))}</div>);
   }
   return (<div>
     <div style={{display:'flex',gap:8,marginBottom:'1rem'}}>
-      {[['exercise','By exercise'],['bodypart','By body part']].map(([k,l])=>(<button key={k} onClick={()=>setFilterType(k)} style={{flex:1,padding:'11px',borderRadius:TH.radiusSm,border:`2px solid ${filterType===k?TH.accent:TH.border}`,background:filterType===k?TH.accent+'20':'transparent',color:filterType===k?TH.accent:TH.textMuted,fontWeight:600,cursor:'pointer',fontFamily:'inherit',fontSize:13,transition:'all 150ms ease'}}>{l}</button>))}
+      {[['exercise','By exercise'],['bodypart','By body part']].map(([k,l])=>(<button key={k} onClick={()=>setFilterType(k)} style={{flex:1,padding:'11px',borderRadius:TH.radiusSm,border:`2px solid ${filterType===k?TH.cyan:TH.border}`,background:filterType===k?'rgba(77,212,255,0.08)':'transparent',color:filterType===k?TH.cyan:TH.textMuted,fontWeight:600,cursor:'pointer',fontFamily:'inherit',fontSize:13,transition:'all 150ms ease'}}>{l}</button>))}
     </div>
     {filterType==='bodypart' && (<div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:'1rem'}}>
       {WORKOUT_TYPES.map(w=>(<button key={w.key} onClick={()=>setSelectedBP(w.key)} style={{padding:'8px 12px',borderRadius:8,border:`2px solid ${selectedBP===w.key?(w.isSplit?'#B0A0F0':w.color):TH.border}`,background:selectedBP===w.key?(w.isSplit?'rgba(152,132,232,0.12)':w.color+'20'):'transparent',color:selectedBP===w.key?(w.isSplit?'#B0A0F0':w.color):TH.textMuted,fontSize:13,fontWeight:selectedBP===w.key?600:400,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease'}}>{w.key} — {w.label}</button>))}</div>)}
-    {filterType==='exercise' && (<div style={{marginBottom:'1rem'}}><select value={selectedEx} onChange={e=>setSelectedEx(e.target.value)} style={{width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:14,fontFamily:'inherit'}}><option value="">Select an exercise...</option>{allExercises.map(ex=><option key={ex} value={ex}>{ex}</option>)}</select></div>)}
+    {filterType==='exercise' && (<div style={{marginBottom:'1rem'}}><select value={selectedEx} onChange={e=>setSelectedEx(e.target.value)} style={{width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:14,fontFamily:'inherit',boxShadow:TH.glow}}><option value="">Select an exercise...</option>{allExercises.map(ex=><option key={ex} value={ex}>{ex}</option>)}</select></div>)}
     {filtered.length===0 && <div style={{textAlign:'center',padding:'2.5rem',color:TH.textMuted,fontSize:14}}>No data yet</div>}
     {filtered.map(log=>renderRow(log))}
   </div>);
 }
 
+// ─── WEIGHT TAB ─────────────────────────────────────────────────────────────
 function WeightTab({ year,month }) {
   const [data,setData]=useState([]); const [allData,setAllData]=useState([]); const [modal,setModal]=useState(null); const [input,setInput]=useState('');
   useEffect(()=>{fetchData();},[year,month]);
@@ -485,21 +560,22 @@ function WeightTab({ year,month }) {
       getCellStyle={day=>{const dateStr=toDateStr(year,month,day);const hasEntry=weightByDate[dateStr]!==undefined;if(!hasEntry)return{border:`1px solid ${TH.border}`,color:TH.textMuted,borderRadius:TH.radiusSm};const direction=directionByDate[dateStr];let bg=TH.cardAlt;let color=TH.textSec;if(direction==='down'){bg=HEAT.green1;color=HEAT.green1Text;}else if(direction==='up'){bg=HEAT.red;color=HEAT.redText;}else{bg=TH.cardAlt;color=TH.textSec;}return{background:bg,color,borderRadius:TH.radiusSm,fontWeight:600,bottomLabel:`${weightByDate[dateStr]}`};}}
       onDayClick={day=>openModal(day)} />
     <div style={{display:'flex',flexWrap:'wrap',gap:12,marginBottom:'1.5rem'}}>
-      <div style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:TH.textSec}}><div style={{width:12,height:12,borderRadius:4,background:TH.cardAlt}}/>First / same</div>
+      <div style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:TH.textSec}}><div style={{width:12,height:12,borderRadius:4,background:TH.cardAlt,border:`1px solid ${TH.border}`}}/>First / same</div>
       <div style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:TH.textSec}}><div style={{width:12,height:12,borderRadius:4,background:HEAT.green1}}/>Down</div>
       <div style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:TH.textSec}}><div style={{width:12,height:12,borderRadius:4,background:HEAT.red}}/>Up</div></div>
     {monthSorted.length>=2&&(<div><div style={{fontSize:12,color:TH.textMuted,marginBottom:8,fontWeight:500}}>Weight trend</div>
-      <div style={{height:180}}><Line data={{labels,datasets:[{data:chartData,borderColor:'#7CB3D4',backgroundColor:'rgba(124,179,212,0.1)',borderWidth:2,pointRadius:4,pointBackgroundColor:'#7CB3D4',tension:0.35,fill:true,spanGaps:true}]}} options={darkChartOpts({yTicks:{callback:v=>`${v}kg`}})} /></div></div>)}
+      <div style={{height:180}}><Line data={{labels,datasets:[{data:chartData,borderColor:TH.cyan,backgroundColor:'rgba(77,212,255,0.08)',borderWidth:2,pointRadius:4,pointBackgroundColor:TH.cyan,tension:0.35,fill:true,spanGaps:true}]}} options={darkChartOpts({yTicks:{callback:v=>`${v}kg`}})} /></div></div>)}
     {modal&&(<Modal title={`Log weight — ${fmtDate(modal)}`} onClose={()=>setModal(null)}>
       <div style={{display:'flex',flexDirection:'column',gap:12}}>
         <div><label style={{fontSize:12,color:TH.textSec,display:'block',marginBottom:4,fontWeight:500}}>Weight (kg)</label>
-          <input type="number" step="0.1" value={input} onChange={e=>setInput(e.target.value)} placeholder="e.g. 82.5" autoFocus style={{width:'100%',padding:'12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:18,fontWeight:600,textAlign:'center',fontFamily:'inherit'}} /></div>
+          <input type="number" step="0.1" value={input} onChange={e=>setInput(e.target.value)} placeholder="e.g. 82.5" autoFocus style={{width:'100%',padding:'12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:18,fontWeight:600,textAlign:'center',fontFamily:'inherit',boxShadow:TH.glow}} /></div>
         <Btn onClick={save}>{weightByDate[modal]!==undefined?'Update':'Save'}</Btn>
         {weightByDate[modal]!==undefined&&<Btn onClick={remove} variant="danger">Remove entry</Btn>}
       </div></Modal>)}
   </div>);
 }
 
+// ─── GYM SECTION ────────────────────────────────────────────────────────────
 const GYM_TABS=[{key:'calendar',label:'Calendar'},{key:'log',label:'Log'},{key:'history',label:'History'},{key:'weight',label:'Weight'}];
 function GymSection() {
   const now=new Date(); const [tab,setTab]=useState('calendar'); const [year,setYear]=useState(now.getFullYear()); const [month,setMonth]=useState(now.getMonth());
@@ -508,7 +584,7 @@ function GymSection() {
   const monthLabel=new Date(year,month).toLocaleString('default',{month:'long',year:'numeric'});
   return (<div>
     <div style={{display:'flex',gap:4,marginBottom:'1.5rem',background:TH.card,borderRadius:TH.radiusSm,padding:4,border:`1px solid ${TH.border}`}}>
-      {GYM_TABS.map(t=>(<button key={t.key} onClick={()=>setTab(t.key)} style={{flex:1,padding:'10px 0',background:tab===t.key?TH.accent:'transparent',border:'none',borderRadius:8,color:tab===t.key?'#fff':TH.textMuted,fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease'}}>{t.label}</button>))}</div>
+      {GYM_TABS.map(t=>(<button key={t.key} onClick={()=>setTab(t.key)} style={{flex:1,padding:'10px 0',background:tab===t.key?TH.pink:'transparent',border:'none',borderRadius:10,color:tab===t.key?'#fff':TH.textMuted,fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease',boxShadow:tab===t.key?'0 0 12px rgba(236,116,135,0.3)':'none'}}>{t.label}</button>))}</div>
     {(tab==='calendar'||tab==='weight')&&(<div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'1.25rem'}}>
       <button onClick={prevMonth} style={{background:TH.card,border:`1px solid ${TH.border}`,borderRadius:8,padding:'7px 16px',fontSize:16,color:TH.textSec,cursor:'pointer'}}>‹</button>
       <span style={{fontWeight:700,fontSize:15,fontFamily:TH.heading,color:TH.text}}>{monthLabel}</span>
@@ -520,11 +596,13 @@ function GymSection() {
   </div>);
 }
 
+// ─── CHART OPTIONS ──────────────────────────────────────────────────────────
 function darkChartOpts(extra={}) {
   return {responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},...extra.plugins},
-    scales:{x:{ticks:{color:TH.textMuted,font:{size:11}},grid:{color:'rgba(255,255,255,0.04)'}},y:{min:extra.yMin||0,max:extra.yMax||undefined,ticks:{color:TH.textMuted,font:{size:10},...(extra.yTicks||{})},grid:{color:'rgba(255,255,255,0.04)'}}}};
+    scales:{x:{ticks:{color:TH.textMuted,font:{size:11}},grid:{color:'rgba(77,212,255,0.04)'}},y:{min:extra.yMin||0,max:extra.yMax||undefined,ticks:{color:TH.textMuted,font:{size:10},...(extra.yTicks||{})},grid:{color:'rgba(77,212,255,0.04)'}}}};
 }
 
+// ─── DEEP WORK TAB ──────────────────────────────────────────────────────────
 function DeepWorkTab({ year,month }) {
   const [data,setData]=useState([]); const [modal,setModal]=useState(null); const [form,setForm]=useState({minutes:'60',subject:'A'});
   useEffect(()=>{fetchData();},[year,month]);
@@ -562,9 +640,10 @@ function DeepWorkTab({ year,month }) {
           <div style={{height:120}}><Line data={{labels,datasets:[{data:d,borderColor:color,backgroundColor:color+'15',borderWidth:2,pointRadius:3,pointBackgroundColor:color,tension:0.35,fill:true,spanGaps:true}]}} options={darkChartOpts({yTicks:{callback:v=>v+'h'}})} /></div></div>))}</div>
     {allSessions.length>0&&(<div><div style={{fontSize:12,color:TH.textMuted,marginBottom:8,fontWeight:500}}>Session log</div>
       <div style={{display:'flex',flexDirection:'column',gap:6}}>
-        {allSessions.map((s,i)=>(<div key={i} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 14px',background:TH.card,borderRadius:TH.radiusSm,border:`1px solid ${TH.border}`}}>
+        {allSessions.map((s,i)=>(<div key={i} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 14px',background:TH.card,borderRadius:TH.radiusSm,border:`1px solid ${TH.border}`,position:'relative',overflow:'hidden'}}>
+          <div style={{position:'absolute',top:0,left:0,right:0,height:1,background:`linear-gradient(90deg, transparent, ${TH.borderGlow}, transparent)`}} />
           <div style={{display:'flex',alignItems:'center',gap:10}}>
-            <span style={{width:26,height:26,borderRadius:7,background:DW_COLORS[s.subject]||'#888',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:11,fontWeight:700}}>{s.subject}</span>
+            <span style={{width:26,height:26,borderRadius:7,background:DW_COLORS[s.subject]||'#888',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:11,fontWeight:700,boxShadow:`0 0 8px ${(DW_COLORS[s.subject]||'#888')}40`}}>{s.subject}</span>
             <div><div style={{fontSize:13,fontWeight:600,color:TH.text}}>{DW_SUBJECTS[s.subject]||s.subject}</div><div style={{fontSize:11,color:TH.textMuted}}>{s.date}</div></div></div>
           <div style={{fontSize:14,fontWeight:700,fontFamily:TH.heading,color:TH.text}}>{Math.round(s.hours*60)}m</div></div>))}</div></div>)}
     {modal&&(<Modal title={`Log deep work — ${modal}`} onClose={()=>setModal(null)}>
@@ -574,17 +653,18 @@ function DeepWorkTab({ year,month }) {
           {byDate[modal].map((s,i)=>(<div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:13,marginBottom:4}}><span><strong style={{color:DW_COLORS[s.subject]}}>{s.subject}</strong> <span style={{color:TH.textSec}}>— {DW_SUBJECTS[s.subject]}</span></span><span style={{color:TH.text,fontWeight:600}}>{Math.round(s.hours*60)}m</span></div>))}
           <div style={{fontSize:12,color:TH.textMuted,marginTop:4,borderTop:`1px solid ${TH.border}`,paddingTop:4}}>Total: {Math.round(byDate[modal].reduce((s,d)=>s+d.hours,0)*60)}m ({byDate[modal].reduce((s,d)=>s+d.hours,0).toFixed(1)}h)</div></div>)}
         <div><label style={{fontSize:12,color:TH.textSec,display:'block',marginBottom:4,fontWeight:500}}>Add minutes</label>
-          <input type="number" min="1" max="480" value={form.minutes} onChange={e=>setForm(f=>({...f,minutes:e.target.value}))} placeholder="e.g. 45" style={{width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:16,fontFamily:'inherit'}} />
+          <input type="number" min="1" max="480" value={form.minutes} onChange={e=>setForm(f=>({...f,minutes:e.target.value}))} placeholder="e.g. 45" style={{width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:16,fontFamily:'inherit',boxShadow:TH.glow}} />
           <div style={{fontSize:12,color:TH.textMuted,marginTop:4}}>= {(parseInt(form.minutes||0)/60).toFixed(1)} hours</div></div>
         <div><label style={{fontSize:12,color:TH.textSec,display:'block',marginBottom:4,fontWeight:500}}>Subject</label>
           <div style={{display:'flex',gap:8}}>
-            {Object.entries(DW_SUBJECTS).map(([k,l])=>(<button key={k} onClick={()=>setForm(f=>({...f,subject:k}))} style={{flex:1,padding:'8px 4px',borderRadius:TH.radiusSm,border:`2px solid ${form.subject===k?DW_COLORS[k]:TH.border}`,background:form.subject===k?DW_COLORS[k]+'20':'transparent',fontSize:12,color:form.subject===k?DW_COLORS[k]:TH.textMuted,fontWeight:form.subject===k?600:400,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease'}}><span style={{fontWeight:700,display:'block',fontSize:16}}>{k}</span>{l}</button>))}</div></div>
+            {Object.entries(DW_SUBJECTS).map(([k,l])=>(<button key={k} onClick={()=>setForm(f=>({...f,subject:k}))} style={{flex:1,padding:'8px 4px',borderRadius:TH.radiusSm,border:`2px solid ${form.subject===k?DW_COLORS[k]:TH.border}`,background:form.subject===k?DW_COLORS[k]+'20':'transparent',fontSize:12,color:form.subject===k?DW_COLORS[k]:TH.textMuted,fontWeight:form.subject===k?600:400,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease',boxShadow:form.subject===k?`0 0 10px ${DW_COLORS[k]}30`:'none'}}><span style={{fontWeight:700,display:'block',fontSize:16}}>{k}</span>{l}</button>))}</div></div>
         <Btn onClick={save}>Add session</Btn>
         {byDate[modal]&&byDate[modal].length>0&&<Btn onClick={clearDay} variant="danger">Clear all today's sessions</Btn>}
       </div></Modal>)}
   </div>);
 }
 
+// ─── SWITCH-OFF TAB ─────────────────────────────────────────────────────────
 function SwitchOffTab({ year,month }) {
   const [data,setData]=useState([]); const [modal,setModal]=useState(null); const [time,setTime]=useState('19:00');
   useEffect(()=>{fetchData();},[year,month]);
@@ -611,18 +691,19 @@ function SwitchOffTab({ year,month }) {
       {[[HEAT.green1,'Hit target (≤7pm)'],[HEAT.green1,'7–8pm'],[HEAT.amber,'8–9pm'],[HEAT.red,'After 9pm']].map(([c,l],i)=>(<div key={i} style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:TH.textSec}}><div style={{width:12,height:12,borderRadius:4,background:c}}/>{l}</div>))}</div>
     <div style={{fontSize:12,color:TH.textMuted,marginBottom:8,fontWeight:500}}>Switch-off time — trend</div>
     <div style={{height:180}}>
-      <Line data={{labels,datasets:[{data:chartData,borderColor:HEAT.red,backgroundColor:'rgba(220,74,71,0.1)',borderWidth:2,pointRadius:3,tension:0.35,fill:true,spanGaps:true}]}}
+      <Line data={{labels,datasets:[{data:chartData,borderColor:TH.pink,backgroundColor:'rgba(236,116,135,0.08)',borderWidth:2,pointRadius:3,tension:0.35,fill:true,spanGaps:true}]}}
         options={darkChartOpts({yMin:17,yMax:24,yTicks:{callback:v=>`${v}:00`},plugins:{tooltip:{callbacks:{label:(ctx)=>{const h=Math.floor(ctx.parsed.y);const m=Math.round((ctx.parsed.y-h)*60);return `${h}:${pad(m)}pm`;}}}}})} /></div>
     {modal&&(<Modal title={`Log switch-off — ${fmtDate(modal)}`} onClose={()=>setModal(null)}>
       <div style={{display:'flex',flexDirection:'column',gap:12}}>
         <div><label style={{fontSize:12,color:TH.textSec,display:'block',marginBottom:4,fontWeight:500}}>Time you switched off</label>
-          <input type="time" value={time} onChange={e=>setTime(e.target.value)} style={{width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:16,fontFamily:'inherit'}} /></div>
+          <input type="time" value={time} onChange={e=>setTime(e.target.value)} style={{width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:16,fontFamily:'inherit',boxShadow:TH.glow}} /></div>
         <Btn onClick={save}>Save</Btn>
         {byDate[modal]&&<Btn onClick={remove} variant="danger">Remove entry</Btn>}
       </div></Modal>)}
   </div>);
 }
 
+// ─── HABITS SECTION ─────────────────────────────────────────────────────────
 const HABITS_TABS=[{key:'deepwork',label:'Deep Work'},{key:'switchoff',label:'Switch-off'}];
 function HabitsSection() {
   const now=new Date();const [tab,setTab]=useState('deepwork');const [year,setYear]=useState(now.getFullYear());const [month,setMonth]=useState(now.getMonth());
@@ -631,7 +712,7 @@ function HabitsSection() {
   const monthLabel=new Date(year,month).toLocaleString('default',{month:'long',year:'numeric'});
   return (<div>
     <div style={{display:'flex',gap:4,marginBottom:'1.5rem',background:TH.card,borderRadius:TH.radiusSm,padding:4,border:`1px solid ${TH.border}`}}>
-      {HABITS_TABS.map(t=>(<button key={t.key} onClick={()=>setTab(t.key)} style={{flex:1,padding:'10px 0',background:tab===t.key?TH.accent:'transparent',border:'none',borderRadius:8,color:tab===t.key?'#fff':TH.textMuted,fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease'}}>{t.label}</button>))}</div>
+      {HABITS_TABS.map(t=>(<button key={t.key} onClick={()=>setTab(t.key)} style={{flex:1,padding:'10px 0',background:tab===t.key?TH.pink:'transparent',border:'none',borderRadius:10,color:tab===t.key?'#fff':TH.textMuted,fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease',boxShadow:tab===t.key?'0 0 12px rgba(236,116,135,0.3)':'none'}}>{t.label}</button>))}</div>
     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'1.25rem'}}>
       <button onClick={prevMonth} style={{background:TH.card,border:`1px solid ${TH.border}`,borderRadius:8,padding:'7px 16px',fontSize:16,color:TH.textSec,cursor:'pointer'}}>‹</button>
       <span style={{fontWeight:700,fontSize:15,fontFamily:TH.heading,color:TH.text}}>{monthLabel}</span>
@@ -641,6 +722,7 @@ function HabitsSection() {
   </div>);
 }
 
+// ─── NUTRITION PLACEHOLDER ──────────────────────────────────────────────────
 function NutritionSection() {
   return (<div style={{textAlign:'center',padding:'3rem 1rem',color:TH.textMuted}}>
     <div style={{fontSize:40,marginBottom:'1rem'}}>🥗</div>
@@ -648,16 +730,18 @@ function NutritionSection() {
     <div style={{fontSize:13,marginTop:8}}>This section is being built</div></div>);
 }
 
+// ─── APP SHELL ──────────────────────────────────────────────────────────────
 export default function App() {
   const [section,setSection] = useState('gym');
   return (<>
     <Head><title>Chris's Dashboard</title><meta name="viewport" content="width=device-width, initial-scale=1" /></Head>
     <div style={{maxWidth:600,margin:'0 auto',padding:'0 0 4rem',minHeight:'100vh'}}>
       <div style={{padding:'1.5rem 1.25rem 0',marginBottom:'1.25rem'}}>
-        <div style={{fontSize:12,fontWeight:600,letterSpacing:'0.18em',textTransform:'uppercase',color:TH.textMuted,marginBottom:4}}>Personal dashboard</div>
+        <div style={{fontSize:12,fontWeight:600,letterSpacing:'0.18em',textTransform:'uppercase',color:TH.cyan,marginBottom:4,opacity:0.7}}>Personal dashboard</div>
         <div style={{fontSize:38,fontWeight:700,fontFamily:TH.heading,color:TH.text,letterSpacing:'-0.02em'}}>Chris</div></div>
-      <div style={{display:'flex',gap:4,margin:'0 1.25rem 1.5rem',background:TH.card,borderRadius:TH.radiusSm,padding:4,border:`1px solid ${TH.border}`}}>
-        {TOP_SECTIONS.map(s=>(<button key={s.key} onClick={()=>setSection(s.key)} style={{flex:1,padding:'11px 4px',background:section===s.key?TH.accent:'transparent',border:'none',borderRadius:8,color:section===s.key?'#fff':TH.textMuted,fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:TH.heading,letterSpacing:'-0.01em',transition:'all 150ms ease',textAlign:'center'}}>{s.label}</button>))}</div>
+      <div style={{display:'flex',gap:4,margin:'0 1.25rem 1.5rem',background:TH.card,borderRadius:TH.radiusSm,padding:4,border:`1px solid ${TH.border}`,position:'relative',overflow:'hidden'}}>
+        <div style={{position:'absolute',top:0,left:0,right:0,height:1,background:`linear-gradient(90deg, transparent, ${TH.borderGlow}, transparent)`}} />
+        {TOP_SECTIONS.map(s=>(<button key={s.key} onClick={()=>setSection(s.key)} style={{flex:1,padding:'11px 4px',background:section===s.key?TH.pink:'transparent',border:'none',borderRadius:10,color:section===s.key?'#fff':TH.textMuted,fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:TH.heading,letterSpacing:'-0.01em',transition:'all 150ms ease',textAlign:'center',boxShadow:section===s.key?'0 0 16px rgba(236,116,135,0.3)':'none'}}>{s.label}</button>))}</div>
       <div style={{padding:'0 1.25rem'}}>
         {section==='gym'&&<GymSection />}
         {section==='nutrition'&&<NutritionSection />}
