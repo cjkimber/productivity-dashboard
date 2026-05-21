@@ -832,14 +832,15 @@ function NutritionSection() {
 
   function openLogModal() {
     const n = new Date();
-    setForm({food:'',time:`${pad(n.getHours())}:${pad(n.getMinutes())}`,remember:true,type:'meal'});
+    setForm({food:'',time:`${pad(n.getHours())}:${pad(n.getMinutes())}`,remember:true,type:''});
     setSearch(''); setModal('log');
   }
 
   async function saveEntry() {
     if(!form.food.trim()||!form.time) return;
-    await fetch('/api/nutrition',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:todayDate,time:form.time,food:form.food.trim(),type:form.type})});
-    if(form.remember) { await fetch('/api/saved-foods',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:form.food.trim(),type:form.type})}); loadSaved(); }
+    const entryType = form.type || 'meal';
+    await fetch('/api/nutrition',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:todayDate,time:form.time,food:form.food.trim(),type:entryType})});
+    if(form.remember) { await fetch('/api/saved-foods',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:form.food.trim(),type:entryType})}); loadSaved(); }
     setModal(null); loadToday();
   }
 
@@ -1006,22 +1007,24 @@ function NutritionSection() {
           <input type="time" value={form.time} onChange={e=>setForm(f=>({...f,time:e.target.value}))} style={{width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:16,fontFamily:'inherit',boxShadow:TH.glow}} /></div>
 
         <div>
-          <div style={{display:'flex',gap:8,marginBottom:10}}>
-            {[['meal','🍽 Meal'],['snack','🥜 Snack']].map(([k,l])=>(<button key={k} onClick={()=>{setForm(f=>({...f,type:k,food:''}));setSearch('');}} style={{flex:1,padding:'12px',borderRadius:TH.radiusSm,border:`2px solid ${form.type===k?(k==='meal'?TH.pink:TH.purple):TH.border}`,background:form.type===k?(k==='meal'?'rgba(236,116,135,0.12)':'rgba(139,92,246,0.12)'):'transparent',color:form.type===k?(k==='meal'?TH.pink:TH.purple):TH.textMuted,fontWeight:700,cursor:'pointer',fontFamily:'inherit',fontSize:14,transition:'all 150ms ease',boxShadow:form.type===k?`0 0 12px ${k==='meal'?'rgba(236,116,135,0.2)':'rgba(139,92,246,0.2)'}`:'none'}}>{l}</button>))}
+          <div style={{display:'flex',gap:8,marginBottom:form.type?10:0}}>
+            {[['meal','🍽 Meal'],['snack','🥜 Snack']].map(([k,l])=>(<button key={k} onClick={()=>{setForm(f=>({...f,type:f.type===k?'':k,food:''}));setSearch('');}} style={{flex:1,padding:'12px',borderRadius:TH.radiusSm,border:`2px solid ${form.type===k?(k==='meal'?TH.pink:TH.purple):TH.border}`,background:form.type===k?(k==='meal'?'rgba(236,116,135,0.12)':'rgba(139,92,246,0.12)'):'transparent',color:form.type===k?(k==='meal'?TH.pink:TH.purple):TH.textMuted,fontWeight:700,cursor:'pointer',fontFamily:'inherit',fontSize:14,transition:'all 150ms ease',boxShadow:form.type===k?`0 0 12px ${k==='meal'?'rgba(236,116,135,0.2)':'rgba(139,92,246,0.2)'}`:'none'}}>{l}</button>))}
           </div>
-          {modalFoods.length>0 ? (<>
-            {savedFoods.filter(f=>f.type===form.type).length>6 && (<input type="text" value={search} onChange={e=>setSearch(e.target.value)} placeholder={`Search...`} style={{width:'100%',padding:'8px 12px',borderRadius:10,border:`1px solid ${TH.border}`,background:TH.input,color:TH.text,fontSize:13,fontFamily:'inherit',marginBottom:6,boxShadow:TH.glow}} />)}
-            <div style={{display:'flex',flexDirection:'column',gap:5,maxHeight:180,overflowY:'auto'}}>
-              {modalFoods.map(f => {
-                const sel = form.food===f.name;
-                return (<button key={f._id} onClick={()=>{setForm(fm=>({...fm,food:sel?'':f.name,remember:false}));setSearch('');}}
-                  style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'11px 14px',borderRadius:12,border:`1.5px solid ${sel?TH.cyan:TH.borderMed}`,background:sel?'rgba(77,212,255,0.08)':TH.input,color:sel?TH.text:TH.textSec,fontSize:14,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease',textAlign:'left',fontWeight:sel?600:400}}>
-                  <span>{f.name}</span>
-                  {sel && <span style={{fontSize:16,color:TH.cyan}}>✓</span>}
-                </button>);
-              })}
-            </div>
-          </>) : (<div style={{padding:'16px',textAlign:'center',color:TH.textMuted,fontSize:13,background:TH.input,borderRadius:12,border:`1px solid ${TH.border}`}}>No saved {form.type}s yet</div>)}
+          {form.type && (<>
+            {modalFoods.length>0 ? (<>
+              {savedFoods.filter(f=>f.type===form.type).length>6 && (<input type="text" value={search} onChange={e=>setSearch(e.target.value)} placeholder={`Search...`} style={{width:'100%',padding:'8px 12px',borderRadius:10,border:`1px solid ${TH.border}`,background:TH.input,color:TH.text,fontSize:13,fontFamily:'inherit',marginBottom:6,boxShadow:TH.glow}} />)}
+              <div style={{display:'flex',flexDirection:'column',gap:5,maxHeight:180,overflowY:'auto'}}>
+                {modalFoods.map(f => {
+                  const sel = form.food===f.name;
+                  return (<button key={f._id} onClick={()=>{setForm(fm=>({...fm,food:sel?'':f.name,remember:false}));setSearch('');}}
+                    style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'11px 14px',borderRadius:12,border:`1.5px solid ${sel?TH.cyan:TH.borderMed}`,background:sel?'rgba(77,212,255,0.08)':TH.input,color:sel?TH.text:TH.textSec,fontSize:14,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease',textAlign:'left',fontWeight:sel?600:400}}>
+                    <span>{f.name}</span>
+                    {sel && <span style={{fontSize:16,color:TH.cyan}}>✓</span>}
+                  </button>);
+                })}
+              </div>
+            </>) : (<div style={{padding:'16px',textAlign:'center',color:TH.textMuted,fontSize:13,background:TH.input,borderRadius:12,border:`1px solid ${TH.border}`}}>No saved {form.type}s yet</div>)}
+          </>)}
         </div>
 
         <div style={{display:'flex',alignItems:'center',gap:8}}>
@@ -1029,7 +1032,7 @@ function NutritionSection() {
           <span style={{fontSize:11,color:TH.textMuted,flexShrink:0}}>or new</span>
           <div style={{flex:1,height:1,background:TH.borderMed}} /></div>
 
-        <input type="text" value={isNewFood?form.food:''} onChange={e=>{setForm(f=>({...f,food:e.target.value,remember:true}));setSearch('');}} placeholder="Type a new food..." style={{width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${isNewFood?TH.cyan:TH.borderMed}`,background:TH.input,color:TH.text,fontSize:14,fontFamily:'inherit',boxShadow:isNewFood?`0 0 8px rgba(77,212,255,0.15)`:TH.glow}} />
+        <input type="text" value={isNewFood?form.food:''} onChange={e=>{setForm(f=>({...f,food:e.target.value,remember:true,type:f.type||'meal'}));setSearch('');}} placeholder="Type a new food..." style={{width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${isNewFood?TH.cyan:TH.borderMed}`,background:TH.input,color:TH.text,fontSize:14,fontFamily:'inherit',boxShadow:isNewFood?`0 0 8px rgba(77,212,255,0.15)`:TH.glow}} />
 
         {isNewFood && (<div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
           <div style={{display:'flex',alignItems:'center',gap:8}}>
@@ -1042,7 +1045,7 @@ function NutritionSection() {
         </div>)}
 
         <Btn onClick={saveEntry} style={{opacity:form.food.trim()?1:0.3,marginTop:2}}>
-          {form.food.trim() ? `Log ${form.food.trim()}` : `Log ${form.type}`}
+          {form.food.trim() ? `Log ${form.food.trim()}` : 'Log food'}
         </Btn>
       </div>
     </Modal>);})()}
