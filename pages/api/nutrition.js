@@ -21,9 +21,9 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    const { date, time, food } = req.body;
+    const { date, time, food, type } = req.body;
     if (!date || !time || !food) return res.status(400).json({ error: 'Missing fields' });
-    const result = await col.insertOne({ date, time, food });
+    const result = await col.insertOne({ date, time, food, type: type || 'meal' });
     return res.json({ success: true, id: result.insertedId });
   }
 
