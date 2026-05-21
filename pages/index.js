@@ -731,7 +731,6 @@ const WINDOW_HOURS = 8;
 const WINDOW_MINS = WINDOW_HOURS * 60;
 
 function timeToMinsN(t) { const [h,m] = t.split(':').map(Number); return h * 60 + m; }
-function minsToTime(m) { return `${Math.floor(m/60)}:${pad(m%60)}`; }
 function minsToLabel(m) { const h=Math.floor(m/60); const mm=m%60; return `${h>12?h-12:h||12}:${pad(mm)}${h>=12?'pm':'am'}`; }
 
 function FastingRing({ meals }) {
@@ -749,7 +748,6 @@ function FastingRing({ meals }) {
     return (<div style={{display:'flex',flexDirection:'column',alignItems:'center',padding:'1rem 0 0.5rem'}}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
         <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(77,212,255,0.06)" strokeWidth={sw} />
-        <circle cx={cx} cy={cy} r={r-20} fill="none" stroke="none" />
         <text x={cx} y={cy-8} textAnchor="middle" fill={TH.textSec} fontSize={15} fontWeight={600} fontFamily={TH.heading}>8h window</text>
         <text x={cx} y={cy+12} textAnchor="middle" fill={TH.textMuted} fontSize={12}>Log first meal to start</text>
       </svg>
@@ -815,11 +813,13 @@ function NutritionSection() {
   const [todayMeals,setTodayMeals] = useState([]);
   const [monthData,setMonthData] = useState([]);
   const [savedFoods,setSavedFoods] = useState([]);
-  const [modal,setModal] = useState(null); // 'log' | 'manage' | dateStr (for history detail)
-  const [form,setForm] = useState({food:'',time:'',remember:true});
+  const [modal,setModal] = useState(null); // 'log' | 'addFood'
+  const [form,setForm] = useState({food:'',time:'',remember:true,type:'meal'});
   const [search,setSearch] = useState('');
+  const [addFoodForm,setAddFoodForm] = useState({name:'',type:'meal'});
   const [detailDay,setDetailDay] = useState(null);
   const [detailMeals,setDetailMeals] = useState([]);
+  const [foodsFilter,setFoodsFilter] = useState('all'); // 'all' | 'meal' | 'snack'
 
   const todayDate = todayStr();
 
@@ -832,14 +832,14 @@ function NutritionSection() {
 
   function openLogModal() {
     const n = new Date();
-    setForm({food:'',time:`${pad(n.getHours())}:${pad(n.getMinutes())}`,remember:true});
+    setForm({food:'',time:`${pad(n.getHours())}:${pad(n.getMinutes())}`,remember:true,type:'meal'});
     setSearch(''); setModal('log');
   }
 
   async function saveEntry() {
     if(!form.food.trim()||!form.time) return;
-    await fetch('/api/nutrition',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:todayDate,time:form.time,food:form.food.trim()})});
-    if(form.remember) { await fetch('/api/saved-foods',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:form.food.trim()})}); loadSaved(); }
+    await fetch('/api/nutrition',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:todayDate,time:form.time,food:form.food.trim(),type:form.type})});
+    if(form.remember) { await fetch('/api/saved-foods',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:form.food.trim(),type:form.type})}); loadSaved(); }
     setModal(null); loadToday();
   }
 
@@ -853,13 +853,24 @@ function NutritionSection() {
     loadSaved();
   }
 
-  async function openDayDetail(dateStr) {
-    const res = await fetch(`/api/nutrition?date=${dateStr}`);
-    const meals = await res.json();
-    setDetailDay(dateStr); setDetailMeals(meals);
+  async function addSavedFood() {
+    if(!addFoodForm.name.trim()) return;
+    await fetch('/api/saved-foods',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:addFoodForm.name.trim(),type:addFoodForm.type})});
+    setAddFoodForm({name:'',type:addFoodForm.type}); setModal(null); loadSaved();
   }
 
-  const filteredSaved = savedFoods.filter(f => !search || f.name.toLowerCase().includes(search.toLowerCase()));
+  async function openDayDetail(dateStr) {
+    const res = await fetch(`/api/nutrition?date=${dateStr}`);
+    setDetailDay(dateStr); setDetailMeals(await res.json());
+  }
+
+  // Saved foods filtered for log modal (by selected type + search)
+  const modalFoods = savedFoods.filter(f => f.type===form.type && (!search || f.name.toLowerCase().includes(search.toLowerCase())));
+
+  // Foods tab filtering
+  const foodsMeals = savedFoods.filter(f => f.type==='meal');
+  const foodsSnacks = savedFoods.filter(f => f.type==='snack');
+  const displayFoods = foodsFilter==='meal' ? foodsMeals : foodsFilter==='snack' ? foodsSnacks : savedFoods;
 
   // History helpers
   const byDate = {}; monthData.forEach(m => { if(!byDate[m.date]) byDate[m.date]=[]; byDate[m.date].push(m); });
@@ -885,19 +896,17 @@ function NutritionSection() {
   function nextMonth(){if(month===11){setMonth(0);setYear(y=>y+1);}else setMonth(m=>m+1);}
   const monthLabel=new Date(year,month).toLocaleString('default',{month:'long',year:'numeric'});
 
-  const NUTR_TABS=[{key:'today',label:'Today'},{key:'history',label:'History'}];
+  const NUTR_TABS=[{key:'today',label:'Today'},{key:'foods',label:'Foods'},{key:'history',label:'History'}];
 
   return (<div>
     <div style={{display:'flex',gap:4,marginBottom:'1.5rem',background:TH.card,borderRadius:TH.radiusSm,padding:4,border:`1px solid ${TH.border}`}}>
       {NUTR_TABS.map(t=>(<button key={t.key} onClick={()=>setTab(t.key)} style={{flex:1,padding:'10px 0',background:tab===t.key?TH.pink:'transparent',border:'none',borderRadius:10,color:tab===t.key?'#fff':TH.textMuted,fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease',boxShadow:tab===t.key?'0 0 12px rgba(236,116,135,0.3)':'none'}}>{t.label}</button>))}</div>
 
+    {/* ── TODAY TAB ── */}
     {tab==='today' && (<div>
       <FastingRing meals={todayMeals} />
 
-      <div style={{display:'flex',gap:8,marginTop:'1rem',marginBottom:'1.25rem'}}>
-        <Btn onClick={openLogModal} style={{flex:1,fontSize:15,padding:'14px'}}>+ Log food</Btn>
-        <Btn onClick={()=>setModal('manage')} variant="secondary" style={{padding:'14px 16px',fontSize:12}}>Saved foods</Btn>
-      </div>
+      <Btn onClick={openLogModal} style={{width:'100%',fontSize:15,padding:'14px',marginTop:'1rem',marginBottom:'1.25rem'}}>+ Log food</Btn>
 
       {todayMeals.length===0 && <div style={{textAlign:'center',padding:'1.5rem',color:TH.textMuted,fontSize:14}}>No meals logged today</div>}
       {[...todayMeals].sort((a,b)=>a.time.localeCompare(b.time)).map((m,i) => (
@@ -906,12 +915,48 @@ function NutritionSection() {
           <div style={{display:'flex',alignItems:'center',gap:10,minWidth:0,flex:1}}>
             <span style={{fontSize:13,fontWeight:700,color:TH.cyan,fontFamily:TH.heading,flexShrink:0}}>{minsToLabel(timeToMinsN(m.time))}</span>
             <span style={{fontSize:14,color:TH.text,fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{m.food}</span>
+            <span style={{fontSize:10,color:m.type==='snack'?TH.purple:TH.pink,fontWeight:600,flexShrink:0,textTransform:'uppercase',letterSpacing:'0.05em'}}>{m.type||'meal'}</span>
           </div>
           <button onClick={()=>deleteEntry(m._id)} style={{background:'none',border:'none',color:TH.textMuted,fontSize:16,cursor:'pointer',padding:'4px 6px',flexShrink:0}}>×</button>
         </div>
       ))}
     </div>)}
 
+    {/* ── FOODS TAB ── */}
+    {tab==='foods' && (<div>
+      <div style={{display:'flex',gap:6,marginBottom:'1rem'}}>
+        {[['all','All'],['meal','Meals'],['snack','Snacks']].map(([k,l])=>(<button key={k} onClick={()=>setFoodsFilter(k)} style={{flex:1,padding:'9px',borderRadius:10,border:`2px solid ${foodsFilter===k?TH.cyan:TH.border}`,background:foodsFilter===k?'rgba(77,212,255,0.08)':'transparent',color:foodsFilter===k?TH.cyan:TH.textMuted,fontWeight:600,cursor:'pointer',fontFamily:'inherit',fontSize:13,transition:'all 150ms ease'}}>{l}{k==='meal'?` (${foodsMeals.length})`:k==='snack'?` (${foodsSnacks.length})`:` (${savedFoods.length})`}</button>))}
+      </div>
+
+      {displayFoods.length===0 && <div style={{textAlign:'center',padding:'2rem',color:TH.textMuted,fontSize:14}}>
+        {savedFoods.length===0 ? 'No saved foods yet — log a meal with "Remember" on, or add below' : `No ${foodsFilter}s saved`}
+      </div>}
+
+      {foodsFilter==='all' && foodsMeals.length>0 && (<div style={{marginBottom:'1.25rem'}}>
+        <div style={{fontSize:12,color:TH.pink,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:8}}>Meals ({foodsMeals.length})</div>
+        {foodsMeals.map(f => (<div key={f._id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 12px',background:TH.card,borderRadius:TH.radiusSm,marginBottom:4,border:`1px solid ${TH.border}`}}>
+          <span style={{fontSize:14,color:TH.text}}>{f.name}</span>
+          <button onClick={()=>deleteSavedFood(f._id)} style={{background:'none',border:'none',color:TH.textMuted,fontSize:16,cursor:'pointer',padding:'2px 6px'}}>×</button>
+        </div>))}
+      </div>)}
+
+      {foodsFilter==='all' && foodsSnacks.length>0 && (<div style={{marginBottom:'1.25rem'}}>
+        <div style={{fontSize:12,color:TH.purple,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:8}}>Snacks ({foodsSnacks.length})</div>
+        {foodsSnacks.map(f => (<div key={f._id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 12px',background:TH.card,borderRadius:TH.radiusSm,marginBottom:4,border:`1px solid ${TH.border}`}}>
+          <span style={{fontSize:14,color:TH.text}}>{f.name}</span>
+          <button onClick={()=>deleteSavedFood(f._id)} style={{background:'none',border:'none',color:TH.textMuted,fontSize:16,cursor:'pointer',padding:'2px 6px'}}>×</button>
+        </div>))}
+      </div>)}
+
+      {foodsFilter!=='all' && displayFoods.map(f => (<div key={f._id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 12px',background:TH.card,borderRadius:TH.radiusSm,marginBottom:4,border:`1px solid ${TH.border}`}}>
+        <span style={{fontSize:14,color:TH.text}}>{f.name}</span>
+        <button onClick={()=>deleteSavedFood(f._id)} style={{background:'none',border:'none',color:TH.textMuted,fontSize:16,cursor:'pointer',padding:'2px 6px'}}>×</button>
+      </div>))}
+
+      <Btn onClick={()=>{setAddFoodForm({name:'',type:'meal'});setModal('addFood');}} variant="secondary" style={{width:'100%',marginTop:'0.5rem'}}>+ Add a food</Btn>
+    </div>)}
+
+    {/* ── HISTORY TAB ── */}
     {tab==='history' && (<div>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'1.25rem'}}>
         <button onClick={prevMonth} style={{background:TH.card,border:`1px solid ${TH.border}`,borderRadius:8,padding:'7px 16px',fontSize:16,color:TH.textSec,cursor:'pointer'}}>‹</button>
@@ -936,12 +981,13 @@ function NutritionSection() {
           <span style={{fontWeight:700,fontSize:14,fontFamily:TH.heading,color:TH.text}}>{fmtDate(detailDay)}</span>
           <button onClick={()=>{setDetailDay(null);setDetailMeals([]);}} style={{background:'none',border:'none',color:TH.textMuted,fontSize:18,cursor:'pointer'}}>×</button></div>
         {detailMeals.length===0 && <div style={{color:TH.textMuted,fontSize:13}}>No meals logged</div>}
-        {detailMeals.sort((a,b)=>a.time.localeCompare(b.time)).map((m,i) => {
-          const s = getDayStatus(detailDay);
-          return (<div key={m._id||i} style={{display:'flex',alignItems:'center',gap:10,padding:'6px 0',borderBottom:i<detailMeals.length-1?`1px solid ${TH.border}`:'none'}}>
+        {[...detailMeals].sort((a,b)=>a.time.localeCompare(b.time)).map((m,i) => (
+          <div key={m._id||i} style={{display:'flex',alignItems:'center',gap:10,padding:'6px 0',borderBottom:i<detailMeals.length-1?`1px solid ${TH.border}`:'none'}}>
             <span style={{fontSize:12,fontWeight:700,color:TH.cyan,fontFamily:TH.heading,flexShrink:0,width:60}}>{minsToLabel(timeToMinsN(m.time))}</span>
-            <span style={{fontSize:13,color:TH.text}}>{m.food}</span></div>);
-        })}
+            <span style={{fontSize:13,color:TH.text,flex:1}}>{m.food}</span>
+            <span style={{fontSize:10,color:m.type==='snack'?TH.purple:TH.pink,fontWeight:600,textTransform:'uppercase'}}>{m.type||'meal'}</span>
+          </div>
+        ))}
         {(() => { const s=getDayStatus(detailDay); if(!s) return null; return (<div style={{marginTop:8,paddingTop:8,borderTop:`1px solid ${TH.border}`,fontSize:12,color:TH.textMuted}}>
           Window: {minsToLabel(timeToMinsN(s.first))} – {minsToLabel(timeToMinsN(s.last))} ({Math.floor(s.span/60)}h {s.span%60}m)
           {s.withinWindow ? <span style={{color:HEAT.green1,marginLeft:8}}>✓ Within {WINDOW_HOURS}h</span> : <span style={{color:HEAT.red,marginLeft:8}}>Over by {Math.floor((s.span-WINDOW_MINS)/60)}h {(s.span-WINDOW_MINS)%60}m</span>}
@@ -949,34 +995,51 @@ function NutritionSection() {
       </div>)}
     </div>)}
 
+    {/* ── LOG FOOD MODAL ── */}
     {modal==='log' && (<Modal title="Log food" onClose={()=>setModal(null)}>
       <div style={{display:'flex',flexDirection:'column',gap:12}}>
         <div>
+          <label style={{fontSize:12,color:TH.textSec,display:'block',marginBottom:6,fontWeight:500}}>Meal or snack?</label>
+          <div style={{display:'flex',gap:8}}>
+            {[['meal','🍽 Meal'],['snack','🥜 Snack']].map(([k,l])=>(<button key={k} onClick={()=>{setForm(f=>({...f,type:k,food:''}));setSearch('');}} style={{flex:1,padding:'11px',borderRadius:TH.radiusSm,border:`2px solid ${form.type===k?(k==='meal'?TH.pink:TH.purple):TH.border}`,background:form.type===k?(k==='meal'?'rgba(236,116,135,0.1)':'rgba(139,92,246,0.1)'):'transparent',color:form.type===k?(k==='meal'?TH.pink:TH.purple):TH.textMuted,fontWeight:600,cursor:'pointer',fontFamily:'inherit',fontSize:14,transition:'all 150ms ease'}}>{l}</button>))}
+          </div></div>
+
+        <div>
           <label style={{fontSize:12,color:TH.textSec,display:'block',marginBottom:4,fontWeight:500}}>Time</label>
           <input type="time" value={form.time} onChange={e=>setForm(f=>({...f,time:e.target.value}))} style={{width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:16,fontFamily:'inherit',boxShadow:TH.glow}} /></div>
+
         <div>
           <label style={{fontSize:12,color:TH.textSec,display:'block',marginBottom:4,fontWeight:500}}>What did you eat?</label>
           <input type="text" value={form.food} onChange={e=>{setForm(f=>({...f,food:e.target.value}));setSearch(e.target.value);}} placeholder="Type or select below..." autoFocus style={{width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:14,fontFamily:'inherit',boxShadow:TH.glow}} /></div>
-        {filteredSaved.length>0 && (<div>
-          <div style={{fontSize:11,color:TH.textMuted,marginBottom:6,fontWeight:500}}>Saved foods</div>
-          <div style={{display:'flex',flexWrap:'wrap',gap:6,maxHeight:140,overflowY:'auto'}}>
-            {filteredSaved.map(f => (<button key={f._id} onClick={()=>{setForm(fm=>({...fm,food:f.name}));setSearch('');}} style={{padding:'6px 12px',borderRadius:8,border:`1px solid ${form.food===f.name?TH.cyan:TH.border}`,background:form.food===f.name?'rgba(77,212,255,0.1)':TH.cardAlt,color:form.food===f.name?TH.cyan:TH.textSec,fontSize:13,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease'}}>{f.name}</button>))}</div>
+
+        {modalFoods.length>0 && (<div>
+          <div style={{fontSize:11,color:TH.textMuted,marginBottom:6,fontWeight:500}}>Saved {form.type}s</div>
+          <div style={{display:'flex',flexDirection:'column',gap:4,maxHeight:160,overflowY:'auto'}}>
+            {modalFoods.map(f => (<button key={f._id} onClick={()=>{setForm(fm=>({...fm,food:f.name}));setSearch('');}} style={{display:'flex',alignItems:'center',padding:'9px 12px',borderRadius:10,border:`1px solid ${form.food===f.name?TH.cyan:TH.border}`,background:form.food===f.name?'rgba(77,212,255,0.1)':TH.cardAlt,color:form.food===f.name?TH.cyan:TH.textSec,fontSize:13,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease',textAlign:'left'}}>{f.name}</button>))}</div>
         </div>)}
+
         <div style={{display:'flex',alignItems:'center',gap:10,padding:'4px 0'}}>
           <button onClick={()=>setForm(f=>({...f,remember:!f.remember}))} style={{width:40,height:22,borderRadius:11,border:'none',background:form.remember?TH.cyan:'rgba(77,212,255,0.15)',cursor:'pointer',position:'relative',transition:'background 200ms ease'}}>
             <div style={{width:18,height:18,borderRadius:9,background:'#fff',position:'absolute',top:2,left:form.remember?20:2,transition:'left 200ms ease',boxShadow:'0 1px 3px rgba(0,0,0,0.3)'}} /></button>
-          <span style={{fontSize:13,color:form.remember?TH.text:TH.textMuted}}>Remember this food</span></div>
-        <Btn onClick={saveEntry} style={{opacity:form.food.trim()?1:0.4}}>Log meal</Btn>
+          <span style={{fontSize:13,color:form.remember?TH.text:TH.textMuted}}>Remember this {form.type}</span></div>
+
+        <Btn onClick={saveEntry} style={{opacity:form.food.trim()?1:0.4}}>Log {form.type}</Btn>
       </div>
     </Modal>)}
 
-    {modal==='manage' && (<Modal title="Saved foods" onClose={()=>setModal(null)}>
-      <div style={{display:'flex',flexDirection:'column',gap:6}}>
-        {savedFoods.length===0 && <div style={{color:TH.textMuted,fontSize:13,padding:'1rem 0',textAlign:'center'}}>No saved foods yet — they'll appear here when you log with "Remember" on</div>}
-        {savedFoods.map(f => (<div key={f._id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 10px',background:TH.cardAlt,borderRadius:8,border:`1px solid ${TH.border}`}}>
-          <span style={{fontSize:14,color:TH.text}}>{f.name}</span>
-          <button onClick={()=>deleteSavedFood(f._id)} style={{background:'none',border:'none',color:TH.textMuted,fontSize:16,cursor:'pointer',padding:'2px 6px'}}>×</button>
-        </div>))}</div>
+    {/* ── ADD FOOD MODAL ── */}
+    {modal==='addFood' && (<Modal title="Add a saved food" onClose={()=>setModal(null)}>
+      <div style={{display:'flex',flexDirection:'column',gap:12}}>
+        <div>
+          <label style={{fontSize:12,color:TH.textSec,display:'block',marginBottom:6,fontWeight:500}}>Type</label>
+          <div style={{display:'flex',gap:8}}>
+            {[['meal','🍽 Meal'],['snack','🥜 Snack']].map(([k,l])=>(<button key={k} onClick={()=>setAddFoodForm(f=>({...f,type:k}))} style={{flex:1,padding:'11px',borderRadius:TH.radiusSm,border:`2px solid ${addFoodForm.type===k?(k==='meal'?TH.pink:TH.purple):TH.border}`,background:addFoodForm.type===k?(k==='meal'?'rgba(236,116,135,0.1)':'rgba(139,92,246,0.1)'):'transparent',color:addFoodForm.type===k?(k==='meal'?TH.pink:TH.purple):TH.textMuted,fontWeight:600,cursor:'pointer',fontFamily:'inherit',fontSize:14,transition:'all 150ms ease'}}>{l}</button>))}
+          </div></div>
+        <div>
+          <label style={{fontSize:12,color:TH.textSec,display:'block',marginBottom:4,fontWeight:500}}>Food name</label>
+          <input type="text" value={addFoodForm.name} onChange={e=>setAddFoodForm(f=>({...f,name:e.target.value}))} placeholder="e.g. Chicken curry" autoFocus style={{width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:14,fontFamily:'inherit',boxShadow:TH.glow}} /></div>
+        <Btn onClick={addSavedFood} style={{opacity:addFoodForm.name.trim()?1:0.4}}>Save {addFoodForm.type}</Btn>
+      </div>
     </Modal>)}
   </div>);
 }
