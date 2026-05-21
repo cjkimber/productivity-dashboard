@@ -864,8 +864,8 @@ function NutritionSection() {
     setDetailDay(dateStr); setDetailMeals(await res.json());
   }
 
-  // Saved foods filtered for log modal — only show when actively searching
-  const modalFoods = search.length >= 1 ? savedFoods.filter(f => f.type===form.type && f.name.toLowerCase().includes(search.toLowerCase())) : [];
+  // Saved foods for selected type in log modal
+  const modalFoods = savedFoods.filter(f => f.type===form.type && (!search || f.name.toLowerCase().includes(search.toLowerCase())));
 
   // Foods tab filtering
   const foodsMeals = savedFoods.filter(f => f.type==='meal');
@@ -996,7 +996,9 @@ function NutritionSection() {
     </div>)}
 
     {/* ── LOG FOOD MODAL ── */}
-    {modal==='log' && (<Modal title="Log food" onClose={()=>setModal(null)}>
+    {modal==='log' && (()=>{
+      const isNewFood = form.food.trim() && !savedFoods.some(f => f.type===form.type && f.name.toLowerCase()===form.food.trim().toLowerCase());
+      return (<Modal title="Log food" onClose={()=>setModal(null)}>
       <div style={{display:'flex',flexDirection:'column',gap:12}}>
         <div>
           <label style={{fontSize:12,color:TH.textSec,display:'block',marginBottom:6,fontWeight:500}}>Meal or snack?</label>
@@ -1009,23 +1011,33 @@ function NutritionSection() {
           <input type="time" value={form.time} onChange={e=>setForm(f=>({...f,time:e.target.value}))} style={{width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:16,fontFamily:'inherit',boxShadow:TH.glow}} /></div>
 
         <div>
-          <label style={{fontSize:12,color:TH.textSec,display:'block',marginBottom:4,fontWeight:500}}>What did you eat?</label>
-          <input type="text" value={form.food} onChange={e=>{setForm(f=>({...f,food:e.target.value}));setSearch(e.target.value);}} placeholder="Type or select below..." autoFocus style={{width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:14,fontFamily:'inherit',boxShadow:TH.glow}} /></div>
+          <label style={{fontSize:12,color:TH.textSec,display:'block',marginBottom:6,fontWeight:500}}>
+            {modalFoods.length>0 ? `Your saved ${form.type}s` : `No saved ${form.type}s yet`}
+          </label>
+          {modalFoods.length>0 && (<>
+            {savedFoods.filter(f=>f.type===form.type).length>6 && (<input type="text" value={search} onChange={e=>{setSearch(e.target.value);if(form.food&&!e.target.value)setForm(f=>({...f,food:''}));}} placeholder={`Search ${form.type}s...`} style={{width:'100%',padding:'9px 12px',borderRadius:10,border:`1px solid ${TH.border}`,background:TH.input,color:TH.text,fontSize:13,fontFamily:'inherit',marginBottom:6,boxShadow:TH.glow}} />)}
+            <div style={{display:'flex',flexDirection:'column',gap:4,maxHeight:180,overflowY:'auto',marginBottom:4}}>
+              {modalFoods.map(f => (<button key={f._id} onClick={()=>{setForm(fm=>({...fm,food:f.name,remember:false}));setSearch('');}} style={{display:'flex',alignItems:'center',padding:'10px 12px',borderRadius:10,border:`1px solid ${form.food===f.name?TH.cyan:TH.border}`,background:form.food===f.name?'rgba(77,212,255,0.1)':TH.cardAlt,color:form.food===f.name?TH.cyan:TH.textSec,fontSize:13,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease',textAlign:'left'}}>{f.name}</button>))}
+            </div>
+          </>)}
+        </div>
 
-        {modalFoods.length>0 && (<div>
-          <div style={{fontSize:11,color:TH.textMuted,marginBottom:6,fontWeight:500}}>Suggestions</div>
-          <div style={{display:'flex',flexDirection:'column',gap:4,maxHeight:160,overflowY:'auto'}}>
-            {modalFoods.map(f => (<button key={f._id} onClick={()=>{setForm(fm=>({...fm,food:f.name}));setSearch('');}} style={{display:'flex',alignItems:'center',padding:'9px 12px',borderRadius:10,border:`1px solid ${form.food===f.name?TH.cyan:TH.border}`,background:form.food===f.name?'rgba(77,212,255,0.1)':TH.cardAlt,color:form.food===f.name?TH.cyan:TH.textSec,fontSize:13,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease',textAlign:'left'}}>{f.name}</button>))}</div>
-        </div>)}
+        <div style={{display:'flex',alignItems:'center',gap:8,margin:'2px 0'}}>
+          <div style={{flex:1,height:1,background:TH.border}} />
+          <span style={{fontSize:11,color:TH.textMuted,flexShrink:0}}>or type something new</span>
+          <div style={{flex:1,height:1,background:TH.border}} /></div>
 
-        <div style={{display:'flex',alignItems:'center',gap:10,padding:'4px 0'}}>
+        <div>
+          <input type="text" value={isNewFood?form.food:''} onChange={e=>{setForm(f=>({...f,food:e.target.value,remember:true}));setSearch('');}} placeholder={`New ${form.type} name...`} style={{width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${isNewFood?TH.cyan:TH.borderMed}`,background:TH.input,color:TH.text,fontSize:14,fontFamily:'inherit',boxShadow:isNewFood?`0 0 8px rgba(77,212,255,0.12)`:TH.glow}} /></div>
+
+        {isNewFood && (<div style={{display:'flex',alignItems:'center',gap:10,padding:'2px 0'}}>
           <button onClick={()=>setForm(f=>({...f,remember:!f.remember}))} style={{width:40,height:22,borderRadius:11,border:'none',background:form.remember?TH.cyan:'rgba(77,212,255,0.15)',cursor:'pointer',position:'relative',transition:'background 200ms ease'}}>
             <div style={{width:18,height:18,borderRadius:9,background:'#fff',position:'absolute',top:2,left:form.remember?20:2,transition:'left 200ms ease',boxShadow:'0 1px 3px rgba(0,0,0,0.3)'}} /></button>
-          <span style={{fontSize:13,color:form.remember?TH.text:TH.textMuted}}>Remember this {form.type}</span></div>
+          <span style={{fontSize:13,color:form.remember?TH.text:TH.textMuted}}>Remember this {form.type}</span></div>)}
 
         <Btn onClick={saveEntry} style={{opacity:form.food.trim()?1:0.4}}>Log {form.type}</Btn>
       </div>
-    </Modal>)}
+    </Modal>);})()}
 
     {/* ── ADD FOOD MODAL ── */}
     {modal==='addFood' && (<Modal title="Add a saved food" onClose={()=>setModal(null)}>
