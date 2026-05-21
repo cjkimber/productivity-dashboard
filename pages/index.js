@@ -108,7 +108,7 @@ const inputStyle = {
   padding:'9px',borderRadius:10,
   border:`1px solid ${TH.borderMed}`,
   background:TH.input,color:TH.text,fontSize:14,textAlign:'center',fontFamily:'inherit',
-  boxShadow:TH.glow,
+  boxShadow:TH.glow,width:'100%',minWidth:0,boxSizing:'border-box',
 };
 const cardStyle = {
   background:TH.card,borderRadius:TH.radiusSm,
@@ -117,13 +117,15 @@ const cardStyle = {
 };
 
 function CalendarGrid({ year,month,getCellStyle,onDayClick }) {
+  const [today,setToday] = useState('');
+  useEffect(() => { setToday(todayStr()); }, []);
   const days = getDaysInMonth(year,month);
   return (<div style={{ display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:5,marginBottom:'1.5rem' }}>
     {['M','T','W','T','F','S','S'].map((d,i) => (<div key={i} style={{ textAlign:'center',fontSize:11,color:TH.textMuted,paddingBottom:6,fontWeight:600 }}>{d}</div>))}
     {Array.from({ length:getMondayOffset(year,month) }).map((_,i) => <div key={`e${i}`} />)}
     {Array.from({ length:days },(_,i) => i+1).map(day => {
       const s = getCellStyle(day); const isSplit = !!s.splitBg;
-      const isToday = toDateStr(year,month,day) === todayStr();
+      const isToday = today && toDateStr(year,month,day) === today;
       return (<div key={day} onClick={() => onDayClick(day)}
         style={{ aspectRatio:'1',borderRadius:s.borderRadius||TH.radiusSm,border:s.border||'none',background:isSplit?'transparent':(s.background||TH.cardAlt),display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,color:s.color||TH.textMuted,fontWeight:s.fontWeight||500,cursor:'pointer',position:'relative',transition:'transform 150ms ease',overflow:'hidden',boxShadow:isToday?`0 0 0 2px ${TH.cyan}, 0 0 12px rgba(77,212,255,0.35)`:'none' }}>
         {isSplit && (<svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position:'absolute',inset:0,width:'100%',height:'100%' }}>
@@ -465,24 +467,24 @@ function SessionLogger({ session,onSave,onMoveInactive,inactive,allLogs }) {
       {exercises.length===0 && (<div style={{ textAlign:'center',padding:'2rem',color:TH.textMuted,fontSize:14 }}>No exercises added yet</div>)}
       {exercises.map((ex,exIdx) => {
         const prev = previousData[ex.name];
-        return (<div key={exIdx} style={{ marginBottom:'1.25rem',background:TH.card,borderRadius:TH.radiusSm,padding:'14px 16px',boxShadow:TH.shadowSm,border:`1px solid ${TH.border}`,position:'relative',overflow:'hidden' }}>
+        return (<div key={exIdx} style={{ marginBottom:'1.25rem',background:TH.card,borderRadius:TH.radiusSm,padding:'12px',boxShadow:TH.shadowSm,border:`1px solid ${TH.border}`,position:'relative',overflow:'hidden' }}>
           <div style={{ position:'absolute',top:0,left:0,right:0,height:1,background:`linear-gradient(90deg, transparent, ${TH.borderGlow}, transparent)` }} />
-          <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'0.75rem' }}>
-            <div style={{ display:'flex',alignItems:'center',gap:8 }}>
-              <div style={{ display:'flex',flexDirection:'column',gap:3 }}>
-                <button onClick={() => moveExercise(exIdx,-1)} disabled={exIdx===0} style={{ background:TH.cardAlt,border:`1px solid ${TH.border}`,borderRadius:5,padding:'6px 10px',fontSize:16,color:exIdx===0?TH.textMuted:TH.textSec,cursor:exIdx===0?'default':'pointer',lineHeight:'1' }}>▲</button>
-                <button onClick={() => moveExercise(exIdx,1)} disabled={exIdx===exercises.length-1} style={{ background:TH.cardAlt,border:`1px solid ${TH.border}`,borderRadius:5,padding:'6px 10px',fontSize:16,color:exIdx===exercises.length-1?TH.textMuted:TH.textSec,cursor:exIdx===exercises.length-1?'default':'pointer',lineHeight:'1' }}>▼</button></div>
-              <span style={{ fontWeight:600,fontSize:14,color:TH.text }}>{ex.name}</span></div>
-            <button onClick={() => moveToInactive(exIdx)} style={{ fontSize:11,color:TH.textMuted,background:'none',border:`1px solid ${TH.border}`,borderRadius:6,padding:'4px 8px',cursor:'pointer',fontFamily:'inherit' }}>Move to inactive</button></div>
-          <div style={{ display:'grid',gridTemplateColumns:'32px 1fr 1fr auto',gap:6,marginBottom:6 }}>
-            <div /><div style={{ fontSize:11,color:TH.textMuted,textAlign:'center',fontWeight:500 }}>Weight (kg)</div><div style={{ fontSize:11,color:TH.textMuted,textAlign:'center',fontWeight:500 }}>Reps</div><div /></div>
-          {ex.sets.map((set,setIdx) => (<div key={setIdx} style={{ display:'grid',gridTemplateColumns:'32px 1fr 1fr auto',gap:6,marginBottom:6,alignItems:'center' }}>
-            <div style={{ fontSize:12,color:TH.textMuted,textAlign:'center',fontWeight:500 }}>S{setIdx+1}</div>
+          <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'0.75rem',gap:8 }}>
+            <div style={{ display:'flex',alignItems:'center',gap:6,minWidth:0,flex:1 }}>
+              <div style={{ display:'flex',flexDirection:'column',gap:2,flexShrink:0 }}>
+                <button onClick={() => moveExercise(exIdx,-1)} disabled={exIdx===0} style={{ background:TH.cardAlt,border:`1px solid ${TH.border}`,borderRadius:4,padding:'4px 8px',fontSize:14,color:exIdx===0?TH.textMuted:TH.textSec,cursor:exIdx===0?'default':'pointer',lineHeight:'1' }}>▲</button>
+                <button onClick={() => moveExercise(exIdx,1)} disabled={exIdx===exercises.length-1} style={{ background:TH.cardAlt,border:`1px solid ${TH.border}`,borderRadius:4,padding:'4px 8px',fontSize:14,color:exIdx===exercises.length-1?TH.textMuted:TH.textSec,cursor:exIdx===exercises.length-1?'default':'pointer',lineHeight:'1' }}>▼</button></div>
+              <span style={{ fontWeight:600,fontSize:14,color:TH.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',minWidth:0 }}>{ex.name}</span></div>
+            <button onClick={() => moveToInactive(exIdx)} style={{ fontSize:10,color:TH.textMuted,background:'none',border:`1px solid ${TH.border}`,borderRadius:6,padding:'4px 6px',cursor:'pointer',fontFamily:'inherit',flexShrink:0,whiteSpace:'nowrap' }}>Inactive</button></div>
+          <div style={{ display:'grid',gridTemplateColumns:'26px 1fr 1fr 52px',gap:4,marginBottom:4 }}>
+            <div /><div style={{ fontSize:10,color:TH.textMuted,textAlign:'center',fontWeight:500 }}>Weight (kg)</div><div style={{ fontSize:10,color:TH.textMuted,textAlign:'center',fontWeight:500 }}>Reps</div><div /></div>
+          {ex.sets.map((set,setIdx) => (<div key={setIdx} style={{ display:'grid',gridTemplateColumns:'26px 1fr 1fr 52px',gap:4,marginBottom:5,alignItems:'center' }}>
+            <div style={{ fontSize:11,color:TH.textMuted,textAlign:'center',fontWeight:500 }}>S{setIdx+1}</div>
             <input type="number" value={set.weight} onChange={e => updateSet(exIdx,setIdx,'weight',e.target.value)} placeholder="kg" style={{ ...inputStyle }} />
             <input type="number" value={set.reps} onChange={e => updateSet(exIdx,setIdx,'reps',e.target.value)} placeholder="reps" style={{ ...inputStyle }} />
-            <div style={{ display:'flex',alignItems:'center',gap:4 }}>
-              <button onClick={() => copySetToNext(exIdx,setIdx)} title="Copy to next set" style={{ background:'rgba(77,212,255,0.08)',border:`1px solid ${TH.borderMed}`,color:TH.cyan,fontSize:14,fontWeight:700,cursor:'pointer',padding:'4px 7px',borderRadius:6,lineHeight:'1',fontFamily:'inherit' }}>+</button>
-              {ex.sets.length>1 && <button onClick={() => removeSet(exIdx,setIdx)} style={{ background:'none',border:'none',color:TH.textMuted,fontSize:16,cursor:'pointer',padding:'4px',lineHeight:'1' }}>×</button>}
+            <div style={{ display:'flex',alignItems:'center',justifyContent:'center',gap:2 }}>
+              <button onClick={() => copySetToNext(exIdx,setIdx)} title="Copy to next set" style={{ background:'rgba(77,212,255,0.08)',border:`1px solid ${TH.borderMed}`,color:TH.cyan,fontSize:13,fontWeight:700,cursor:'pointer',padding:'4px 6px',borderRadius:6,lineHeight:'1',fontFamily:'inherit' }}>+</button>
+              {ex.sets.length>1 && <button onClick={() => removeSet(exIdx,setIdx)} style={{ background:'none',border:'none',color:TH.textMuted,fontSize:15,cursor:'pointer',padding:'2px',lineHeight:'1' }}>×</button>}
             </div>
           </div>))}
           <button onClick={() => addSet(exIdx)} style={{ fontSize:12,color:TH.textMuted,background:'none',border:`1px dashed ${TH.borderMed}`,borderRadius:8,padding:'7px 12px',cursor:'pointer',width:'100%',marginTop:4,fontFamily:'inherit',fontWeight:500 }}>+ Add set</button>
@@ -606,6 +608,7 @@ function darkChartOpts(extra={}) {
 // ─── DEEP WORK TAB ──────────────────────────────────────────────────────────
 function DeepWorkTab({ year,month }) {
   const [data,setData]=useState([]); const [modal,setModal]=useState(null); const [form,setForm]=useState({minutes:'60',subject:'A'});
+  const [today,setToday]=useState(''); useEffect(()=>{setToday(todayStr());},[]);
   useEffect(()=>{fetchData();},[year,month]);
   async function fetchData(){const res=await fetch(`/api/deepwork?year=${year}&month=${month+1}`);setData(await res.json());}
   async function save(){const hours=parseFloat((parseInt(form.minutes)/60).toFixed(2));await fetch('/api/deepwork',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:modal,hours,subject:form.subject,replace:false})});setModal(null);fetchData();}
@@ -627,7 +630,7 @@ function DeepWorkTab({ year,month }) {
       {['M','T','W','T','F','S','S'].map((d,i)=>(<div key={i} style={{textAlign:'center',fontSize:11,color:TH.textMuted,paddingBottom:6,fontWeight:600}}>{d}</div>))}
       {Array.from({length:getMondayOffset(year,month)}).map((_,i)=><div key={`e${i}`}/>)}
       {Array.from({length:days},(_,i)=>i+1).map(day=>{
-        const dateStr=toDateStr(year,month,day);const{total,subTotals}=getDayTotals(dateStr);const{bg,text}=getHeatColor(total);const isToday=dateStr===todayStr();
+        const dateStr=toDateStr(year,month,day);const{total,subTotals}=getDayTotals(dateStr);const{bg,text}=getHeatColor(total);const isToday=today&&dateStr===today;
         return(<div key={day} onClick={()=>{setForm({minutes:'60',subject:'A'});setModal(dateStr);}} style={{aspectRatio:'1',borderRadius:TH.radiusSm,background:bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:text,position:'relative',cursor:'pointer',userSelect:'none',fontWeight:500,boxShadow:isToday?`0 0 0 2px ${TH.cyan}, 0 0 12px rgba(77,212,255,0.35)`:'none'}}>
           {day}{Object.keys(subTotals).length>0&&<span style={{position:'absolute',bottom:2,left:3,fontSize:8,fontWeight:700,color:text,opacity:0.85}}>{Object.keys(subTotals).sort().join('')}</span>}</div>);
       })}</div>
