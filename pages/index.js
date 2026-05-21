@@ -864,8 +864,8 @@ function NutritionSection() {
     setDetailDay(dateStr); setDetailMeals(await res.json());
   }
 
-  // Saved foods filtered for log modal (by selected type + search)
-  const modalFoods = savedFoods.filter(f => f.type===form.type && (!search || f.name.toLowerCase().includes(search.toLowerCase())));
+  // Saved foods filtered for log modal — only show when actively searching
+  const modalFoods = search.length >= 1 ? savedFoods.filter(f => f.type===form.type && f.name.toLowerCase().includes(search.toLowerCase())) : [];
 
   // Foods tab filtering
   const foodsMeals = savedFoods.filter(f => f.type==='meal');
@@ -1013,7 +1013,7 @@ function NutritionSection() {
           <input type="text" value={form.food} onChange={e=>{setForm(f=>({...f,food:e.target.value}));setSearch(e.target.value);}} placeholder="Type or select below..." autoFocus style={{width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:14,fontFamily:'inherit',boxShadow:TH.glow}} /></div>
 
         {modalFoods.length>0 && (<div>
-          <div style={{fontSize:11,color:TH.textMuted,marginBottom:6,fontWeight:500}}>Saved {form.type}s</div>
+          <div style={{fontSize:11,color:TH.textMuted,marginBottom:6,fontWeight:500}}>Suggestions</div>
           <div style={{display:'flex',flexDirection:'column',gap:4,maxHeight:160,overflowY:'auto'}}>
             {modalFoods.map(f => (<button key={f._id} onClick={()=>{setForm(fm=>({...fm,food:f.name}));setSearch('');}} style={{display:'flex',alignItems:'center',padding:'9px 12px',borderRadius:10,border:`1px solid ${form.food===f.name?TH.cyan:TH.border}`,background:form.food===f.name?'rgba(77,212,255,0.1)':TH.cardAlt,color:form.food===f.name?TH.cyan:TH.textSec,fontSize:13,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease',textAlign:'left'}}>{f.name}</button>))}</div>
         </div>)}
