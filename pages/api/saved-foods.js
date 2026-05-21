@@ -7,16 +7,17 @@ export default async function handler(req, res) {
   const col = db.collection('saved_foods');
 
   if (req.method === 'GET') {
-    const docs = await col.find({}).sort({ name: 1 }).toArray();
+    const docs = await col.find({}).sort({ type: 1, name: 1 }).toArray();
     return res.json(docs);
   }
 
   if (req.method === 'POST') {
-    const { name } = req.body;
+    const { name, type } = req.body;
     if (!name) return res.status(400).json({ error: 'Missing name' });
-    const existing = await col.findOne({ name: { $regex: `^${name}$`, $options: 'i' } });
+    const foodType = type || 'meal';
+    const existing = await col.findOne({ name: { $regex: `^${name}$`, $options: 'i' }, type: foodType });
     if (existing) return res.json({ success: true, id: existing._id, exists: true });
-    const result = await col.insertOne({ name, addedAt: new Date().toISOString() });
+    const result = await col.insertOne({ name, type: foodType, addedAt: new Date().toISOString() });
     return res.json({ success: true, id: result.insertedId });
   }
 
