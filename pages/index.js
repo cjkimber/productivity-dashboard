@@ -33,7 +33,7 @@ const TH = {
   pink:'#EC7487',
 };
 
-// ─── WORKOUT TYPES (Delts ↔ Rowing colors swapped) ─────────────────────────
+// ─── WORKOUT TYPES ─────────────────────────────────────────────────────────
 const WORKOUT_TYPES = [
   { key:'L',label:'Legs',color:'#EC7480',textColor:'#6B1D25',hasIntensity:true },
   { key:'B',label:'Back & Biceps',color:'#FFB069',textColor:'#5A3010',hasIntensity:true },
@@ -103,17 +103,11 @@ function SplitIcon({ size=30,radius=8 }) {
 }
 const TOP_SECTIONS = [{key:'gym',label:'GYM'},{key:'nutrition',label:'NUTRITION'},{key:'habits',label:'HABITS'}];
 
-// ─── SHARED STYLES ──────────────────────────────────────────────────────────
 const inputStyle = {
   padding:'9px',borderRadius:10,
   border:`1px solid ${TH.borderMed}`,
   background:TH.input,color:TH.text,fontSize:14,textAlign:'center',fontFamily:'inherit',
   boxShadow:TH.glow,width:'100%',minWidth:0,boxSizing:'border-box',
-};
-const cardStyle = {
-  background:TH.card,borderRadius:TH.radiusSm,
-  boxShadow:TH.shadowSm,border:`1px solid ${TH.border}`,
-  position:'relative',overflow:'hidden',
 };
 
 function CalendarGrid({ year,month,getCellStyle,onDayClick }) {
@@ -194,7 +188,6 @@ function GymCalendar({ year,month }) {
   function updateEditSet(exIdx,setIdx,field,value) { setEditSession(prev => ({...prev,exercises:prev.exercises.map((ex,i) => i!==exIdx?ex:{...ex,sets:ex.sets.map((s,j) => j!==setIdx?s:{...s,[field]:value})})})); }
   function addEditSet(exIdx) { setEditSession(prev => ({...prev,exercises:prev.exercises.map((ex,i) => i!==exIdx?ex:{...ex,sets:[...ex.sets,{weight:'',reps:''}]})})); }
   function startEditing() { setEditSession(prev => ({...prev,exercises:(prev.exercises||[]).map(ex => ({...ex,sets:(!ex.sets||ex.sets.length<3)?[...(ex.sets||[]),...Array.from({length:3-(ex.sets||[]).length},()=>({weight:'',reps:''}))]:ex.sets}))})); setEditing(true); }
-
   function closeModal() { setModal(null); setMoveMode(false); setMoveDate(''); }
   function closeDetailModal() { setDetailModal(null); setEditSession(null); setEditing(false); setMoveMode(false); setMoveDate(''); }
 
@@ -214,7 +207,6 @@ function GymCalendar({ year,month }) {
         {w.isSplit ? <SplitIcon size={12} radius={4} /> : <div style={{ width:12,height:12,borderRadius:4,background:w.color }} />}
         <span style={{ fontWeight:700,color:TH.text }}>{w.key}</span> {w.label}</div>))}
     </div>
-
     {modal && (<Modal title={`Log workout — ${fmtDate(modal)}`} onClose={closeModal}>
       <div style={{ display:'flex',flexDirection:'column',gap:12 }}>
         {!moveMode ? (<>
@@ -236,7 +228,7 @@ function GymCalendar({ year,month }) {
             <label style={{ fontSize:12,color:TH.textSec,display:'block',marginBottom:8,fontWeight:500 }}>Move workout to new date</label>
             <input type="date" value={moveDate} onChange={e => setMoveDate(e.target.value)} style={{ width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:16,fontFamily:'inherit',boxShadow:TH.glow }} />
             {moveDate && moveDate!==modal && (<div style={{ fontSize:12,color:TH.textSec,marginTop:8 }}>
-              Moving from {fmtDate(modal)} → {fmtDate(moveDate)}
+              Moving from {fmtDate(modal)} to {fmtDate(moveDate)}
               {logByDate[modal] && !logByDate[modal].noData && <div style={{ color:TH.cyan,marginTop:4 }}>Session data will also be moved</div>}
             </div>)}
           </div>
@@ -245,7 +237,6 @@ function GymCalendar({ year,month }) {
         </>)}
       </div>
     </Modal>)}
-
     {detailModal && editSession && (<Modal title={`Session — ${fmtDate(detailModal)}`} onClose={closeDetailModal}>
       {(() => {
         const wt = WORKOUT_TYPES.find(w => w.key===editSession.workoutType);
@@ -262,7 +253,7 @@ function GymCalendar({ year,month }) {
               const filledSets = ex.sets.filter(s=>s.reps||s.weight); if(filledSets.length===0) return null;
               return (<div key={exIdx} style={{ padding:'8px 0',borderBottom:`1px solid ${TH.border}` }}>
                 <div style={{ fontWeight:600,fontSize:13,color:TH.text,marginBottom:5 }}>{ex.name}</div>
-                <div style={{ display:'flex',flexWrap:'wrap',gap:6 }}>{filledSets.map((s,i) => <span key={i} style={{ background:TH.cardAlt,borderRadius:6,padding:'4px 10px',fontSize:12,color:TH.textSec,border:`1px solid ${TH.border}` }}>{s.reps} × {s.weight}kg</span>)}</div>
+                <div style={{ display:'flex',flexWrap:'wrap',gap:6 }}>{filledSets.map((s,i) => <span key={i} style={{ background:TH.cardAlt,borderRadius:6,padding:'4px 10px',fontSize:12,color:TH.textSec,border:`1px solid ${TH.border}` }}>{s.reps} x {s.weight}kg</span>)}</div>
               </div>);
             })}
             {editSession.sessionNotes && (<div style={{ padding:'8px 0',borderTop:`1px solid ${TH.border}`,marginTop:2 }}>
@@ -275,7 +266,7 @@ function GymCalendar({ year,month }) {
               <label style={{ fontSize:12,color:TH.textSec,display:'block',marginBottom:8,fontWeight:500 }}>Move workout to new date</label>
               <input type="date" value={moveDate} onChange={e => setMoveDate(e.target.value)} style={{ width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:16,fontFamily:'inherit',boxShadow:TH.glow }} />
               {moveDate && moveDate!==detailModal && (<div style={{ fontSize:12,color:TH.textSec,marginTop:8 }}>
-                Moving from {fmtDate(detailModal)} → {fmtDate(moveDate)}
+                Moving from {fmtDate(detailModal)} to {fmtDate(moveDate)}
                 <div style={{ color:TH.cyan,marginTop:4 }}>Session data will also be moved</div>
               </div>)}
             </div>
@@ -291,7 +282,7 @@ function GymCalendar({ year,month }) {
               {ex.sets.map((set,setIdx) => (<div key={setIdx} style={{ display:'flex',alignItems:'center',gap:6,marginBottom:5 }}>
                 <span style={{ fontSize:11,color:TH.textMuted,width:22,flexShrink:0 }}>S{setIdx+1}</span>
                 <input type="number" value={set.weight} onChange={e => updateEditSet(exIdx,setIdx,'weight',e.target.value)} style={{ width:52,padding:'5px 4px',borderRadius:8,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:13,textAlign:'center',fontFamily:'inherit',boxShadow:TH.glow }} />
-                <span style={{ fontSize:11,color:TH.textMuted }}>kg ×</span>
+                <span style={{ fontSize:11,color:TH.textMuted }}>kg x</span>
                 <input type="number" value={set.reps} onChange={e => updateEditSet(exIdx,setIdx,'reps',e.target.value)} style={{ width:44,padding:'5px 4px',borderRadius:8,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:13,textAlign:'center',fontFamily:'inherit',boxShadow:TH.glow }} />
                 <span style={{ fontSize:11,color:TH.textMuted }}>reps</span>
               </div>))}
@@ -312,15 +303,17 @@ function GymCalendar({ year,month }) {
 function GymLog() {
   const [workouts,setWorkouts] = useState([]); const [logged,setLogged] = useState([]); const [drafts,setDrafts] = useState([]);
   const [session,setSession] = useState(null); const [inactive,setInactive] = useState({}); const [exerciseOrder,setExerciseOrder] = useState({});
+  const [customExercises,setCustomExercises] = useState({});
   const [showInactive,setShowInactive] = useState(false); const [inactiveBodyPart,setInactiveBodyPart] = useState(null);
   useEffect(() => { loadAll(); }, []);
   async function loadAll() {
     const now = new Date(); const y=now.getFullYear(),m=now.getMonth()+1;
-    const [wRes,lRes,dRes,iRes,oRes] = await Promise.all([fetch(`/api/workouts?year=${y}&month=${m}`),fetch('/api/exercise-log'),fetch('/api/exercise-draft'),fetch('/api/inactive-exercises'),fetch('/api/exercise-order')]);
-    const [w,l,d,i,o] = await Promise.all([wRes.json(),lRes.json(),dRes.json(),iRes.json(),oRes.json()]);
+    const [wRes,lRes,dRes,iRes,oRes,cRes] = await Promise.all([fetch(`/api/workouts?year=${y}&month=${m}`),fetch('/api/exercise-log'),fetch('/api/exercise-draft'),fetch('/api/inactive-exercises'),fetch('/api/exercise-order'),fetch('/api/custom-exercises')]);
+    const [w,l,d,i,o,c] = await Promise.all([wRes.json(),lRes.json(),dRes.json(),iRes.json(),oRes.json(),cRes.json()]);
     setWorkouts(w); setLogged(l); setDrafts(d);
     const iMap = {}; i.forEach(x => { if(!iMap[x.bodyPart]) iMap[x.bodyPart]=[]; iMap[x.bodyPart].push(x); }); setInactive(iMap);
     const oMap = {}; o.forEach(x => { oMap[x.bodyPart] = x.exercises; }); setExerciseOrder(oMap);
+    const cMap = {}; c.forEach(x => { if(!cMap[x.bodyPart]) cMap[x.bodyPart]=[]; cMap[x.bodyPart].push(x); }); setCustomExercises(cMap);
   }
   const loggedDates = new Set(logged.map(l => l.date));
   const pending = workouts.filter(w => !loggedDates.has(w.date)).sort((a,b) => b.date.localeCompare(a.date));
@@ -331,7 +324,9 @@ function GymLog() {
     const wt = WORKOUT_TYPES.find(w => w.key===workout.type);
     const inactiveList = inactive[workout.type]||[]; const inactiveNames = inactiveList.map(i => i.exercise);
     const savedOrder = exerciseOrder[workout.type]; const defaultList = DEFAULT_EXERCISES[workout.type]||[];
-    let orderedList; if(savedOrder){const extras=defaultList.filter(ex=>!savedOrder.includes(ex));orderedList=[...savedOrder,...extras];}else{orderedList=defaultList;}
+    const customList = (customExercises[workout.type]||[]).map(c => c.exercise);
+    const allExercises = [...defaultList, ...customList.filter(e => !defaultList.includes(e))];
+    let orderedList; if(savedOrder){const extras=allExercises.filter(ex=>!savedOrder.includes(ex));orderedList=[...savedOrder,...extras];}else{orderedList=allExercises;}
     const activeExercises = orderedList.filter(ex => !inactiveNames.includes(ex));
     setSession({date:workout.date,workoutType:workout.type,workoutLabel:wt?.label||workout.type,intensity:null,exercises:activeExercises.map(name=>({name,sets:[{weight:'',reps:''},{weight:'',reps:''},{weight:'',reps:''}]}))});
   }
@@ -346,8 +341,9 @@ function GymLog() {
   async function moveToInactive(bodyPart,exercise) { await fetch('/api/inactive-exercises',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bodyPart,exercise})}); loadAll(); }
   async function restoreFromInactive(id) { await fetch('/api/inactive-exercises',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})}); loadAll(); }
   async function deleteInactive(id) { await fetch('/api/inactive-exercises',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,permanent:true})}); loadAll(); }
+  async function deleteCustomExercise(customId) { await fetch('/api/custom-exercises',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:customId})}); loadAll(); }
 
-  if(session){return <SessionLogger session={session} onSave={saveSession} onMoveInactive={moveToInactive} inactive={inactive} allLogs={logged} />;}
+  if(session){return <SessionLogger session={session} onSave={saveSession} onMoveInactive={moveToInactive} inactive={inactive} allLogs={logged} customExercises={customExercises} onCustomExerciseAdded={loadAll} />;}
   return (<div>
     <div style={{ fontSize:12,color:TH.textMuted,marginBottom:'1rem',fontWeight:500 }}>Workouts waiting to be logged</div>
     {pending.length===0 && <div style={{ textAlign:'center',padding:'2.5rem',color:TH.textMuted,fontSize:14 }}>No workouts waiting to be logged</div>}
@@ -368,22 +364,31 @@ function GymLog() {
     {showInactive && inactiveBodyPart && (<Modal title={`Inactive — ${WORKOUT_TYPES.find(w=>w.key===inactiveBodyPart)?.label}`} onClose={() => setShowInactive(false)}>
       <div style={{ display:'flex',flexDirection:'column',gap:8 }}>
         {(inactive[inactiveBodyPart]||[]).length===0 && <div style={{ color:TH.textMuted,fontSize:13 }}>No inactive exercises</div>}
-        {(inactive[inactiveBodyPart]||[]).map(ex => (<div key={ex._id} style={{ display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 12px',background:TH.cardAlt,borderRadius:8 }}>
-          <span style={{ fontSize:14,color:TH.text }}>{ex.exercise}</span>
-          <div style={{ display:'flex',gap:8 }}>
-            <Btn onClick={() => {restoreFromInactive(ex._id);setShowInactive(false);}} style={{ padding:'6px 12px',fontSize:12 }}>Add back</Btn>
-            <Btn onClick={() => deleteInactive(ex._id)} variant="danger" style={{ padding:'6px 12px',fontSize:12 }}>Delete</Btn></div>
-        </div>))}</div>
+        {(inactive[inactiveBodyPart]||[]).map(ex => {
+          const isCustom = (customExercises[inactiveBodyPart]||[]).some(c => c.exercise===ex.exercise);
+          const customDoc = isCustom ? (customExercises[inactiveBodyPart]||[]).find(c => c.exercise===ex.exercise) : null;
+          return (<div key={ex._id} style={{ display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 12px',background:TH.cardAlt,borderRadius:8 }}>
+            <span style={{ fontSize:14,color:TH.text }}>{ex.exercise}</span>
+            <div style={{ display:'flex',gap:8 }}>
+              <Btn onClick={() => {restoreFromInactive(ex._id);setShowInactive(false);}} style={{ padding:'6px 12px',fontSize:12 }}>Add back</Btn>
+              {isCustom && customDoc && <Btn onClick={async () => { await deleteInactive(ex._id); await deleteCustomExercise(customDoc._id); setShowInactive(false); }} variant="danger" style={{ padding:'6px 12px',fontSize:12 }}>Delete</Btn>}
+            </div>
+          </div>);
+        })}
+      </div>
     </Modal>)}
   </div>);
 }
 
-// ─── SESSION LOGGER (with + copy-set button) ────────────────────────────────
-function SessionLogger({ session,onSave,onMoveInactive,inactive,allLogs }) {
+// ─── SESSION LOGGER ──────────────────────────────────────────────────────────
+function SessionLogger({ session,onSave,onMoveInactive,inactive,allLogs,customExercises,onCustomExerciseAdded }) {
   const [exercises,setExercises] = useState(session.exercises||[]);
   const [intensity,setIntensity] = useState(session.intensity||'3');
   const [showInactive,setShowInactive] = useState(false);
   const [previousData,setPreviousData] = useState({});
+  const [showAddExercise,setShowAddExercise] = useState(false);
+  const [newExerciseName,setNewExerciseName] = useState('');
+  const [addingExercise,setAddingExercise] = useState(false);
   const wt = WORKOUT_TYPES.find(w => w.key===session.workoutType);
   const isRowingType = session.workoutType==='R'||session.workoutType==='KBR';
   const [rowingType,setRowingType] = useState(session.rowingType||'time');
@@ -412,19 +417,12 @@ function SessionLogger({ session,onSave,onMoveInactive,inactive,allLogs }) {
   function addSet(exIdx) { setExercises(prev => prev.map((ex,i) => i!==exIdx?ex:{...ex,sets:[...ex.sets,{weight:'',reps:''}]})); }
   function removeSet(exIdx,setIdx) { setExercises(prev => prev.map((ex,i) => i!==exIdx?ex:{...ex,sets:ex.sets.filter((_,j) => j!==setIdx)})); }
 
-  // ── NEW: Copy current set's data to the next set ──
   function copySetToNext(exIdx,setIdx) {
     setExercises(prev => prev.map((ex,i) => {
       if(i!==exIdx) return ex;
-      const currentSet = ex.sets[setIdx];
-      const nextIdx = setIdx + 1;
-      if(nextIdx < ex.sets.length) {
-        // Copy into existing next set
-        return {...ex, sets: ex.sets.map((s,j) => j===nextIdx ? {...s, weight:currentSet.weight, reps:currentSet.reps} : s)};
-      } else {
-        // Create a new set with copied values
-        return {...ex, sets: [...ex.sets, {weight:currentSet.weight, reps:currentSet.reps}]};
-      }
+      const currentSet = ex.sets[setIdx]; const nextIdx = setIdx+1;
+      if(nextIdx < ex.sets.length) { return {...ex,sets:ex.sets.map((s,j) => j===nextIdx?{...s,weight:currentSet.weight,reps:currentSet.reps}:s)}; }
+      else { return {...ex,sets:[...ex.sets,{weight:currentSet.weight,reps:currentSet.reps}]}; }
     }));
   }
 
@@ -435,6 +433,19 @@ function SessionLogger({ session,onSave,onMoveInactive,inactive,allLogs }) {
       fetch('/api/exercise-order',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bodyPart:session.workoutType,exercises:updated.map(ex=>ex.name)})});
       return updated; });
   }
+
+  async function addCustomExercise() {
+    const name = newExerciseName.trim();
+    if(!name) return;
+    setAddingExercise(true);
+    await fetch('/api/custom-exercises',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bodyPart:session.workoutType,exercise:name})});
+    setExercises(prev => [...prev,{name,sets:[{weight:'',reps:''},{weight:'',reps:''},{weight:'',reps:''}]}]);
+    const updatedNames = [...exercises.map(e=>e.name),name];
+    await fetch('/api/exercise-order',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bodyPart:session.workoutType,exercises:updatedNames})});
+    setNewExerciseName(''); setShowAddExercise(false); setAddingExercise(false);
+    if(onCustomExerciseAdded) onCustomExerciseAdded();
+  }
+
   function getSessionData() { return {date:session.date,workoutType:session.workoutType,workoutLabel:session.workoutLabel,intensity:wt?.hasIntensity?intensity:null,exercises:isRowingType?[]:exercises,rowingType:isRowingType?rowingType:null,rowingValue:isRowingType?rowingValue:null,sessionNotes}; }
   const inactiveList = inactive[session.workoutType]||[];
 
@@ -451,7 +462,7 @@ function SessionLogger({ session,onSave,onMoveInactive,inactive,allLogs }) {
     {isRowingType && (<div style={{ marginBottom:'1.5rem' }}>
       <div style={{ display:'flex',gap:8,marginBottom:12 }}>
         {['time','distance'].map(t => (<button key={t} onClick={() => setRowingType(t)} style={{ flex:1,padding:'11px',borderRadius:TH.radiusSm,border:`2px solid ${rowingType===t?'#9EF0DE':TH.border}`,background:rowingType===t?'rgba(158,240,222,0.12)':'transparent',color:rowingType===t?'#9EF0DE':TH.textMuted,fontWeight:600,cursor:'pointer',fontFamily:'inherit',fontSize:14,transition:'all 150ms ease',boxShadow:rowingType===t?'0 0 12px rgba(158,240,222,0.15)':'none' }}>
-          {t==='time'?'⏱ Time (mins)':'📏 Distance (m)'}</button>))}</div>
+          {t==='time'?'Time (mins)':'Distance (m)'}</button>))}</div>
       <input type="number" value={rowingValue} onChange={e => setRowingValue(e.target.value)} placeholder={rowingType==='time'?'Minutes rowed':'Metres rowed'} style={{ width:'100%',padding:'12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:16,fontFamily:'inherit',boxShadow:TH.glow }} />
     </div>)}
     {!isRowingType && (<>
@@ -484,16 +495,33 @@ function SessionLogger({ session,onSave,onMoveInactive,inactive,allLogs }) {
             <input type="number" value={set.reps} onChange={e => updateSet(exIdx,setIdx,'reps',e.target.value)} placeholder="reps" style={{ ...inputStyle }} />
             <div style={{ display:'flex',alignItems:'center',justifyContent:'center',gap:2 }}>
               <button onClick={() => copySetToNext(exIdx,setIdx)} title="Copy to next set" style={{ background:'rgba(77,212,255,0.08)',border:`1px solid ${TH.borderMed}`,color:TH.cyan,fontSize:13,fontWeight:700,cursor:'pointer',padding:'4px 6px',borderRadius:6,lineHeight:'1',fontFamily:'inherit' }}>+</button>
-              {ex.sets.length>1 && <button onClick={() => removeSet(exIdx,setIdx)} style={{ background:'none',border:'none',color:TH.textMuted,fontSize:15,cursor:'pointer',padding:'2px',lineHeight:'1' }}>×</button>}
+              {ex.sets.length>1 && <button onClick={() => removeSet(exIdx,setIdx)} style={{ background:'none',border:'none',color:TH.textMuted,fontSize:15,cursor:'pointer',padding:'2px',lineHeight:'1' }}>x</button>}
             </div>
           </div>))}
           <button onClick={() => addSet(exIdx)} style={{ fontSize:12,color:TH.textMuted,background:'none',border:`1px dashed ${TH.borderMed}`,borderRadius:8,padding:'7px 12px',cursor:'pointer',width:'100%',marginTop:4,fontFamily:'inherit',fontWeight:500 }}>+ Add set</button>
           {prev && (<div style={{ marginTop:10,padding:'8px 10px',background:TH.cardAlt,borderRadius:8,border:`1px solid ${TH.border}` }}>
             <div style={{ fontSize:11,color:TH.textMuted,marginBottom:4 }}>Last session — {fmtDate(prev.date)}</div>
-            <div style={{ display:'flex',flexWrap:'wrap',gap:6 }}>{prev.sets.filter(s=>s.reps||s.weight).map((s,i) => <span key={i} style={{ background:TH.input,border:`1px solid ${TH.border}`,borderRadius:5,padding:'3px 8px',fontSize:12,color:TH.textSec }}>{s.reps} × {s.weight}kg</span>)}</div>
+            <div style={{ display:'flex',flexWrap:'wrap',gap:6 }}>{prev.sets.filter(s=>s.reps||s.weight).map((s,i) => <span key={i} style={{ background:TH.input,border:`1px solid ${TH.border}`,borderRadius:5,padding:'3px 8px',fontSize:12,color:TH.textSec }}>{s.reps} x {s.weight}kg</span>)}</div>
           </div>)}
         </div>);
       })}
+      {!showAddExercise ? (
+        <button onClick={() => setShowAddExercise(true)} style={{ fontSize:13,color:TH.cyan,background:'rgba(77,212,255,0.06)',border:`1px dashed ${TH.borderMed}`,borderRadius:TH.radiusSm,padding:'12px',cursor:'pointer',width:'100%',marginBottom:'1rem',fontFamily:'inherit',fontWeight:600,transition:'all 150ms ease' }}>
+          + Add exercise
+        </button>
+      ) : (
+        <div style={{ background:TH.card,border:`1px solid ${TH.borderMed}`,borderRadius:TH.radiusSm,padding:'14px',marginBottom:'1rem' }}>
+          <div style={{ fontSize:12,color:TH.textSec,marginBottom:8,fontWeight:500 }}>New exercise name</div>
+          <input type="text" value={newExerciseName} onChange={e => setNewExerciseName(e.target.value)}
+            onKeyDown={e => { if(e.key==='Enter'&&newExerciseName.trim()) addCustomExercise(); if(e.key==='Escape'){setShowAddExercise(false);setNewExerciseName('');} }}
+            placeholder="e.g. Cable Flyes" autoFocus
+            style={{ width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:14,fontFamily:'inherit',boxShadow:TH.glow,marginBottom:10,boxSizing:'border-box' }} />
+          <div style={{ display:'flex',gap:8 }}>
+            <Btn onClick={addCustomExercise} style={{ flex:1,opacity:newExerciseName.trim()?1:0.4,padding:'10px' }}>{addingExercise?'Adding...':'Add'}</Btn>
+            <Btn onClick={() => {setShowAddExercise(false);setNewExerciseName('');}} variant="secondary" style={{ flex:1,padding:'10px' }}>Cancel</Btn>
+          </div>
+        </div>
+      )}
     </>)}
     <div style={{ marginTop:'1rem',marginBottom:'1rem' }}>
       <label style={{ fontSize:12,color:TH.textSec,display:'block',marginBottom:6,fontWeight:500 }}>Session notes</label>
@@ -514,16 +542,16 @@ function ExerciseHistory() {
   function renderRow(log) {
     const rowCardStyle = {padding:'14px 16px',background:TH.card,borderRadius:TH.radiusSm,marginBottom:8,boxShadow:TH.shadowSm,border:`1px solid ${TH.border}`,position:'relative',overflow:'hidden'};
     const isRowingType = log.workoutType==='R'||log.workoutType==='KBR';
-    if(filterType==='exercise'){const ex=(log.exercises||[]).find(e=>e.name===selectedEx);if(!ex)return null;return(<div key={log.date} style={rowCardStyle}><div style={{fontSize:12,color:TH.textMuted,marginBottom:6}}>{fmtDate(log.date)}</div><div style={{fontSize:13,fontWeight:600,marginBottom:6,color:TH.text}}>{ex.name}</div><div style={{display:'flex',flexWrap:'wrap',gap:6}}>{ex.sets.filter(s=>s.reps||s.weight).map((s,i)=><span key={i} style={{background:TH.cardAlt,border:`1px solid ${TH.border}`,borderRadius:6,padding:'4px 10px',fontSize:13,color:TH.textSec}}>{s.reps} reps × {s.weight}kg</span>)}</div></div>);}
+    if(filterType==='exercise'){const ex=(log.exercises||[]).find(e=>e.name===selectedEx);if(!ex)return null;return(<div key={log.date} style={rowCardStyle}><div style={{fontSize:12,color:TH.textMuted,marginBottom:6}}>{fmtDate(log.date)}</div><div style={{fontSize:13,fontWeight:600,marginBottom:6,color:TH.text}}>{ex.name}</div><div style={{display:'flex',flexWrap:'wrap',gap:6}}>{ex.sets.filter(s=>s.reps||s.weight).map((s,i)=><span key={i} style={{background:TH.cardAlt,border:`1px solid ${TH.border}`,borderRadius:6,padding:'4px 10px',fontSize:13,color:TH.textSec}}>{s.reps} reps x {s.weight}kg</span>)}</div></div>);}
     if(isRowingType) return(<div key={log.date} style={rowCardStyle}><div style={{fontSize:12,color:TH.textMuted,marginBottom:4}}>{fmtDate(log.date)}</div><div style={{fontSize:13,color:TH.text}}>{log.rowingType==='time'?`${log.rowingValue} minutes`:`${log.rowingValue} metres`}</div></div>);
-    return(<div key={log.date} style={rowCardStyle}><div style={{fontSize:12,color:TH.textMuted,marginBottom:8}}>{fmtDate(log.date)}</div>{(log.exercises||[]).map((ex,i)=>(<div key={i} style={{marginBottom:10}}><div style={{fontSize:13,fontWeight:600,marginBottom:4,color:TH.text}}>{ex.name}</div><div style={{display:'flex',flexWrap:'wrap',gap:6}}>{ex.sets.filter(s=>s.reps||s.weight).map((s,si)=><span key={si} style={{background:TH.cardAlt,border:`1px solid ${TH.border}`,borderRadius:6,padding:'4px 10px',fontSize:12,color:TH.textSec}}>{s.reps} reps × {s.weight}kg</span>)}</div></div>))}</div>);
+    return(<div key={log.date} style={rowCardStyle}><div style={{fontSize:12,color:TH.textMuted,marginBottom:8}}>{fmtDate(log.date)}</div>{(log.exercises||[]).map((ex,i)=>(<div key={i} style={{marginBottom:10}}><div style={{fontSize:13,fontWeight:600,marginBottom:4,color:TH.text}}>{ex.name}</div><div style={{display:'flex',flexWrap:'wrap',gap:6}}>{ex.sets.filter(s=>s.reps||s.weight).map((s,si)=><span key={si} style={{background:TH.cardAlt,border:`1px solid ${TH.border}`,borderRadius:6,padding:'4px 10px',fontSize:12,color:TH.textSec}}>{s.reps} reps x {s.weight}kg</span>)}</div></div>))}</div>);
   }
   return (<div>
     <div style={{display:'flex',gap:8,marginBottom:'1rem'}}>
       {[['exercise','By exercise'],['bodypart','By body part']].map(([k,l])=>(<button key={k} onClick={()=>setFilterType(k)} style={{flex:1,padding:'11px',borderRadius:TH.radiusSm,border:`2px solid ${filterType===k?TH.cyan:TH.border}`,background:filterType===k?'rgba(77,212,255,0.08)':'transparent',color:filterType===k?TH.cyan:TH.textMuted,fontWeight:600,cursor:'pointer',fontFamily:'inherit',fontSize:13,transition:'all 150ms ease'}}>{l}</button>))}
     </div>
     {filterType==='bodypart' && (<div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:'1rem'}}>
-      {WORKOUT_TYPES.map(w=>(<button key={w.key} onClick={()=>setSelectedBP(w.key)} style={{padding:'8px 12px',borderRadius:8,border:`2px solid ${selectedBP===w.key?(w.isSplit?'#B0A0F0':w.color):TH.border}`,background:selectedBP===w.key?(w.isSplit?'rgba(152,132,232,0.12)':w.color+'20'):'transparent',color:selectedBP===w.key?(w.isSplit?'#B0A0F0':w.color):TH.textMuted,fontSize:13,fontWeight:selectedBP===w.key?600:400,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease'}}>{w.key} — {w.label}</button>))}</div>)}
+      {WORKOUT_TYPES.map(w=>(<button key={w.key} onClick={()=>setSelectedBP(w.key)} style={{padding:'8px 12px',borderRadius:8,border:`2px solid ${selectedBP===w.key?(w.isSplit?'#B0A0F0':w.color):TH.border}`,background:selectedBP===w.key?(w.isSplit?'rgba(152,132,232,0.12)':w.color+'20'):'transparent',color:selectedBP===w.key?(w.isSplit?'#B0A0F0':w.color):TH.textMuted,fontSize:13,fontWeight:selectedBP===w.key?600:400,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease'}}>{w.key} - {w.label}</button>))}</div>)}
     {filterType==='exercise' && (<div style={{marginBottom:'1rem'}}><select value={selectedEx} onChange={e=>setSelectedEx(e.target.value)} style={{width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:14,fontFamily:'inherit',boxShadow:TH.glow}}><option value="">Select an exercise...</option>{allExercises.map(ex=><option key={ex} value={ex}>{ex}</option>)}</select></div>)}
     {filtered.length===0 && <div style={{textAlign:'center',padding:'2.5rem',color:TH.textMuted,fontSize:14}}>No data yet</div>}
     {filtered.map(log=>renderRow(log))}
@@ -589,9 +617,9 @@ function GymSection() {
     <div style={{display:'flex',gap:4,marginBottom:'1.5rem',background:TH.card,borderRadius:TH.radiusSm,padding:4,border:`1px solid ${TH.border}`}}>
       {GYM_TABS.map(t=>(<button key={t.key} onClick={()=>setTab(t.key)} style={{flex:1,padding:'10px 0',background:tab===t.key?TH.pink:'transparent',border:'none',borderRadius:10,color:tab===t.key?'#fff':TH.textMuted,fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease',boxShadow:tab===t.key?'0 0 12px rgba(236,116,135,0.3)':'none'}}>{t.label}</button>))}</div>
     {(tab==='calendar'||tab==='weight')&&(<div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'1.25rem'}}>
-      <button onClick={prevMonth} style={{background:TH.card,border:`1px solid ${TH.border}`,borderRadius:8,padding:'7px 16px',fontSize:16,color:TH.textSec,cursor:'pointer'}}>‹</button>
+      <button onClick={prevMonth} style={{background:TH.card,border:`1px solid ${TH.border}`,borderRadius:8,padding:'7px 16px',fontSize:16,color:TH.textSec,cursor:'pointer'}}>&#8249;</button>
       <span style={{fontWeight:700,fontSize:15,fontFamily:TH.heading,color:TH.text}}>{monthLabel}</span>
-      <button onClick={nextMonth} style={{background:TH.card,border:`1px solid ${TH.border}`,borderRadius:8,padding:'7px 16px',fontSize:16,color:TH.textSec,cursor:'pointer'}}>›</button></div>)}
+      <button onClick={nextMonth} style={{background:TH.card,border:`1px solid ${TH.border}`,borderRadius:8,padding:'7px 16px',fontSize:16,color:TH.textSec,cursor:'pointer'}}>&#8250;</button></div>)}
     {tab==='calendar'&&<GymCalendar year={year} month={month} />}
     {tab==='log'&&<GymLog />}
     {tab==='history'&&<ExerciseHistory />}
@@ -635,11 +663,11 @@ function DeepWorkTab({ year,month }) {
           {day}{Object.keys(subTotals).length>0&&<span style={{position:'absolute',bottom:2,left:3,fontSize:8,fontWeight:700,color:text,opacity:0.85}}>{Object.keys(subTotals).sort().join('')}</span>}</div>);
       })}</div>
     <div style={{display:'flex',flexWrap:'wrap',gap:12,marginBottom:8}}>
-      {[[HEAT.amber,'under 1.5h'],[HEAT.green1,'1.5–3h'],[HEAT.green2,'3h+']].map(([c,l])=>(<div key={l} style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:TH.textSec}}><div style={{width:12,height:12,borderRadius:4,background:c}}/>{l}</div>))}</div>
+      {[[HEAT.amber,'under 1.5h'],[HEAT.green1,'1.5-3h'],[HEAT.green2,'3h+']].map(([c,l])=>(<div key={l} style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:TH.textSec}}><div style={{width:12,height:12,borderRadius:4,background:c}}/>{l}</div>))}</div>
     <div style={{display:'flex',flexWrap:'wrap',gap:12,marginBottom:'1.5rem'}}>
       {Object.entries(DW_SUBJECTS).map(([k,l])=>(<div key={k} style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:TH.textSec}}><span style={{fontWeight:700,color:DW_COLORS[k],fontSize:13}}>{k}</span>{l}</div>))}</div>
     <div style={{display:'flex',flexDirection:'column',gap:'1.5rem',marginBottom:'1.5rem'}}>
-      {[{label:'Overall',color:TH.text,data:chartData},{label:'A — Ozzy Wizzpop',color:DW_COLORS.A,data:labels.map(d=>{const s=(byDate[toDateStr(year,month,d)]||[]).filter(x=>x.subject==='A');return s.reduce((t,x)=>t+x.hours,0)||null;})},{label:'B — Reading',color:DW_COLORS.B,data:labels.map(d=>{const s=(byDate[toDateStr(year,month,d)]||[]).filter(x=>x.subject==='B');return s.reduce((t,x)=>t+x.hours,0)||null;})},{label:'C — Magic study',color:DW_COLORS.C,data:labels.map(d=>{const s=(byDate[toDateStr(year,month,d)]||[]).filter(x=>x.subject==='C');return s.reduce((t,x)=>t+x.hours,0)||null;})}].map(({label,color,data:d})=>(
+      {[{label:'Overall',color:TH.text,data:chartData},{label:'A - Ozzy Wizzpop',color:DW_COLORS.A,data:labels.map(d=>{const s=(byDate[toDateStr(year,month,d)]||[]).filter(x=>x.subject==='A');return s.reduce((t,x)=>t+x.hours,0)||null;})},{label:'B - Reading',color:DW_COLORS.B,data:labels.map(d=>{const s=(byDate[toDateStr(year,month,d)]||[]).filter(x=>x.subject==='B');return s.reduce((t,x)=>t+x.hours,0)||null;})},{label:'C - Magic study',color:DW_COLORS.C,data:labels.map(d=>{const s=(byDate[toDateStr(year,month,d)]||[]).filter(x=>x.subject==='C');return s.reduce((t,x)=>t+x.hours,0)||null;})}].map(({label,color,data:d})=>(
         <div key={label}><div style={{fontSize:12,color:TH.textMuted,marginBottom:6,fontWeight:500}}>{label}</div>
           <div style={{height:120}}><Line data={{labels,datasets:[{data:d,borderColor:color,backgroundColor:color+'15',borderWidth:2,pointRadius:3,pointBackgroundColor:color,tension:0.35,fill:true,spanGaps:true}]}} options={darkChartOpts({yTicks:{callback:v=>v+'h'}})} /></div></div>))}</div>
     {allSessions.length>0&&(<div><div style={{fontSize:12,color:TH.textMuted,marginBottom:8,fontWeight:500}}>Session log</div>
@@ -650,11 +678,11 @@ function DeepWorkTab({ year,month }) {
             <span style={{width:26,height:26,borderRadius:7,background:DW_COLORS[s.subject]||'#888',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:11,fontWeight:700,boxShadow:`0 0 8px ${(DW_COLORS[s.subject]||'#888')}40`}}>{s.subject}</span>
             <div><div style={{fontSize:13,fontWeight:600,color:TH.text}}>{DW_SUBJECTS[s.subject]||s.subject}</div><div style={{fontSize:11,color:TH.textMuted}}>{s.date}</div></div></div>
           <div style={{fontSize:14,fontWeight:700,fontFamily:TH.heading,color:TH.text}}>{Math.round(s.hours*60)}m</div></div>))}</div></div>)}
-    {modal&&(<Modal title={`Log deep work — ${modal}`} onClose={()=>setModal(null)}>
+    {modal&&(<Modal title={`Log deep work - ${modal}`} onClose={()=>setModal(null)}>
       <div style={{display:'flex',flexDirection:'column',gap:12}}>
         {byDate[modal]&&byDate[modal].length>0&&(<div style={{background:TH.cardAlt,borderRadius:TH.radiusSm,padding:'10px 12px',border:`1px solid ${TH.border}`}}>
           <div style={{fontSize:12,color:TH.textMuted,marginBottom:6}}>Already logged today:</div>
-          {byDate[modal].map((s,i)=>(<div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:13,marginBottom:4}}><span><strong style={{color:DW_COLORS[s.subject]}}>{s.subject}</strong> <span style={{color:TH.textSec}}>— {DW_SUBJECTS[s.subject]}</span></span><span style={{color:TH.text,fontWeight:600}}>{Math.round(s.hours*60)}m</span></div>))}
+          {byDate[modal].map((s,i)=>(<div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:13,marginBottom:4}}><span><strong style={{color:DW_COLORS[s.subject]}}>{s.subject}</strong> <span style={{color:TH.textSec}}>- {DW_SUBJECTS[s.subject]}</span></span><span style={{color:TH.text,fontWeight:600}}>{Math.round(s.hours*60)}m</span></div>))}
           <div style={{fontSize:12,color:TH.textMuted,marginTop:4,borderTop:`1px solid ${TH.border}`,paddingTop:4}}>Total: {Math.round(byDate[modal].reduce((s,d)=>s+d.hours,0)*60)}m ({byDate[modal].reduce((s,d)=>s+d.hours,0).toFixed(1)}h)</div></div>)}
         <div><label style={{fontSize:12,color:TH.textSec,display:'block',marginBottom:4,fontWeight:500}}>Add minutes</label>
           <input type="number" min="1" max="480" value={form.minutes} onChange={e=>setForm(f=>({...f,minutes:e.target.value}))} placeholder="e.g. 45" style={{width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:16,fontFamily:'inherit',boxShadow:TH.glow}} />
@@ -680,7 +708,7 @@ function SwitchOffTab({ year,month }) {
   function getHeatColor(day){const entry=byDate[toDateStr(year,month,day)];if(!entry)return{bg:HEAT.none,text:HEAT.noneText};const mins=timeToMins(entry.time);if(mins<=19*60)return{bg:HEAT.green1,text:HEAT.green1Text};if(mins<=20*60)return{bg:HEAT.green1,text:HEAT.green1Text};if(mins<=21*60)return{bg:HEAT.amber,text:HEAT.amberText};return{bg:HEAT.red,text:HEAT.redText};}
   const hitTarget=data.filter(d=>timeToMins(d.time)<=19*60).length;
   const avgMins=data.length?Math.round(data.reduce((s,d)=>s+timeToMins(d.time),0)/data.length):null;
-  const avgStr=avgMins?`${Math.floor(avgMins/60)}:${pad(avgMins%60)}pm`:'—';
+  const avgStr=avgMins?`${Math.floor(avgMins/60)}:${pad(avgMins%60)}pm`:'--';
   const days=getDaysInMonth(year,month);const labels=Array.from({length:days},(_,i)=>i+1);
   const chartData=labels.map(d=>{const e=byDate[toDateStr(year,month,d)];return e?parseFloat((timeToMins(e.time)/60).toFixed(2)):null;});
   return (<div>
@@ -692,12 +720,12 @@ function SwitchOffTab({ year,month }) {
       getCellStyle={day=>{const{bg,text}=getHeatColor(day);return{background:bg,color:text,border:'none',borderRadius:TH.radiusSm,fontWeight:500};}}
       onDayClick={day=>{const e=byDate[toDateStr(year,month,day)];setTime(e?e.time:'19:00');setModal(toDateStr(year,month,day));}} />
     <div style={{display:'flex',flexWrap:'wrap',gap:12,marginBottom:'1.5rem'}}>
-      {[[HEAT.green1,'Hit target (≤7pm)'],[HEAT.green1,'7–8pm'],[HEAT.amber,'8–9pm'],[HEAT.red,'After 9pm']].map(([c,l],i)=>(<div key={i} style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:TH.textSec}}><div style={{width:12,height:12,borderRadius:4,background:c}}/>{l}</div>))}</div>
-    <div style={{fontSize:12,color:TH.textMuted,marginBottom:8,fontWeight:500}}>Switch-off time — trend</div>
+      {[[HEAT.green1,'Hit target (7pm)'],[HEAT.green1,'7-8pm'],[HEAT.amber,'8-9pm'],[HEAT.red,'After 9pm']].map(([c,l],i)=>(<div key={i} style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:TH.textSec}}><div style={{width:12,height:12,borderRadius:4,background:c}}/>{l}</div>))}</div>
+    <div style={{fontSize:12,color:TH.textMuted,marginBottom:8,fontWeight:500}}>Switch-off time - trend</div>
     <div style={{height:180}}>
       <Line data={{labels,datasets:[{data:chartData,borderColor:TH.pink,backgroundColor:'rgba(236,116,135,0.08)',borderWidth:2,pointRadius:3,tension:0.35,fill:true,spanGaps:true}]}}
         options={darkChartOpts({yMin:17,yMax:24,yTicks:{callback:v=>`${v}:00`},plugins:{tooltip:{callbacks:{label:(ctx)=>{const h=Math.floor(ctx.parsed.y);const m=Math.round((ctx.parsed.y-h)*60);return `${h}:${pad(m)}pm`;}}}}})} /></div>
-    {modal&&(<Modal title={`Log switch-off — ${fmtDate(modal)}`} onClose={()=>setModal(null)}>
+    {modal&&(<Modal title={`Log switch-off - ${fmtDate(modal)}`} onClose={()=>setModal(null)}>
       <div style={{display:'flex',flexDirection:'column',gap:12}}>
         <div><label style={{fontSize:12,color:TH.textSec,display:'block',marginBottom:4,fontWeight:500}}>Time you switched off</label>
           <input type="time" value={time} onChange={e=>setTime(e.target.value)} style={{width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:16,fontFamily:'inherit',boxShadow:TH.glow}} /></div>
@@ -718,15 +746,15 @@ function HabitsSection() {
     <div style={{display:'flex',gap:4,marginBottom:'1.5rem',background:TH.card,borderRadius:TH.radiusSm,padding:4,border:`1px solid ${TH.border}`}}>
       {HABITS_TABS.map(t=>(<button key={t.key} onClick={()=>setTab(t.key)} style={{flex:1,padding:'10px 0',background:tab===t.key?TH.pink:'transparent',border:'none',borderRadius:10,color:tab===t.key?'#fff':TH.textMuted,fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease',boxShadow:tab===t.key?'0 0 12px rgba(236,116,135,0.3)':'none'}}>{t.label}</button>))}</div>
     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'1.25rem'}}>
-      <button onClick={prevMonth} style={{background:TH.card,border:`1px solid ${TH.border}`,borderRadius:8,padding:'7px 16px',fontSize:16,color:TH.textSec,cursor:'pointer'}}>‹</button>
+      <button onClick={prevMonth} style={{background:TH.card,border:`1px solid ${TH.border}`,borderRadius:8,padding:'7px 16px',fontSize:16,color:TH.textSec,cursor:'pointer'}}>&#8249;</button>
       <span style={{fontWeight:700,fontSize:15,fontFamily:TH.heading,color:TH.text}}>{monthLabel}</span>
-      <button onClick={nextMonth} style={{background:TH.card,border:`1px solid ${TH.border}`,borderRadius:8,padding:'7px 16px',fontSize:16,color:TH.textSec,cursor:'pointer'}}>›</button></div>
+      <button onClick={nextMonth} style={{background:TH.card,border:`1px solid ${TH.border}`,borderRadius:8,padding:'7px 16px',fontSize:16,color:TH.textSec,cursor:'pointer'}}>&#8250;</button></div>
     {tab==='deepwork'&&<DeepWorkTab year={year} month={month} />}
     {tab==='switchoff'&&<SwitchOffTab year={year} month={month} />}
   </div>);
 }
 
-// ─── NUTRITION SECTION — INTERMITTENT FASTING TRACKER ───────────────────────
+// ─── NUTRITION SECTION ───────────────────────────────────────────────────────
 const WINDOW_HOURS = 8;
 const WINDOW_MINS = WINDOW_HOURS * 60;
 
@@ -736,65 +764,47 @@ function minsToLabel(m) { const h=Math.floor(m/60); const mm=m%60; return `${h>1
 function FastingRing({ meals }) {
   const [now,setNow] = useState(new Date());
   useEffect(() => { const iv = setInterval(() => setNow(new Date()), 30000); return () => clearInterval(iv); }, []);
-
   const sorted = [...meals].sort((a,b) => a.time.localeCompare(b.time));
-  const first = sorted[0];
-  const last = sorted[sorted.length - 1];
-
-  const size = 220; const cx = size/2; const cy = size/2; const r = 88; const sw = 10;
-  const circ = 2 * Math.PI * r;
-
+  const first = sorted[0]; const last = sorted[sorted.length-1];
+  const size=220; const cx=size/2; const cy=size/2; const r=88; const sw=10;
+  const circ=2*Math.PI*r;
   if (!first) {
     return (<div style={{display:'flex',flexDirection:'column',alignItems:'center',padding:'1rem 0 0.5rem'}}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
         <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(77,212,255,0.06)" strokeWidth={sw} />
         <text x={cx} y={cy-8} textAnchor="middle" fill={TH.textSec} fontSize={15} fontWeight={600} fontFamily={TH.heading}>8h window</text>
         <text x={cx} y={cy+12} textAnchor="middle" fill={TH.textMuted} fontSize={12}>Log first meal to start</text>
-      </svg>
-    </div>);
+      </svg></div>);
   }
-
-  const firstMins = timeToMinsN(first.time);
-  const nowMins = now.getHours() * 60 + now.getMinutes();
-  const elapsed = Math.max(nowMins - firstMins, 0);
-  const progress = Math.min(elapsed / WINDOW_MINS, 1);
-  const remaining = Math.max(WINDOW_MINS - elapsed, 0);
-  const windowOpen = elapsed < WINDOW_MINS;
-  const lastMins = timeToMinsN(last.time);
-  const withinWindow = (lastMins - firstMins) <= WINDOW_MINS;
-
+  const firstMins=timeToMinsN(first.time);
+  const nowMins=now.getHours()*60+now.getMinutes();
+  const elapsed=Math.max(nowMins-firstMins,0);
+  const progress=Math.min(elapsed/WINDOW_MINS,1);
+  const remaining=Math.max(WINDOW_MINS-elapsed,0);
+  const windowOpen=elapsed<WINDOW_MINS;
+  const lastMins=timeToMinsN(last.time);
+  const withinWindow=(lastMins-firstMins)<=WINDOW_MINS;
   let ringColor;
-  if (!windowOpen) ringColor = withinWindow ? '#34D399' : '#EF4444';
-  else if (progress < 0.6) ringColor = TH.cyan;
-  else if (progress < 0.85) ringColor = TH.purple;
-  else ringColor = TH.pink;
-
-  const offset = circ * (1 - progress);
-
-  const mealDots = sorted.map(meal => {
-    const mealMins = timeToMinsN(meal.time);
-    const mp = Math.min((mealMins - firstMins) / WINDOW_MINS, 1);
-    const angle = mp * 2 * Math.PI - Math.PI / 2;
-    return { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle), food: meal.food };
-  });
-
-  const rh = Math.floor(remaining / 60); const rm = remaining % 60;
-  const windowEnd = firstMins + WINDOW_MINS;
-
+  if(!windowOpen) ringColor=withinWindow?'#34D399':'#EF4444';
+  else if(progress<0.6) ringColor=TH.cyan;
+  else if(progress<0.85) ringColor=TH.purple;
+  else ringColor=TH.pink;
+  const offset=circ*(1-progress);
+  const mealDots=sorted.map(meal=>{const mealMins=timeToMinsN(meal.time);const mp=Math.min((mealMins-firstMins)/WINDOW_MINS,1);const angle=mp*2*Math.PI-Math.PI/2;return{x:cx+r*Math.cos(angle),y:cy+r*Math.sin(angle),food:meal.food};});
+  const rh=Math.floor(remaining/60); const rm=remaining%60;
+  const windowEnd=firstMins+WINDOW_MINS;
   return (<div style={{display:'flex',flexDirection:'column',alignItems:'center',padding:'1rem 0 0.5rem'}}>
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
       <defs><filter id="glow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
       <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(77,212,255,0.06)" strokeWidth={sw} />
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke={ringColor} strokeWidth={sw}
-        strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
-        transform={`rotate(-90 ${cx} ${cy})`} filter="url(#glow)" style={{transition:'stroke-dashoffset 1s ease, stroke 0.5s ease'}} />
-      {mealDots.map((dot,i) => <circle key={i} cx={dot.x} cy={dot.y} r={4.5} fill={ringColor} filter="url(#glow)" />)}
-      {windowOpen ? (<>
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke={ringColor} strokeWidth={sw} strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round" transform={`rotate(-90 ${cx} ${cy})`} filter="url(#glow)" style={{transition:'stroke-dashoffset 1s ease, stroke 0.5s ease'}} />
+      {mealDots.map((dot,i)=><circle key={i} cx={dot.x} cy={dot.y} r={4.5} fill={ringColor} filter="url(#glow)" />)}
+      {windowOpen?(<>
         <text x={cx} y={cy-12} textAnchor="middle" fill={TH.text} fontSize={28} fontWeight={800} fontFamily={TH.heading}>{rh}h {rm}m</text>
         <text x={cx} y={cy+10} textAnchor="middle" fill={TH.textSec} fontSize={12} fontWeight={500}>remaining</text>
         <text x={cx} y={cy+28} textAnchor="middle" fill={TH.textMuted} fontSize={11}>closes {minsToLabel(windowEnd)}</text>
-      </>) : (<>
-        <text x={cx} y={cy-8} textAnchor="middle" fill={ringColor} fontSize={20} fontWeight={800} fontFamily={TH.heading}>{withinWindow ? '✓ Done' : 'Over'}</text>
+      </>):(<>
+        <text x={cx} y={cy-8} textAnchor="middle" fill={ringColor} fontSize={20} fontWeight={800} fontFamily={TH.heading}>{withinWindow?'Done':'Over'}</text>
         <text x={cx} y={cy+12} textAnchor="middle" fill={TH.textSec} fontSize={12}>Window closed</text>
       </>)}
     </svg>
@@ -807,110 +817,60 @@ function FastingRing({ meals }) {
 }
 
 function NutritionSection() {
-  const now = new Date();
-  const [tab,setTab] = useState('today');
-  const [year,setYear] = useState(now.getFullYear()); const [month,setMonth] = useState(now.getMonth());
-  const [todayMeals,setTodayMeals] = useState([]);
-  const [monthData,setMonthData] = useState([]);
-  const [savedFoods,setSavedFoods] = useState([]);
-  const [modal,setModal] = useState(null); // 'log' | 'addFood'
-  const [form,setForm] = useState({food:'',time:'',remember:true,type:'meal'});
-  const [search,setSearch] = useState('');
-  const [addFoodForm,setAddFoodForm] = useState({name:'',type:'meal'});
-  const [detailDay,setDetailDay] = useState(null);
-  const [detailMeals,setDetailMeals] = useState([]);
-  const [foodsFilter,setFoodsFilter] = useState('all'); // 'all' | 'meal' | 'snack'
-
-  const todayDate = todayStr();
-
-  useEffect(() => { loadToday(); loadSaved(); }, []);
-  useEffect(() => { if(tab==='history') loadMonth(); }, [tab,year,month]);
-
-  async function loadToday() { const res = await fetch(`/api/nutrition?date=${todayDate}`); setTodayMeals(await res.json()); }
-  async function loadMonth() { const res = await fetch(`/api/nutrition?year=${year}&month=${month+1}`); setMonthData(await res.json()); }
-  async function loadSaved() { const res = await fetch('/api/saved-foods'); setSavedFoods(await res.json()); }
-
-  function openLogModal() {
-    const n = new Date();
-    setForm({food:'',time:`${pad(n.getHours())}:${pad(n.getMinutes())}`,remember:true,type:''});
-    setSearch(''); setModal('log');
-  }
-
-  async function saveEntry() {
-    if(!form.food.trim()||!form.time) return;
-    const entryType = form.type || 'meal';
+  const now=new Date();
+  const [tab,setTab]=useState('today');
+  const [year,setYear]=useState(now.getFullYear()); const [month,setMonth]=useState(now.getMonth());
+  const [todayMeals,setTodayMeals]=useState([]);
+  const [monthData,setMonthData]=useState([]);
+  const [savedFoods,setSavedFoods]=useState([]);
+  const [modal,setModal]=useState(null);
+  const [form,setForm]=useState({food:'',time:'',remember:true,type:'meal'});
+  const [search,setSearch]=useState('');
+  const [addFoodForm,setAddFoodForm]=useState({name:'',type:'meal'});
+  const [detailDay,setDetailDay]=useState(null);
+  const [detailMeals,setDetailMeals]=useState([]);
+  const [foodsFilter,setFoodsFilter]=useState('all');
+  const todayDate=todayStr();
+  useEffect(()=>{loadToday();loadSaved();},[]);
+  useEffect(()=>{if(tab==='history')loadMonth();},[tab,year,month]);
+  async function loadToday(){const res=await fetch(`/api/nutrition?date=${todayDate}`);setTodayMeals(await res.json());}
+  async function loadMonth(){const res=await fetch(`/api/nutrition?year=${year}&month=${month+1}`);setMonthData(await res.json());}
+  async function loadSaved(){const res=await fetch('/api/saved-foods');setSavedFoods(await res.json());}
+  function openLogModal(){const n=new Date();setForm({food:'',time:`${pad(n.getHours())}:${pad(n.getMinutes())}`,remember:true,type:''});setSearch('');setModal('log');}
+  async function saveEntry(){
+    if(!form.food.trim()||!form.time)return;
+    const entryType=form.type||'meal';
     await fetch('/api/nutrition',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:todayDate,time:form.time,food:form.food.trim(),type:entryType})});
-    if(form.remember) { await fetch('/api/saved-foods',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:form.food.trim(),type:entryType})}); loadSaved(); }
-    setModal(null); loadToday();
+    if(form.remember){await fetch('/api/saved-foods',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:form.food.trim(),type:entryType})});loadSaved();}
+    setModal(null);loadToday();
   }
-
-  async function deleteEntry(id) {
-    await fetch('/api/nutrition',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
-    loadToday(); if(tab==='history') loadMonth();
-  }
-
-  async function deleteSavedFood(id) {
-    await fetch('/api/saved-foods',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
-    loadSaved();
-  }
-
-  async function addSavedFood() {
-    if(!addFoodForm.name.trim()) return;
-    await fetch('/api/saved-foods',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:addFoodForm.name.trim(),type:addFoodForm.type})});
-    setAddFoodForm({name:'',type:addFoodForm.type}); setModal(null); loadSaved();
-  }
-
-  async function openDayDetail(dateStr) {
-    const res = await fetch(`/api/nutrition?date=${dateStr}`);
-    setDetailDay(dateStr); setDetailMeals(await res.json());
-  }
-
-  // Saved foods for selected type in log modal
-  const modalFoods = savedFoods.filter(f => f.type===form.type && (!search || f.name.toLowerCase().includes(search.toLowerCase())));
-
-  // Foods tab filtering
-  const foodsMeals = savedFoods.filter(f => f.type==='meal');
-  const foodsSnacks = savedFoods.filter(f => f.type==='snack');
-  const displayFoods = foodsFilter==='meal' ? foodsMeals : foodsFilter==='snack' ? foodsSnacks : savedFoods;
-
-  // History helpers
-  const byDate = {}; monthData.forEach(m => { if(!byDate[m.date]) byDate[m.date]=[]; byDate[m.date].push(m); });
-  function getDayStatus(dateStr) {
-    const meals = byDate[dateStr];
-    if(!meals||meals.length===0) return null;
-    const sorted = [...meals].sort((a,b) => a.time.localeCompare(b.time));
-    const span = timeToMinsN(sorted[sorted.length-1].time) - timeToMinsN(sorted[0].time);
-    return { meals:sorted.length, span, withinWindow: span <= WINDOW_MINS, first:sorted[0].time, last:sorted[sorted.length-1].time };
-  }
-  function getHistHeatColor(dateStr) {
-    const s = getDayStatus(dateStr);
-    if(!s) return {bg:HEAT.none,text:HEAT.noneText};
-    if(s.withinWindow) return {bg:HEAT.green1,text:HEAT.green1Text};
-    if(s.span <= (WINDOW_HOURS+1)*60) return {bg:HEAT.amber,text:HEAT.amberText};
-    return {bg:HEAT.red,text:HEAT.redText};
-  }
-
-  const daysInWindow = Object.keys(byDate).filter(d => getDayStatus(d)?.withinWindow).length;
-  const totalLogged = Object.keys(byDate).length;
-
+  async function deleteEntry(id){await fetch('/api/nutrition',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});loadToday();if(tab==='history')loadMonth();}
+  async function deleteSavedFood(id){await fetch('/api/saved-foods',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});loadSaved();}
+  async function addSavedFood(){if(!addFoodForm.name.trim())return;await fetch('/api/saved-foods',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:addFoodForm.name.trim(),type:addFoodForm.type})});setAddFoodForm({name:'',type:addFoodForm.type});setModal(null);loadSaved();}
+  async function openDayDetail(dateStr){const res=await fetch(`/api/nutrition?date=${dateStr}`);setDetailDay(dateStr);setDetailMeals(await res.json());}
+  const modalFoods=savedFoods.filter(f=>f.type===form.type&&(!search||f.name.toLowerCase().includes(search.toLowerCase())));
+  const foodsMeals=savedFoods.filter(f=>f.type==='meal');
+  const foodsSnacks=savedFoods.filter(f=>f.type==='snack');
+  const displayFoods=foodsFilter==='meal'?foodsMeals:foodsFilter==='snack'?foodsSnacks:savedFoods;
+  const byDate={};monthData.forEach(m=>{if(!byDate[m.date])byDate[m.date]=[];byDate[m.date].push(m);});
+  function getDayStatus(dateStr){const meals=byDate[dateStr];if(!meals||meals.length===0)return null;const sorted=[...meals].sort((a,b)=>a.time.localeCompare(b.time));const span=timeToMinsN(sorted[sorted.length-1].time)-timeToMinsN(sorted[0].time);return{meals:sorted.length,span,withinWindow:span<=WINDOW_MINS,first:sorted[0].time,last:sorted[sorted.length-1].time};}
+  function getHistHeatColor(dateStr){const s=getDayStatus(dateStr);if(!s)return{bg:HEAT.none,text:HEAT.noneText};if(s.withinWindow)return{bg:HEAT.green1,text:HEAT.green1Text};if(s.span<=(WINDOW_HOURS+1)*60)return{bg:HEAT.amber,text:HEAT.amberText};return{bg:HEAT.red,text:HEAT.redText};}
+  const daysInWindow=Object.keys(byDate).filter(d=>getDayStatus(d)?.withinWindow).length;
+  const totalLogged=Object.keys(byDate).length;
   function prevMonth(){if(month===0){setMonth(11);setYear(y=>y-1);}else setMonth(m=>m-1);}
   function nextMonth(){if(month===11){setMonth(0);setYear(y=>y+1);}else setMonth(m=>m+1);}
   const monthLabel=new Date(year,month).toLocaleString('default',{month:'long',year:'numeric'});
-
   const NUTR_TABS=[{key:'today',label:'Today'},{key:'foods',label:'Foods'},{key:'history',label:'History'}];
 
   return (<div>
     <div style={{display:'flex',gap:4,marginBottom:'1.5rem',background:TH.card,borderRadius:TH.radiusSm,padding:4,border:`1px solid ${TH.border}`}}>
       {NUTR_TABS.map(t=>(<button key={t.key} onClick={()=>setTab(t.key)} style={{flex:1,padding:'10px 0',background:tab===t.key?TH.pink:'transparent',border:'none',borderRadius:10,color:tab===t.key?'#fff':TH.textMuted,fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease',boxShadow:tab===t.key?'0 0 12px rgba(236,116,135,0.3)':'none'}}>{t.label}</button>))}</div>
 
-    {/* ── TODAY TAB ── */}
-    {tab==='today' && (<div>
+    {tab==='today'&&(<div>
       <FastingRing meals={todayMeals} />
-
       <Btn onClick={openLogModal} style={{width:'100%',fontSize:15,padding:'14px',marginTop:'1rem',marginBottom:'1.25rem'}}>+ Log food</Btn>
-
-      {todayMeals.length===0 && <div style={{textAlign:'center',padding:'1.5rem',color:TH.textMuted,fontSize:14}}>No meals logged today</div>}
-      {[...todayMeals].sort((a,b)=>a.time.localeCompare(b.time)).map((m,i) => (
+      {todayMeals.length===0&&<div style={{textAlign:'center',padding:'1.5rem',color:TH.textMuted,fontSize:14}}>No meals logged today</div>}
+      {[...todayMeals].sort((a,b)=>a.time.localeCompare(b.time)).map((m,i)=>(
         <div key={m._id||i} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 14px',background:TH.card,borderRadius:TH.radiusSm,marginBottom:6,border:`1px solid ${TH.border}`,position:'relative',overflow:'hidden'}}>
           <div style={{position:'absolute',top:0,left:0,right:0,height:1,background:`linear-gradient(90deg, transparent, ${TH.borderGlow}, transparent)`}} />
           <div style={{display:'flex',alignItems:'center',gap:10,minWidth:0,flex:1}}>
@@ -918,158 +878,126 @@ function NutritionSection() {
             <span style={{fontSize:14,color:TH.text,fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{m.food}</span>
             <span style={{fontSize:10,color:m.type==='snack'?TH.purple:TH.pink,fontWeight:600,flexShrink:0,textTransform:'uppercase',letterSpacing:'0.05em'}}>{m.type||'meal'}</span>
           </div>
-          <button onClick={()=>deleteEntry(m._id)} style={{background:'none',border:'none',color:TH.textMuted,fontSize:16,cursor:'pointer',padding:'4px 6px',flexShrink:0}}>×</button>
+          <button onClick={()=>deleteEntry(m._id)} style={{background:'none',border:'none',color:TH.textMuted,fontSize:16,cursor:'pointer',padding:'4px 6px',flexShrink:0}}>x</button>
         </div>
       ))}
     </div>)}
 
-    {/* ── FOODS TAB ── */}
-    {tab==='foods' && (<div>
+    {tab==='foods'&&(<div>
       <div style={{display:'flex',gap:6,marginBottom:'1rem'}}>
         {[['all','All'],['meal','Meals'],['snack','Snacks']].map(([k,l])=>(<button key={k} onClick={()=>setFoodsFilter(k)} style={{flex:1,padding:'9px',borderRadius:10,border:`2px solid ${foodsFilter===k?TH.cyan:TH.border}`,background:foodsFilter===k?'rgba(77,212,255,0.08)':'transparent',color:foodsFilter===k?TH.cyan:TH.textMuted,fontWeight:600,cursor:'pointer',fontFamily:'inherit',fontSize:13,transition:'all 150ms ease'}}>{l}{k==='meal'?` (${foodsMeals.length})`:k==='snack'?` (${foodsSnacks.length})`:` (${savedFoods.length})`}</button>))}
       </div>
-
-      {displayFoods.length===0 && <div style={{textAlign:'center',padding:'2rem',color:TH.textMuted,fontSize:14}}>
-        {savedFoods.length===0 ? 'No saved foods yet — log a meal with "Remember" on, or add below' : `No ${foodsFilter}s saved`}
-      </div>}
-
-      {foodsFilter==='all' && foodsMeals.length>0 && (<div style={{marginBottom:'1.25rem'}}>
+      {displayFoods.length===0&&<div style={{textAlign:'center',padding:'2rem',color:TH.textMuted,fontSize:14}}>{savedFoods.length===0?'No saved foods yet':'No '+foodsFilter+'s saved'}</div>}
+      {foodsFilter==='all'&&foodsMeals.length>0&&(<div style={{marginBottom:'1.25rem'}}>
         <div style={{fontSize:12,color:TH.pink,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:8}}>Meals ({foodsMeals.length})</div>
-        {foodsMeals.map(f => (<div key={f._id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 12px',background:TH.card,borderRadius:TH.radiusSm,marginBottom:4,border:`1px solid ${TH.border}`}}>
+        {foodsMeals.map(f=>(<div key={f._id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 12px',background:TH.card,borderRadius:TH.radiusSm,marginBottom:4,border:`1px solid ${TH.border}`}}>
           <span style={{fontSize:14,color:TH.text}}>{f.name}</span>
-          <button onClick={()=>deleteSavedFood(f._id)} style={{background:'none',border:'none',color:TH.textMuted,fontSize:16,cursor:'pointer',padding:'2px 6px'}}>×</button>
+          <button onClick={()=>deleteSavedFood(f._id)} style={{background:'none',border:'none',color:TH.textMuted,fontSize:16,cursor:'pointer',padding:'2px 6px'}}>x</button>
         </div>))}
       </div>)}
-
-      {foodsFilter==='all' && foodsSnacks.length>0 && (<div style={{marginBottom:'1.25rem'}}>
+      {foodsFilter==='all'&&foodsSnacks.length>0&&(<div style={{marginBottom:'1.25rem'}}>
         <div style={{fontSize:12,color:TH.purple,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:8}}>Snacks ({foodsSnacks.length})</div>
-        {foodsSnacks.map(f => (<div key={f._id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 12px',background:TH.card,borderRadius:TH.radiusSm,marginBottom:4,border:`1px solid ${TH.border}`}}>
+        {foodsSnacks.map(f=>(<div key={f._id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 12px',background:TH.card,borderRadius:TH.radiusSm,marginBottom:4,border:`1px solid ${TH.border}`}}>
           <span style={{fontSize:14,color:TH.text}}>{f.name}</span>
-          <button onClick={()=>deleteSavedFood(f._id)} style={{background:'none',border:'none',color:TH.textMuted,fontSize:16,cursor:'pointer',padding:'2px 6px'}}>×</button>
+          <button onClick={()=>deleteSavedFood(f._id)} style={{background:'none',border:'none',color:TH.textMuted,fontSize:16,cursor:'pointer',padding:'2px 6px'}}>x</button>
         </div>))}
       </div>)}
-
-      {foodsFilter!=='all' && displayFoods.map(f => (<div key={f._id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 12px',background:TH.card,borderRadius:TH.radiusSm,marginBottom:4,border:`1px solid ${TH.border}`}}>
+      {foodsFilter!=='all'&&displayFoods.map(f=>(<div key={f._id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 12px',background:TH.card,borderRadius:TH.radiusSm,marginBottom:4,border:`1px solid ${TH.border}`}}>
         <span style={{fontSize:14,color:TH.text}}>{f.name}</span>
-        <button onClick={()=>deleteSavedFood(f._id)} style={{background:'none',border:'none',color:TH.textMuted,fontSize:16,cursor:'pointer',padding:'2px 6px'}}>×</button>
+        <button onClick={()=>deleteSavedFood(f._id)} style={{background:'none',border:'none',color:TH.textMuted,fontSize:16,cursor:'pointer',padding:'2px 6px'}}>x</button>
       </div>))}
-
       <Btn onClick={()=>{setAddFoodForm({name:'',type:'meal'});setModal('addFood');}} variant="secondary" style={{width:'100%',marginTop:'0.5rem'}}>+ Add a food</Btn>
     </div>)}
 
-    {/* ── HISTORY TAB ── */}
-    {tab==='history' && (<div>
+    {tab==='history'&&(<div>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'1.25rem'}}>
-        <button onClick={prevMonth} style={{background:TH.card,border:`1px solid ${TH.border}`,borderRadius:8,padding:'7px 16px',fontSize:16,color:TH.textSec,cursor:'pointer'}}>‹</button>
+        <button onClick={prevMonth} style={{background:TH.card,border:`1px solid ${TH.border}`,borderRadius:8,padding:'7px 16px',fontSize:16,color:TH.textSec,cursor:'pointer'}}>&#8249;</button>
         <span style={{fontWeight:700,fontSize:15,fontFamily:TH.heading,color:TH.text}}>{monthLabel}</span>
-        <button onClick={nextMonth} style={{background:TH.card,border:`1px solid ${TH.border}`,borderRadius:8,padding:'7px 16px',fontSize:16,color:TH.textSec,cursor:'pointer'}}>›</button></div>
-
+        <button onClick={nextMonth} style={{background:TH.card,border:`1px solid ${TH.border}`,borderRadius:8,padding:'7px 16px',fontSize:16,color:TH.textSec,cursor:'pointer'}}>&#8250;</button></div>
       <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginBottom:'1.5rem'}}>
         <StatCard label="Days logged" value={totalLogged} sub="this month" />
         <StatCard label="In window" value={daysInWindow} sub={`of ${totalLogged}`} />
         <StatCard label="Window" value={`${WINDOW_HOURS}h`} sub="target" /></div>
-
       <CalendarGrid year={year} month={month}
         getCellStyle={day=>{const dateStr=toDateStr(year,month,day);const{bg,text}=getHistHeatColor(dateStr);const s=getDayStatus(dateStr);return{background:bg,color:text,border:'none',borderRadius:TH.radiusSm,fontWeight:500,bottomLabel:s?`${s.meals}`:''};}}
         onDayClick={day=>openDayDetail(toDateStr(year,month,day))} />
-
       <div style={{display:'flex',flexWrap:'wrap',gap:12,marginBottom:'1.5rem'}}>
-        {[[HEAT.green1,`≤ ${WINDOW_HOURS}h window`],[HEAT.amber,`${WINDOW_HOURS}–${WINDOW_HOURS+1}h`],[HEAT.red,`> ${WINDOW_HOURS+1}h`]].map(([c,l],i)=>(<div key={i} style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:TH.textSec}}><div style={{width:12,height:12,borderRadius:4,background:c}}/>{l}</div>))}</div>
-
-      {detailDay && (<div style={{background:TH.card,borderRadius:TH.radiusSm,padding:'14px',border:`1px solid ${TH.border}`,marginBottom:'1rem',position:'relative',overflow:'hidden'}}>
+        {[[HEAT.green1,`${WINDOW_HOURS}h window`],[HEAT.amber,`${WINDOW_HOURS}-${WINDOW_HOURS+1}h`],[HEAT.red,`over ${WINDOW_HOURS+1}h`]].map(([c,l],i)=>(<div key={i} style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:TH.textSec}}><div style={{width:12,height:12,borderRadius:4,background:c}}/>{l}</div>))}</div>
+      {detailDay&&(<div style={{background:TH.card,borderRadius:TH.radiusSm,padding:'14px',border:`1px solid ${TH.border}`,marginBottom:'1rem',position:'relative',overflow:'hidden'}}>
         <div style={{position:'absolute',top:0,left:0,right:0,height:1,background:`linear-gradient(90deg, transparent, ${TH.borderGlow}, transparent)`}} />
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
           <span style={{fontWeight:700,fontSize:14,fontFamily:TH.heading,color:TH.text}}>{fmtDate(detailDay)}</span>
-          <button onClick={()=>{setDetailDay(null);setDetailMeals([]);}} style={{background:'none',border:'none',color:TH.textMuted,fontSize:18,cursor:'pointer'}}>×</button></div>
-        {detailMeals.length===0 && <div style={{color:TH.textMuted,fontSize:13}}>No meals logged</div>}
-        {[...detailMeals].sort((a,b)=>a.time.localeCompare(b.time)).map((m,i) => (
+          <button onClick={()=>{setDetailDay(null);setDetailMeals([]);}} style={{background:'none',border:'none',color:TH.textMuted,fontSize:18,cursor:'pointer'}}>x</button></div>
+        {detailMeals.length===0&&<div style={{color:TH.textMuted,fontSize:13}}>No meals logged</div>}
+        {[...detailMeals].sort((a,b)=>a.time.localeCompare(b.time)).map((m,i)=>(
           <div key={m._id||i} style={{display:'flex',alignItems:'center',gap:10,padding:'6px 0',borderBottom:i<detailMeals.length-1?`1px solid ${TH.border}`:'none'}}>
             <span style={{fontSize:12,fontWeight:700,color:TH.cyan,fontFamily:TH.heading,flexShrink:0,width:60}}>{minsToLabel(timeToMinsN(m.time))}</span>
             <span style={{fontSize:13,color:TH.text,flex:1}}>{m.food}</span>
             <span style={{fontSize:10,color:m.type==='snack'?TH.purple:TH.pink,fontWeight:600,textTransform:'uppercase'}}>{m.type||'meal'}</span>
           </div>
         ))}
-        {(() => { const s=getDayStatus(detailDay); if(!s) return null; return (<div style={{marginTop:8,paddingTop:8,borderTop:`1px solid ${TH.border}`,fontSize:12,color:TH.textMuted}}>
-          Window: {minsToLabel(timeToMinsN(s.first))} – {minsToLabel(timeToMinsN(s.last))} ({Math.floor(s.span/60)}h {s.span%60}m)
-          {s.withinWindow ? <span style={{color:HEAT.green1,marginLeft:8}}>✓ Within {WINDOW_HOURS}h</span> : <span style={{color:HEAT.red,marginLeft:8}}>Over by {Math.floor((s.span-WINDOW_MINS)/60)}h {(s.span-WINDOW_MINS)%60}m</span>}
-        </div>); })()}
+        {(()=>{const s=getDayStatus(detailDay);if(!s)return null;return(<div style={{marginTop:8,paddingTop:8,borderTop:`1px solid ${TH.border}`,fontSize:12,color:TH.textMuted}}>
+          Window: {minsToLabel(timeToMinsN(s.first))} to {minsToLabel(timeToMinsN(s.last))} ({Math.floor(s.span/60)}h {s.span%60}m)
+          {s.withinWindow?<span style={{color:HEAT.green1,marginLeft:8}}>Within {WINDOW_HOURS}h</span>:<span style={{color:HEAT.red,marginLeft:8}}>Over by {Math.floor((s.span-WINDOW_MINS)/60)}h {(s.span-WINDOW_MINS)%60}m</span>}
+        </div>);})()}
       </div>)}
     </div>)}
 
-    {/* ── LOG FOOD MODAL ── */}
-    {modal==='log' && (()=>{
-      const isNewFood = form.food.trim() && !savedFoods.some(f => f.type===form.type && f.name.toLowerCase()===form.food.trim().toLowerCase());
-      return (<Modal title="Log food" onClose={()=>setModal(null)}>
+    {modal==='log'&&(()=>{
+      const isNewFood=form.food.trim()&&!savedFoods.some(f=>f.type===form.type&&f.name.toLowerCase()===form.food.trim().toLowerCase());
+      return(<Modal title="Log food" onClose={()=>setModal(null)}>
       <div style={{display:'flex',flexDirection:'column',gap:14}}>
-
-        <div>
-          <label style={{fontSize:12,color:TH.textSec,display:'block',marginBottom:4,fontWeight:500}}>Time</label>
+        <div><label style={{fontSize:12,color:TH.textSec,display:'block',marginBottom:4,fontWeight:500}}>Time</label>
           <input type="time" value={form.time} onChange={e=>setForm(f=>({...f,time:e.target.value}))} style={{width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:16,fontFamily:'inherit',boxShadow:TH.glow}} /></div>
-
         <div>
           <div style={{display:'flex',gap:8,marginBottom:form.type?10:0}}>
-            {[['meal','🍽 Meal'],['snack','🥜 Snack']].map(([k,l])=>(<button key={k} onClick={()=>{setForm(f=>({...f,type:f.type===k?'':k,food:''}));setSearch('');}} style={{flex:1,padding:'12px',borderRadius:TH.radiusSm,border:`2px solid ${form.type===k?(k==='meal'?TH.pink:TH.purple):TH.border}`,background:form.type===k?(k==='meal'?'rgba(236,116,135,0.12)':'rgba(139,92,246,0.12)'):'transparent',color:form.type===k?(k==='meal'?TH.pink:TH.purple):TH.textMuted,fontWeight:700,cursor:'pointer',fontFamily:'inherit',fontSize:14,transition:'all 150ms ease',boxShadow:form.type===k?`0 0 12px ${k==='meal'?'rgba(236,116,135,0.2)':'rgba(139,92,246,0.2)'}`:'none'}}>{l}</button>))}
+            {[['meal','Meal'],['snack','Snack']].map(([k,l])=>(<button key={k} onClick={()=>{setForm(f=>({...f,type:f.type===k?'':k,food:''}));setSearch('');}} style={{flex:1,padding:'12px',borderRadius:TH.radiusSm,border:`2px solid ${form.type===k?(k==='meal'?TH.pink:TH.purple):TH.border}`,background:form.type===k?(k==='meal'?'rgba(236,116,135,0.12)':'rgba(139,92,246,0.12)'):'transparent',color:form.type===k?(k==='meal'?TH.pink:TH.purple):TH.textMuted,fontWeight:700,cursor:'pointer',fontFamily:'inherit',fontSize:14,transition:'all 150ms ease',boxShadow:form.type===k?`0 0 12px ${k==='meal'?'rgba(236,116,135,0.2)':'rgba(139,92,246,0.2)'}`:'none'}}>{l}</button>))}
           </div>
-          {form.type && (<>
-            {modalFoods.length>0 ? (<>
-              {savedFoods.filter(f=>f.type===form.type).length>6 && (<input type="text" value={search} onChange={e=>setSearch(e.target.value)} placeholder={`Search...`} style={{width:'100%',padding:'8px 12px',borderRadius:10,border:`1px solid ${TH.border}`,background:TH.input,color:TH.text,fontSize:13,fontFamily:'inherit',marginBottom:6,boxShadow:TH.glow}} />)}
+          {form.type&&(<>
+            {modalFoods.length>0?(<>
+              {savedFoods.filter(f=>f.type===form.type).length>6&&(<input type="text" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search..." style={{width:'100%',padding:'8px 12px',borderRadius:10,border:`1px solid ${TH.border}`,background:TH.input,color:TH.text,fontSize:13,fontFamily:'inherit',marginBottom:6,boxShadow:TH.glow}} />)}
               <div style={{display:'flex',flexDirection:'column',gap:5,maxHeight:180,overflowY:'auto'}}>
-                {modalFoods.map(f => {
-                  const sel = form.food===f.name;
-                  return (<button key={f._id} onClick={()=>{setForm(fm=>({...fm,food:sel?'':f.name,remember:false}));setSearch('');}}
-                    style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'11px 14px',borderRadius:12,border:`1.5px solid ${sel?TH.cyan:TH.borderMed}`,background:sel?'rgba(77,212,255,0.08)':TH.input,color:sel?TH.text:TH.textSec,fontSize:14,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease',textAlign:'left',fontWeight:sel?600:400}}>
-                    <span>{f.name}</span>
-                    {sel && <span style={{fontSize:16,color:TH.cyan}}>✓</span>}
-                  </button>);
-                })}
+                {modalFoods.map(f=>{const sel=form.food===f.name;return(<button key={f._id} onClick={()=>{setForm(fm=>({...fm,food:sel?'':f.name,remember:false}));setSearch('');}}
+                  style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'11px 14px',borderRadius:12,border:`1.5px solid ${sel?TH.cyan:TH.borderMed}`,background:sel?'rgba(77,212,255,0.08)':TH.input,color:sel?TH.text:TH.textSec,fontSize:14,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease',textAlign:'left',fontWeight:sel?600:400}}>
+                  <span>{f.name}</span>{sel&&<span style={{fontSize:16,color:TH.cyan}}>✓</span>}
+                </button>);})}
               </div>
-            </>) : (<div style={{padding:'16px',textAlign:'center',color:TH.textMuted,fontSize:13,background:TH.input,borderRadius:12,border:`1px solid ${TH.border}`}}>No saved {form.type}s yet</div>)}
+            </>):(<div style={{padding:'16px',textAlign:'center',color:TH.textMuted,fontSize:13,background:TH.input,borderRadius:12,border:`1px solid ${TH.border}`}}>No saved {form.type}s yet</div>)}
           </>)}
         </div>
-
         <div style={{display:'flex',alignItems:'center',gap:8}}>
           <div style={{flex:1,height:1,background:TH.borderMed}} />
           <span style={{fontSize:11,color:TH.textMuted,flexShrink:0}}>or new</span>
           <div style={{flex:1,height:1,background:TH.borderMed}} /></div>
-
         <input type="text" value={isNewFood?form.food:''} onChange={e=>{setForm(f=>({...f,food:e.target.value,remember:true,type:f.type||'meal'}));setSearch('');}} placeholder="Type a new food..." style={{width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${isNewFood?TH.cyan:TH.borderMed}`,background:TH.input,color:TH.text,fontSize:14,fontFamily:'inherit',boxShadow:isNewFood?`0 0 8px rgba(77,212,255,0.15)`:TH.glow}} />
-
-        {isNewFood && (<div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+        {isNewFood&&(<div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
           <div style={{display:'flex',alignItems:'center',gap:8}}>
             <button onClick={()=>setForm(f=>({...f,remember:!f.remember}))} style={{width:36,height:20,borderRadius:10,border:'none',background:form.remember?TH.cyan:'rgba(77,212,255,0.15)',cursor:'pointer',position:'relative',transition:'background 200ms ease'}}>
               <div style={{width:16,height:16,borderRadius:8,background:'#fff',position:'absolute',top:2,left:form.remember?18:2,transition:'left 200ms ease',boxShadow:'0 1px 3px rgba(0,0,0,0.3)'}} /></button>
             <span style={{fontSize:12,color:form.remember?TH.text:TH.textMuted}}>Remember</span></div>
-          {form.remember && (<div style={{display:'flex',gap:4}}>
+          {form.remember&&(<div style={{display:'flex',gap:4}}>
             {[['meal','Meal'],['snack','Snack']].map(([k,l])=>(<button key={k} onClick={()=>setForm(f=>({...f,type:k}))} style={{padding:'4px 10px',borderRadius:6,border:`1px solid ${form.type===k?(k==='meal'?TH.pink:TH.purple):TH.border}`,background:'transparent',color:form.type===k?(k==='meal'?TH.pink:TH.purple):TH.textMuted,fontWeight:600,cursor:'pointer',fontFamily:'inherit',fontSize:11,transition:'all 150ms ease'}}>{l}</button>))}
           </div>)}
         </div>)}
+        <Btn onClick={saveEntry} style={{opacity:form.food.trim()?1:0.3,marginTop:2}}>{form.food.trim()?`Log ${form.food.trim()}`:'Log food'}</Btn>
+      </div></Modal>);})()}
 
-        <Btn onClick={saveEntry} style={{opacity:form.food.trim()?1:0.3,marginTop:2}}>
-          {form.food.trim() ? `Log ${form.food.trim()}` : 'Log food'}
-        </Btn>
-      </div>
-    </Modal>);})()}
-
-    {/* ── ADD FOOD MODAL ── */}
-    {modal==='addFood' && (<Modal title="Add a saved food" onClose={()=>setModal(null)}>
+    {modal==='addFood'&&(<Modal title="Add a saved food" onClose={()=>setModal(null)}>
       <div style={{display:'flex',flexDirection:'column',gap:12}}>
-        <div>
-          <label style={{fontSize:12,color:TH.textSec,display:'block',marginBottom:6,fontWeight:500}}>Type</label>
+        <div><label style={{fontSize:12,color:TH.textSec,display:'block',marginBottom:6,fontWeight:500}}>Type</label>
           <div style={{display:'flex',gap:8}}>
-            {[['meal','🍽 Meal'],['snack','🥜 Snack']].map(([k,l])=>(<button key={k} onClick={()=>setAddFoodForm(f=>({...f,type:k}))} style={{flex:1,padding:'11px',borderRadius:TH.radiusSm,border:`2px solid ${addFoodForm.type===k?(k==='meal'?TH.pink:TH.purple):TH.border}`,background:addFoodForm.type===k?(k==='meal'?'rgba(236,116,135,0.1)':'rgba(139,92,246,0.1)'):'transparent',color:addFoodForm.type===k?(k==='meal'?TH.pink:TH.purple):TH.textMuted,fontWeight:600,cursor:'pointer',fontFamily:'inherit',fontSize:14,transition:'all 150ms ease'}}>{l}</button>))}
+            {[['meal','Meal'],['snack','Snack']].map(([k,l])=>(<button key={k} onClick={()=>setAddFoodForm(f=>({...f,type:k}))} style={{flex:1,padding:'11px',borderRadius:TH.radiusSm,border:`2px solid ${addFoodForm.type===k?(k==='meal'?TH.pink:TH.purple):TH.border}`,background:addFoodForm.type===k?(k==='meal'?'rgba(236,116,135,0.1)':'rgba(139,92,246,0.1)'):'transparent',color:addFoodForm.type===k?(k==='meal'?TH.pink:TH.purple):TH.textMuted,fontWeight:600,cursor:'pointer',fontFamily:'inherit',fontSize:14,transition:'all 150ms ease'}}>{l}</button>))}
           </div></div>
-        <div>
-          <label style={{fontSize:12,color:TH.textSec,display:'block',marginBottom:4,fontWeight:500}}>Food name</label>
+        <div><label style={{fontSize:12,color:TH.textSec,display:'block',marginBottom:4,fontWeight:500}}>Food name</label>
           <input type="text" value={addFoodForm.name} onChange={e=>setAddFoodForm(f=>({...f,name:e.target.value}))} placeholder="e.g. Chicken curry" autoFocus style={{width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:14,fontFamily:'inherit',boxShadow:TH.glow}} /></div>
         <Btn onClick={addSavedFood} style={{opacity:addFoodForm.name.trim()?1:0.4}}>Save {addFoodForm.type}</Btn>
-      </div>
-    </Modal>)}
+      </div></Modal>)}
   </div>);
 }
 
 // ─── APP SHELL ──────────────────────────────────────────────────────────────
 export default function App() {
-  const [section,setSection] = useState('gym');
+  const [section,setSection]=useState('gym');
   return (<>
     <Head><title>Chris's Dashboard</title><meta name="viewport" content="width=device-width, initial-scale=1" /></Head>
     <div style={{maxWidth:600,margin:'0 auto',padding:'0 0 4rem',minHeight:'100vh'}}>
