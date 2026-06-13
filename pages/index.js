@@ -304,6 +304,7 @@ function GymCalendar({ year,month }) {
               <div style={{ fontSize:13,color:TH.textSec }}>{editSession.sessionNotes}</div></div>)}
             <Btn onClick={startEditing} variant="secondary" style={{ marginTop:4 }}>Edit session</Btn>
             <Btn onClick={() => {setMoveMode(true);setMoveDate(detailModal);}} variant="secondary">Move to different date</Btn>
+            {!byDate[detailModal]?.secondary && (<Btn onClick={() => { setDetailModal(null); setEditSession(null); setEditing(false); setModal(detailModal); setAddingSecondary(true); setForm({type:'L'}); }} variant="secondary">+ Add second workout</Btn>)}
           </>) : moveMode ? (<>
             <div>
               <label style={{ fontSize:12,color:TH.textSec,display:'block',marginBottom:8,fontWeight:500 }}>Move workout to new date</label>
