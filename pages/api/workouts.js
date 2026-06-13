@@ -15,17 +15,15 @@ export default async function handler(req, res) {
     return res.status(200).json(entries);
   }
   if (req.method === 'POST') {
-    const { date, type, intensity, secondary } = req.body;
+    const { date, type, intensity } = req.body;
     await collection.deleteOne({ date });
     const entry = { date, type, intensity: type === 'rowing' ? null : intensity };
-    if (secondary) entry.secondary = secondary;
     await collection.insertOne(entry);
     return res.status(201).json(entry);
   }
   if (req.method === 'DELETE') {
     const { date } = req.body;
     await collection.deleteOne({ date });
-    // Also clear any exercise log and draft entries for this date
     await db.collection('exercise_log').deleteOne({ date });
     await db.collection('exercise_draft').deleteOne({ date });
     return res.status(200).json({ deleted: true });
