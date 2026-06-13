@@ -394,7 +394,7 @@ function GymLog() {
   }
   async function saveSession(sessionData,complete) {
     if(complete){
-      await fetch('/api/exercise-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...sessionData,noData:false})});
+      await fetch('/api/exercise-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...sessionData,noData:sessionData.noData||false})});
       if(sessionData.intensity){await fetch('/api/workouts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:sessionData.date,type:sessionData.workoutType,intensity:sessionData.intensity})});}
       await fetch('/api/exercise-draft',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:sessionData.date,sessionSlot:sessionData.sessionSlot})});
       setSession(null); loadAll();
@@ -607,7 +607,8 @@ function SessionLogger({ session,onSave,onMoveInactive,inactive,allLogs,customEx
       <textarea value={sessionNotes} onChange={e => setSessionNotes(e.target.value)} placeholder="How did the session go?" rows={3} style={{ width:'100%',padding:'10px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:14,fontFamily:'inherit',resize:'vertical',boxShadow:TH.glow }} /></div>
     <div style={{ display:'flex',flexDirection:'column',gap:10 }}>
       <Btn onClick={() => onSave(getSessionData(),true)}>Complete & save session</Btn>
-      <Btn onClick={() => onSave(getSessionData(),false)} variant="secondary">Save progress & exit</Btn></div>
+      <Btn onClick={() => onSave(getSessionData(),false)} variant="secondary">Save progress & exit</Btn>
+      {isRowingType && <Btn onClick={() => onSave({...getSessionData(),noData:true},true)} variant="danger">No data</Btn>}</div>
   </div>);
 }
 
