@@ -376,10 +376,13 @@ function GymLog() {
   pending.sort((a,b) => b.date.localeCompare(a.date) || (a.isSecondary?1:-1));
 
   async function markNoData(workout) {
-    await fetch('/api/exercise-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:workout.date,workoutType:workout.type,noData:true,exercises:[],sessionSlot:workout.sessionSlot||'primary'})});
     if (workout.isSecondary) {
+      // For secondary: strip secondary from workouts doc and delete any existing log entry for it
       const w = workouts.find(x => x.date===workout.date);
       if (w) await fetch('/api/workouts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:w.date,type:w.type,intensity:w.intensity||null})});
+      await fetch('/api/exercise-log',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:workout.date,sessionSlot:'secondary'})});
+    } else {
+      await fetch('/api/exercise-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:workout.date,workoutType:workout.type,noData:true,exercises:[],sessionSlot:'primary'})});
     }
     loadAll();
   }
@@ -400,10 +403,13 @@ function GymLog() {
     if(complete){
       await fetch('/api/exercise-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...sessionData,noData:sessionData.noData||false})});
       if(sessionData.intensity){await fetch('/api/workouts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:sessionData.date,type:sessionData.workoutType,intensity:sessionData.intensity})});}
-      // If secondary no data from session logger, strip secondary from workouts doc so calendar reverts to solid colour
+      // If secondary no data, strip secondary from workouts doc so calendar reverts to solid colour
+      // and delete any stale log entry rather than inserting a noData record
       if(sessionData.noData && sessionData.sessionSlot==='secondary'){
         const w = workouts.find(x => x.date===sessionData.date);
         if(w) await fetch('/api/workouts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:w.date,type:w.type,intensity:w.intensity||null})});
+        await fetch('/api/exercise-log',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:sessionData.date,sessionSlot:'secondary'})});
+        setSession(null); loadAll(); return;
       }
       await fetch('/api/exercise-draft',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:sessionData.date,sessionSlot:sessionData.sessionSlot})});
       setSession(null); loadAll();
