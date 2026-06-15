@@ -110,6 +110,7 @@ const inputStyle = {
   boxShadow:TH.glow,width:'100%',minWidth:0,boxSizing:'border-box',
 };
 
+// ─── CALENDAR GRID — supports trophy overlay ─────────────────────────────────
 function CalendarGrid({ year,month,getCellStyle,onDayClick }) {
   const [today,setToday] = useState('');
   useEffect(() => { setToday(todayStr()); }, []);
@@ -124,10 +125,17 @@ function CalendarGrid({ year,month,getCellStyle,onDayClick }) {
         style={{ aspectRatio:'1',borderRadius:s.borderRadius||TH.radiusSm,border:s.border||'none',background:isSplit?'transparent':(s.background||TH.cardAlt),display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,color:s.color||TH.textMuted,fontWeight:s.fontWeight||500,cursor:'pointer',position:'relative',transition:'transform 150ms ease',overflow:'hidden',boxShadow:isToday?`0 0 0 2px ${TH.cyan}, 0 0 12px rgba(77,212,255,0.35)`:'none' }}>
         {isSplit && (<svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position:'absolute',inset:0,width:'100%',height:'100%' }}>
           <polygon points="0,0 100,0 0,100" fill={s.splitBg[0]} /><polygon points="100,0 100,100 0,100" fill={s.splitBg[1]} /></svg>)}
-        <span style={{ position:'relative',zIndex:1,textShadow:isSplit?'0 0 3px rgba(0,0,0,0.35)':'none' }}>{day}</span>
-        {s.letter && <span style={{ position:'absolute',bottom:2,left:3,fontSize:8,fontWeight:700,color:s.color,opacity:0.85,zIndex:1,textShadow:isSplit?'0 0 3px rgba(0,0,0,0.35)':'none' }}>{s.letter}</span>}
-        {s.intensity && <span style={{ position:'absolute',bottom:2,right:3,fontSize:8,fontWeight:700,color:s.color,opacity:0.85,zIndex:1 }}>{s.intensity}</span>}
-        {s.bottomLabel && <span style={{ position:'absolute',bottom:2,fontSize:8,fontWeight:600,color:s.color,opacity:0.85,zIndex:1 }}>{s.bottomLabel}</span>}
+        {s.trophy ? (
+          // Trophy fills the whole square
+          <span style={{ position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.6em',zIndex:2,lineHeight:1 }}>🏆</span>
+        ) : (
+          <>
+            <span style={{ position:'relative',zIndex:1,textShadow:isSplit?'0 0 3px rgba(0,0,0,0.35)':'none' }}>{day}</span>
+            {s.letter && <span style={{ position:'absolute',bottom:2,left:3,fontSize:8,fontWeight:700,color:s.color,opacity:0.85,zIndex:1,textShadow:isSplit?'0 0 3px rgba(0,0,0,0.35)':'none' }}>{s.letter}</span>}
+            {s.intensity && <span style={{ position:'absolute',bottom:2,right:3,fontSize:8,fontWeight:700,color:s.color,opacity:0.85,zIndex:1 }}>{s.intensity}</span>}
+            {s.bottomLabel && <span style={{ position:'absolute',bottom:2,fontSize:8,fontWeight:600,color:s.color,opacity:0.85,zIndex:1 }}>{s.bottomLabel}</span>}
+          </>
+        )}
       </div>);
     })}</div>);
 }
@@ -194,11 +202,14 @@ function GymCalendar({ year,month }) {
   return (<div>
     <CalendarGrid year={year} month={month}
       getCellStyle={day => {
-        const entry = byDate[toDateStr(year,month,day)];
+        const dateStr = toDateStr(year,month,day);
+        const entry = byDate[dateStr];
+        const log = logByDate[dateStr];
         if (!entry) return {border:`1px solid ${TH.border}`,color:TH.textMuted,borderRadius:TH.radiusSm};
         const wt = WORKOUT_TYPES.find(w => w.key===entry.type);
-        if (wt?.isSplit) return {splitBg:[wt.color,wt.color2],color:'#FFFFFF',borderRadius:TH.radiusSm,fontWeight:600,letter:entry.type,intensity:entry.intensity||null};
-        return {background:wt?.color||'#888',color:wt?.textColor||'#fff',borderRadius:TH.radiusSm,fontWeight:600,letter:entry.type,intensity:entry.intensity||null};
+        const isAM = log && log.am === true;
+        if (wt?.isSplit) return {splitBg:[wt.color,wt.color2],color:'#FFFFFF',borderRadius:TH.radiusSm,fontWeight:600,letter:entry.type,intensity:entry.intensity||null,trophy:isAM};
+        return {background:wt?.color||'#888',color:wt?.textColor||'#fff',borderRadius:TH.radiusSm,fontWeight:600,letter:entry.type,intensity:entry.intensity||null,trophy:isAM};
       }}
       onDayClick={day => openDay(day)}
     />
@@ -206,6 +217,7 @@ function GymCalendar({ year,month }) {
       {WORKOUT_TYPES.map(w => (<div key={w.key} style={{ display:'flex',alignItems:'center',gap:6,fontSize:12,color:TH.textSec }}>
         {w.isSplit ? <SplitIcon size={12} radius={4} /> : <div style={{ width:12,height:12,borderRadius:4,background:w.color }} />}
         <span style={{ fontWeight:700,color:TH.text }}>{w.key}</span> {w.label}</div>))}
+      <div style={{ display:'flex',alignItems:'center',gap:6,fontSize:12,color:TH.textSec }}><span>🏆</span> AM session</div>
     </div>
     {modal && (<Modal title={`Log workout — ${fmtDate(modal)}`} onClose={closeModal}>
       <div style={{ display:'flex',flexDirection:'column',gap:12 }}>
@@ -248,9 +260,10 @@ function GymCalendar({ year,month }) {
             {wt?.isSplit ? <SplitIcon size={30} radius={8} /> : <span style={{ background:wt?.color,color:wt?.textColor,borderRadius:8,fontSize:12,fontWeight:700,padding:'5px 12px' }}>{editSession.workoutType}</span>}
             <span style={{ fontWeight:700,fontSize:15,fontFamily:TH.heading,color:TH.text }}>{wt?.label}</span>
             {editSession.intensity && <span style={{ fontSize:12,color:TH.textSec }}>Intensity {editSession.intensity}</span>}
+            {editSession.am && <span style={{ fontSize:16 }}>🏆</span>}
           </div>
           {!editing && !moveMode ? (<>
-            {isRowingType && <div style={{ fontSize:14,color:TH.textSec,padding:'6px 0' }}>{editSession.rowingType==='time'?`${editSession.rowingValue} minutes`:`${editSession.rowingValue} metres`}</div>}
+            {isRowingType && <div style={{ fontSize:14,color:TH.textSec,padding:'6px 0' }}>{editSession.am ? '🏆 AM session' : 'No AM data'}</div>}
             {!isRowingType && (editSession.exercises||[]).map((ex,exIdx) => {
               const filledSets = ex.sets.filter(s=>s.reps||s.weight); if(filledSets.length===0) return null;
               return (<div key={exIdx} style={{ padding:'8px 0',borderBottom:`1px solid ${TH.border}` }}>
@@ -275,10 +288,16 @@ function GymCalendar({ year,month }) {
             <Btn onClick={() => {if(moveDate&&moveDate!==detailModal)moveWorkout(detailModal,moveDate);}} style={{ opacity:moveDate&&moveDate!==detailModal?1:0.4 }}>Confirm move</Btn>
             <Btn onClick={() => setMoveMode(false)} variant="secondary">Cancel</Btn>
           </>) : (<>
-            {isRowingType && (<div>
-              <div style={{ fontSize:12,color:TH.textSec,marginBottom:4 }}>{editSession.rowingType==='time'?'Time (minutes)':'Distance (metres)'}</div>
-              <input type="number" value={editSession.rowingValue||''} onChange={e => setEditSession(prev => ({...prev,rowingValue:e.target.value}))} style={{ width:'100%',padding:'8px',borderRadius:10,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:14,fontFamily:'inherit',boxShadow:TH.glow }} />
-            </div>)}
+            {isRowingType && (
+              <div style={{ padding:'12px',background:TH.cardAlt,borderRadius:TH.radiusSm,border:`1px solid ${TH.border}` }}>
+                <label style={{ fontSize:12,color:TH.textSec,display:'block',marginBottom:8,fontWeight:500 }}>AM session?</label>
+                <button onClick={() => setEditSession(prev => ({...prev,am:!prev.am}))}
+                  style={{ display:'flex',alignItems:'center',gap:10,width:'100%',padding:'12px 14px',borderRadius:TH.radiusSm,border:`2px solid ${editSession.am?'#FFD700':TH.border}`,background:editSession.am?'rgba(255,215,0,0.08)':TH.input,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease' }}>
+                  <span style={{ fontSize:22 }}>{editSession.am?'🏆':'⬜'}</span>
+                  <span style={{ fontSize:14,color:editSession.am?'#FFD700':TH.textMuted,fontWeight:editSession.am?600:400 }}>{editSession.am?'Yes — AM session':'No AM session'}</span>
+                </button>
+              </div>
+            )}
             {!isRowingType && (editSession.exercises||[]).map((ex,exIdx) => (<div key={exIdx} style={{ padding:'8px 0',borderBottom:`1px solid ${TH.border}` }}>
               <div style={{ fontWeight:600,fontSize:13,color:TH.text,marginBottom:6 }}>{ex.name}</div>
               {ex.sets.map((set,setIdx) => (<div key={setIdx} style={{ display:'flex',alignItems:'center',gap:6,marginBottom:5 }}>
@@ -290,8 +309,17 @@ function GymCalendar({ year,month }) {
               </div>))}
               <button onClick={() => addEditSet(exIdx)} style={{ fontSize:11,color:TH.textMuted,background:'none',border:`1px dashed ${TH.borderMed}`,borderRadius:8,padding:'5px 10px',cursor:'pointer',width:'100%',marginTop:3,fontFamily:'inherit' }}>+ Add set</button>
             </div>))}
-            {editSession.sessionNotes!==undefined && (<div><div style={{ fontSize:11,color:TH.textMuted,marginBottom:3 }}>Notes</div>
+            {!isRowingType && editSession.sessionNotes!==undefined && (<div><div style={{ fontSize:11,color:TH.textMuted,marginBottom:3 }}>Notes</div>
               <textarea value={editSession.sessionNotes||''} onChange={e => setEditSession(prev => ({...prev,sessionNotes:e.target.value}))} rows={2} style={{ width:'100%',padding:'8px',borderRadius:10,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:13,fontFamily:'inherit',resize:'vertical',boxShadow:TH.glow }} /></div>)}
+            {!isRowingType && (
+              <div style={{ display:'flex',alignItems:'center',gap:10,padding:'10px 12px',background:TH.cardAlt,borderRadius:TH.radiusSm,border:`1px solid ${TH.border}` }}>
+                <button onClick={() => setEditSession(prev => ({...prev,am:!prev.am}))}
+                  style={{ display:'flex',alignItems:'center',gap:8,background:'none',border:'none',cursor:'pointer',padding:0,fontFamily:'inherit' }}>
+                  <span style={{ fontSize:20 }}>{editSession.am?'🏆':'⬜'}</span>
+                  <span style={{ fontSize:13,color:editSession.am?'#FFD700':TH.textMuted,fontWeight:editSession.am?600:400 }}>AM session</span>
+                </button>
+              </div>
+            )}
             <Btn onClick={saveEditedSession}>Save changes</Btn>
             <Btn onClick={() => setEditing(false)} variant="secondary">Cancel</Btn>
           </>)}
@@ -302,8 +330,6 @@ function GymCalendar({ year,month }) {
 }
 
 // ─── GYM LOG ────────────────────────────────────────────────────────────────
-// Dual workout support: if a workout entry has a .secondary, both appear as
-// separate pending items in the log with a "(2nd)" label on the secondary.
 function GymLog() {
   const [workouts,setWorkouts] = useState([]); const [logged,setLogged] = useState([]); const [drafts,setDrafts] = useState([]);
   const [session,setSession] = useState(null); const [inactive,setInactive] = useState({}); const [exerciseOrder,setExerciseOrder] = useState({});
@@ -319,8 +345,6 @@ function GymLog() {
     const oMap = {}; o.forEach(x => { oMap[x.bodyPart] = x.exercises; }); setExerciseOrder(oMap);
     const cMap = {}; c.forEach(x => { if(!cMap[x.bodyPart]) cMap[x.bodyPart]=[]; cMap[x.bodyPart].push(x); }); setCustomExercises(cMap);
   }
-  // Build pending list — expand dual workouts into two separate pending items
-  // A logged entry with sessionSlot='secondary' covers the secondary workout
   const loggedDates = new Set(logged.map(l => l.date));
   const pending = workouts.filter(w => !loggedDates.has(w.date)).sort((a,b) => b.date.localeCompare(a.date));
 
@@ -338,7 +362,7 @@ function GymLog() {
     const allExercises = [...defaultList, ...customList.filter(e => !defaultList.includes(e))];
     let orderedList; if(savedOrder){const extras=allExercises.filter(ex=>!savedOrder.includes(ex));orderedList=[...savedOrder,...extras];}else{orderedList=allExercises;}
     const activeExercises = orderedList.filter(ex => !inactiveNames.includes(ex));
-    setSession({date:workout.date,workoutType:workout.type,workoutLabel:wt?.label||workout.type,intensity:null,exercises:activeExercises.map(name=>({name,sets:[{weight:'',reps:''},{weight:'',reps:''},{weight:'',reps:''}]}))});
+    setSession({date:workout.date,workoutType:workout.type,workoutLabel:wt?.label||workout.type,intensity:null,am:false,exercises:activeExercises.map(name=>({name,sets:[{weight:'',reps:''},{weight:'',reps:''},{weight:'',reps:''}]}))});
   }
   async function saveSession(sessionData,complete) {
     if(complete){
@@ -392,11 +416,10 @@ function GymLog() {
 }
 
 // ─── SESSION LOGGER ──────────────────────────────────────────────────────────
-// Change 1: addCustomExercise repositions new exercise below completed, above incomplete
-// Change 3: +/x button gap increased from 2 to 8
 function SessionLogger({ session,onSave,onMoveInactive,inactive,allLogs,customExercises,onCustomExerciseAdded }) {
   const [exercises,setExercises] = useState(session.exercises||[]);
   const [intensity,setIntensity] = useState(session.intensity||'3');
+  const [am,setAm] = useState(session.am||false);
   const [showInactive,setShowInactive] = useState(false);
   const [previousData,setPreviousData] = useState({});
   const [showAddExercise,setShowAddExercise] = useState(false);
@@ -420,11 +443,11 @@ function SessionLogger({ session,onSave,onMoveInactive,inactive,allLogs,customEx
   useEffect(() => {
     if(isFirstRender.current){isFirstRender.current=false;return;}
     const timer = setTimeout(() => {
-      const draftData = {date:session.date,workoutType:session.workoutType,workoutLabel:session.workoutLabel,intensity:wt?.hasIntensity?intensity:null,exercises:isRowingType?[]:exercises,rowingType:isRowingType?rowingType:null,rowingValue:isRowingType?rowingValue:null,sessionNotes};
+      const draftData = {date:session.date,workoutType:session.workoutType,workoutLabel:session.workoutLabel,intensity:wt?.hasIntensity?intensity:null,am,exercises:isRowingType?[]:exercises,rowingType:isRowingType?rowingType:null,rowingValue:isRowingType?rowingValue:null,sessionNotes};
       fetch('/api/exercise-draft',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(draftData)});
     }, 1500);
     return () => clearTimeout(timer);
-  }, [exercises,intensity,rowingType,rowingValue,sessionNotes]);
+  }, [exercises,intensity,am,rowingType,rowingValue,sessionNotes]);
 
   function isExerciseCompleted(ex) {
     return ex.sets.some(s => (s.weight && s.weight !== '') || (s.reps && s.reps !== ''));
@@ -451,7 +474,6 @@ function SessionLogger({ session,onSave,onMoveInactive,inactive,allLogs,customEx
       return updated; });
   }
 
-  // ── CHANGE 1: addCustomExercise repositions new exercise below completed, above incomplete ──
   async function addCustomExercise() {
     const name = newExerciseName.trim();
     if(!name) return;
@@ -459,7 +481,6 @@ function SessionLogger({ session,onSave,onMoveInactive,inactive,allLogs,customEx
     await fetch('/api/custom-exercises',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bodyPart:session.workoutType,exercise:name})});
     const newEx = {name,sets:[{weight:'',reps:''},{weight:'',reps:''},{weight:'',reps:''}]};
     setExercises(prev => {
-      // Insert new exercise after all completed exercises, before all incomplete
       const completed = prev.filter(ex => isExerciseCompleted(ex));
       const incomplete = prev.filter(ex => !isExerciseCompleted(ex));
       const reordered = [...completed, newEx, ...incomplete];
@@ -471,7 +492,7 @@ function SessionLogger({ session,onSave,onMoveInactive,inactive,allLogs,customEx
     if(onCustomExerciseAdded) onCustomExerciseAdded();
   }
 
-  function getSessionData() { return {date:session.date,workoutType:session.workoutType,workoutLabel:session.workoutLabel,intensity:wt?.hasIntensity?intensity:null,exercises:isRowingType?[]:exercises,rowingType:isRowingType?rowingType:null,rowingValue:isRowingType?rowingValue:null,sessionNotes}; }
+  function getSessionData() { return {date:session.date,workoutType:session.workoutType,workoutLabel:session.workoutLabel,intensity:wt?.hasIntensity?intensity:null,am,exercises:isRowingType?[]:exercises,rowingType:isRowingType?rowingType:null,rowingValue:isRowingType?rowingValue:null,sessionNotes}; }
   const inactiveList = inactive[session.workoutType]||[];
 
   return (<div>
@@ -479,17 +500,33 @@ function SessionLogger({ session,onSave,onMoveInactive,inactive,allLogs,customEx
       {wt?.isSplit ? <SplitIcon size={34} radius={8} /> : <span style={{ background:wt?.color,color:wt?.textColor,borderRadius:8,fontSize:12,fontWeight:700,padding:'5px 12px' }}>{session.workoutType}</span>}
       <div><div style={{ fontWeight:700,fontSize:18,fontFamily:TH.heading,color:TH.text }}>{session.workoutLabel}</div>
         <div style={{ fontSize:12,color:TH.textMuted }}>{fmtDate(session.date)}</div></div></div>
+
+    {/* AM checkbox — shown for ALL workout types */}
+    <div style={{ marginBottom:'1.5rem',padding:'14px 16px',background:TH.card,borderRadius:TH.radiusSm,border:`2px solid ${am?'#FFD700':TH.border}`,boxShadow:am?'0 0 16px rgba(255,215,0,0.15)':'none',transition:'all 200ms ease' }}>
+      <button onClick={() => setAm(a => !a)}
+        style={{ display:'flex',alignItems:'center',gap:12,background:'none',border:'none',cursor:'pointer',padding:0,fontFamily:'inherit',width:'100%' }}>
+        <span style={{ fontSize:28,lineHeight:1,transition:'transform 200ms ease',transform:am?'scale(1.15)':'scale(1)' }}>{am?'🏆':'⬜'}</span>
+        <div style={{ textAlign:'left' }}>
+          <div style={{ fontSize:14,fontWeight:700,color:am?'#FFD700':TH.textSec }}>{am?'AM session — nice work!':'Mark as AM session'}</div>
+          <div style={{ fontSize:11,color:TH.textMuted,marginTop:2 }}>Tap to toggle</div>
+        </div>
+      </button>
+    </div>
+
     {wt?.hasIntensity && (<div style={{ marginBottom:'1.5rem' }}>
       <label style={{ fontSize:12,color:TH.textSec,display:'block',marginBottom:8,fontWeight:500 }}>Intensity</label>
       <div style={{ display:'flex',gap:8 }}>
         {['1','2','3'].map(n => (<button key={n} onClick={() => setIntensity(n)} style={{ flex:1,padding:'11px',borderRadius:TH.radiusSm,border:`2px solid ${intensity===n?TH.pink:TH.border}`,background:intensity===n?TH.pink:'transparent',fontWeight:700,fontSize:16,color:intensity===n?'#fff':TH.textMuted,cursor:'pointer',fontFamily:TH.heading,transition:'all 150ms ease',boxShadow:intensity===n?'0 0 16px rgba(236,116,135,0.3)':'none' }}>{n}</button>))}
       </div></div>)}
-    {isRowingType && (<div style={{ marginBottom:'1.5rem' }}>
-      <div style={{ display:'flex',gap:8,marginBottom:12 }}>
-        {['time','distance'].map(t => (<button key={t} onClick={() => setRowingType(t)} style={{ flex:1,padding:'11px',borderRadius:TH.radiusSm,border:`2px solid ${rowingType===t?'#9EF0DE':TH.border}`,background:rowingType===t?'rgba(158,240,222,0.12)':'transparent',color:rowingType===t?'#9EF0DE':TH.textMuted,fontWeight:600,cursor:'pointer',fontFamily:'inherit',fontSize:14,transition:'all 150ms ease',boxShadow:rowingType===t?'0 0 12px rgba(158,240,222,0.15)':'none' }}>
-          {t==='time'?'Time (mins)':'Distance (m)'}</button>))}</div>
-      <input type="number" value={rowingValue} onChange={e => setRowingValue(e.target.value)} placeholder={rowingType==='time'?'Minutes rowed':'Metres rowed'} style={{ width:'100%',padding:'12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:16,fontFamily:'inherit',boxShadow:TH.glow }} />
-    </div>)}
+
+    {/* Rowing: only AM checkbox, no time/distance */}
+    {isRowingType && (
+      <div style={{ padding:'16px',background:TH.cardAlt,borderRadius:TH.radiusSm,border:`1px solid ${TH.border}`,marginBottom:'1.5rem',textAlign:'center' }}>
+        <div style={{ fontSize:13,color:TH.textMuted }}>Distance and time are tracked in your rowing app.</div>
+        <div style={{ fontSize:12,color:TH.textMuted,marginTop:4 }}>Just mark AM above if it was a morning session.</div>
+      </div>
+    )}
+
     {!isRowingType && (<>
       {inactiveList.length>0 && (<button onClick={() => setShowInactive(!showInactive)} style={{ fontSize:12,color:TH.textMuted,background:TH.cardAlt,border:`1px solid ${TH.border}`,borderRadius:8,padding:'7px 14px',cursor:'pointer',marginBottom:'1rem',fontFamily:'inherit',fontWeight:500 }}>
         {showInactive?'Hide':'View'} INACTIVE exercises ({inactiveList.length})</button>)}
@@ -518,7 +555,6 @@ function SessionLogger({ session,onSave,onMoveInactive,inactive,allLogs,customEx
             <div style={{ fontSize:11,color:TH.textMuted,textAlign:'center',fontWeight:500 }}>S{setIdx+1}</div>
             <input type="number" value={set.weight} onChange={e => updateSet(exIdx,setIdx,'weight',e.target.value)} placeholder="kg" style={{ ...inputStyle }} />
             <input type="number" value={set.reps} onChange={e => updateSet(exIdx,setIdx,'reps',e.target.value)} placeholder="reps" style={{ ...inputStyle }} />
-            {/* CHANGE 3: gap increased from 2 to 8 for breathing room between + and x buttons */}
             <div style={{ display:'flex',alignItems:'center',justifyContent:'center',gap:8 }}>
               <button onClick={() => copySetToNext(exIdx,setIdx)} title="Copy to next set" style={{ background:'rgba(77,212,255,0.08)',border:`1px solid ${TH.borderMed}`,color:TH.cyan,fontSize:13,fontWeight:700,cursor:'pointer',padding:'4px 6px',borderRadius:6,lineHeight:'1',fontFamily:'inherit' }}>+</button>
               {ex.sets.length>1 && <button onClick={() => removeSet(exIdx,setIdx)} style={{ background:'none',border:'none',color:TH.textMuted,fontSize:15,cursor:'pointer',padding:'2px',lineHeight:'1' }}>x</button>}
@@ -549,9 +585,9 @@ function SessionLogger({ session,onSave,onMoveInactive,inactive,allLogs,customEx
         </div>
       )}
     </>)}
-    <div style={{ marginTop:'1rem',marginBottom:'1rem' }}>
+    {!isRowingType && (<div style={{ marginTop:'1rem',marginBottom:'1rem' }}>
       <label style={{ fontSize:12,color:TH.textSec,display:'block',marginBottom:6,fontWeight:500 }}>Session notes</label>
-      <textarea value={sessionNotes} onChange={e => setSessionNotes(e.target.value)} placeholder="How did the session go?" rows={3} style={{ width:'100%',padding:'10px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:14,fontFamily:'inherit',resize:'vertical',boxShadow:TH.glow }} /></div>
+      <textarea value={sessionNotes} onChange={e => setSessionNotes(e.target.value)} placeholder="How did the session go?" rows={3} style={{ width:'100%',padding:'10px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:14,fontFamily:'inherit',resize:'vertical',boxShadow:TH.glow }} /></div>)}
     <div style={{ display:'flex',flexDirection:'column',gap:10 }}>
       <Btn onClick={() => onSave(getSessionData(),true)}>Complete & save session</Btn>
       <Btn onClick={() => onSave(getSessionData(),false)} variant="secondary">Save progress & exit</Btn></div>
@@ -568,9 +604,9 @@ function ExerciseHistory() {
   function renderRow(log) {
     const rowCardStyle = {padding:'14px 16px',background:TH.card,borderRadius:TH.radiusSm,marginBottom:8,boxShadow:TH.shadowSm,border:`1px solid ${TH.border}`,position:'relative',overflow:'hidden'};
     const isRowingType = log.workoutType==='R'||log.workoutType==='KBR';
-    if(filterType==='exercise'){const ex=(log.exercises||[]).find(e=>e.name===selectedEx);if(!ex)return null;return(<div key={log.date} style={rowCardStyle}><div style={{fontSize:12,color:TH.textMuted,marginBottom:6}}>{fmtDate(log.date)}</div><div style={{fontSize:13,fontWeight:600,marginBottom:6,color:TH.text}}>{ex.name}</div><div style={{display:'flex',flexWrap:'wrap',gap:6}}>{ex.sets.filter(s=>s.reps||s.weight).map((s,i)=><span key={i} style={{background:TH.cardAlt,border:`1px solid ${TH.border}`,borderRadius:6,padding:'4px 10px',fontSize:13,color:TH.textSec}}>{s.reps} reps x {s.weight}kg</span>)}</div></div>);}
-    if(isRowingType) return(<div key={log.date} style={rowCardStyle}><div style={{fontSize:12,color:TH.textMuted,marginBottom:4}}>{fmtDate(log.date)}</div><div style={{fontSize:13,color:TH.text}}>{log.rowingType==='time'?`${log.rowingValue} minutes`:`${log.rowingValue} metres`}</div></div>);
-    return(<div key={log.date} style={rowCardStyle}><div style={{fontSize:12,color:TH.textMuted,marginBottom:8}}>{fmtDate(log.date)}</div>{(log.exercises||[]).map((ex,i)=>(<div key={i} style={{marginBottom:10}}><div style={{fontSize:13,fontWeight:600,marginBottom:4,color:TH.text}}>{ex.name}</div><div style={{display:'flex',flexWrap:'wrap',gap:6}}>{ex.sets.filter(s=>s.reps||s.weight).map((s,si)=><span key={si} style={{background:TH.cardAlt,border:`1px solid ${TH.border}`,borderRadius:6,padding:'4px 10px',fontSize:12,color:TH.textSec}}>{s.reps} reps x {s.weight}kg</span>)}</div></div>))}</div>);
+    if(filterType==='exercise'){const ex=(log.exercises||[]).find(e=>e.name===selectedEx);if(!ex)return null;return(<div key={log.date} style={rowCardStyle}><div style={{fontSize:12,color:TH.textMuted,marginBottom:6}}>{fmtDate(log.date)}{log.am&&<span style={{marginLeft:8}}>🏆</span>}</div><div style={{fontSize:13,fontWeight:600,marginBottom:6,color:TH.text}}>{ex.name}</div><div style={{display:'flex',flexWrap:'wrap',gap:6}}>{ex.sets.filter(s=>s.reps||s.weight).map((s,i)=><span key={i} style={{background:TH.cardAlt,border:`1px solid ${TH.border}`,borderRadius:6,padding:'4px 10px',fontSize:13,color:TH.textSec}}>{s.reps} reps x {s.weight}kg</span>)}</div></div>);}
+    if(isRowingType) return(<div key={log.date} style={rowCardStyle}><div style={{fontSize:12,color:TH.textMuted,marginBottom:4}}>{fmtDate(log.date)}{log.am&&<span style={{marginLeft:8}}>🏆</span>}</div><div style={{fontSize:13,color:TH.text}}>{log.am?'AM session':'Session logged'}</div></div>);
+    return(<div key={log.date} style={rowCardStyle}><div style={{fontSize:12,color:TH.textMuted,marginBottom:8}}>{fmtDate(log.date)}{log.am&&<span style={{marginLeft:8}}>🏆</span>}</div>{(log.exercises||[]).map((ex,i)=>(<div key={i} style={{marginBottom:10}}><div style={{fontSize:13,fontWeight:600,marginBottom:4,color:TH.text}}>{ex.name}</div><div style={{display:'flex',flexWrap:'wrap',gap:6}}>{ex.sets.filter(s=>s.reps||s.weight).map((s,si)=><span key={si} style={{background:TH.cardAlt,border:`1px solid ${TH.border}`,borderRadius:6,padding:'4px 10px',fontSize:12,color:TH.textSec}}>{s.reps} reps x {s.weight}kg</span>)}</div></div>))}</div>);
   }
   return (<div>
     <div style={{display:'flex',gap:8,marginBottom:'1rem'}}>
