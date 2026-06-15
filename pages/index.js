@@ -141,7 +141,7 @@ function CalendarGrid({ year,month,getCellStyle,onDayClick }) {
 }
 
 // ─── GYM CALENDAR ───────────────────────────────────────────────────────────
-function GymCalendar({ year,month }) {
+function GymCalendar({ year,month,externalLogs }) {
   const [data,setData] = useState([]);
   const [logs,setLogs] = useState([]);
   const [modal,setModal] = useState(null);
@@ -153,6 +153,7 @@ function GymCalendar({ year,month }) {
   const [moveDate,setMoveDate] = useState('');
 
   useEffect(() => { refreshData(); }, [year,month]);
+  useEffect(() => { if(externalLogs) setLogs(externalLogs); }, [externalLogs]);
 
   const byDate = {}; data.forEach(d => { byDate[d.date] = d; });
   const logByDate = {}; logs.forEach(l => { logByDate[l.date] = l; });
@@ -161,6 +162,13 @@ function GymCalendar({ year,month }) {
     fetch(`/api/workouts?year=${year}&month=${month+1}`).then(r=>r.json()).then(setData);
     fetch('/api/exercise-log').then(r=>r.json()).then(setLogs);
   }
+
+  // Also refresh when tab becomes visible (catches saves from Log tab)
+  useEffect(() => {
+    function onFocus() { refreshData(); }
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [year, month]);
 
   async function save() {
     await fetch('/api/workouts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:modal,type:form.type,intensity:null})});
@@ -212,7 +220,7 @@ function GymCalendar({ year,month }) {
         const log = logByDate[dateStr];
         if (!entry) return {border:`1px solid ${TH.border}`,color:TH.textMuted,borderRadius:TH.radiusSm};
         const wt = WORKOUT_TYPES.find(w => w.key===entry.type);
-        const isAM = log && log.am === true;
+        const isAM = !!(log && log.am);
         if (wt?.isSplit) return {splitBg:[wt.color,wt.color2],color:'#FFFFFF',borderRadius:TH.radiusSm,fontWeight:600,letter:entry.type,intensity:entry.intensity||null,trophy:isAM};
         return {background:wt?.color||'#888',color:wt?.textColor||'#fff',borderRadius:TH.radiusSm,fontWeight:600,letter:entry.type,intensity:entry.intensity||null,trophy:isAM};
       }}
@@ -336,7 +344,7 @@ function GymCalendar({ year,month }) {
 }
 
 // ─── GYM LOG ────────────────────────────────────────────────────────────────
-function GymLog() {
+function GymLog({ onSessionSaved }) {
   const [workouts,setWorkouts] = useState([]); const [logged,setLogged] = useState([]); const [drafts,setDrafts] = useState([]);
   const [session,setSession] = useState(null); const [inactive,setInactive] = useState({}); const [exerciseOrder,setExerciseOrder] = useState({});
   const [customExercises,setCustomExercises] = useState({});
@@ -375,7 +383,7 @@ function GymLog() {
       await fetch('/api/exercise-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...sessionData,noData:false})});
       if(sessionData.intensity){await fetch('/api/workouts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:sessionData.date,type:sessionData.workoutType,intensity:sessionData.intensity})});}
       await fetch('/api/exercise-draft',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:sessionData.date})});
-      setSession(null); loadAll();
+      setSession(null); loadAll(); if(onSessionSaved) onSessionSaved();
     } else { await fetch('/api/exercise-draft',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(sessionData)}); setSession(null); loadAll(); }
   }
   async function moveToInactive(bodyPart,exercise) { await fetch('/api/inactive-exercises',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bodyPart,exercise})}); loadAll(); }
@@ -678,18 +686,23 @@ function WeightTab({ year,month }) {
 const GYM_TABS=[{key:'calendar',label:'Calendar'},{key:'log',label:'Log'},{key:'history',label:'History'},{key:'weight',label:'Weight'}];
 function GymSection() {
   const now=new Date(); const [tab,setTab]=useState('calendar'); const [year,setYear]=useState(now.getFullYear()); const [month,setMonth]=useState(now.getMonth());
+  const [logs,setLogs]=useState([]);
+
+  useEffect(()=>{ fetchLogs(); },[]);
+  async function fetchLogs(){ fetch('/api/exercise-log').then(r=>r.json()).then(setLogs); }
+
   function prevMonth(){if(month===0){setMonth(11);setYear(y=>y-1);}else setMonth(m=>m-1);}
   function nextMonth(){if(month===11){setMonth(0);setYear(y=>y+1);}else setMonth(m=>m+1);}
   const monthLabel=new Date(year,month).toLocaleString('default',{month:'long',year:'numeric'});
   return (<div>
     <div style={{display:'flex',gap:4,marginBottom:'1.5rem',background:TH.card,borderRadius:TH.radiusSm,padding:4,border:`1px solid ${TH.border}`}}>
-      {GYM_TABS.map(t=>(<button key={t.key} onClick={()=>setTab(t.key)} style={{flex:1,padding:'10px 0',background:tab===t.key?TH.pink:'transparent',border:'none',borderRadius:10,color:tab===t.key?'#fff':TH.textMuted,fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease',boxShadow:tab===t.key?'0 0 12px rgba(236,116,135,0.3)':'none'}}>{t.label}</button>))}</div>
+      {GYM_TABS.map(t=>(<button key={t.key} onClick={()=>{setTab(t.key);fetchLogs();}} style={{flex:1,padding:'10px 0',background:tab===t.key?TH.pink:'transparent',border:'none',borderRadius:10,color:tab===t.key?'#fff':TH.textMuted,fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease',boxShadow:tab===t.key?'0 0 12px rgba(236,116,135,0.3)':'none'}}>{t.label}</button>))}</div>
     {(tab==='calendar'||tab==='weight')&&(<div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'1.25rem'}}>
       <button onClick={prevMonth} style={{background:TH.card,border:`1px solid ${TH.border}`,borderRadius:8,padding:'7px 16px',fontSize:16,color:TH.textSec,cursor:'pointer'}}>&#8249;</button>
       <span style={{fontWeight:700,fontSize:15,fontFamily:TH.heading,color:TH.text}}>{monthLabel}</span>
       <button onClick={nextMonth} style={{background:TH.card,border:`1px solid ${TH.border}`,borderRadius:8,padding:'7px 16px',fontSize:16,color:TH.textSec,cursor:'pointer'}}>&#8250;</button></div>)}
-    {tab==='calendar'&&<GymCalendar year={year} month={month} />}
-    {tab==='log'&&<GymLog />}
+    {tab==='calendar'&&<GymCalendar year={year} month={month} externalLogs={logs} />}
+    {tab==='log'&&<GymLog onSessionSaved={fetchLogs} />}
     {tab==='history'&&<ExerciseHistory />}
     {tab==='weight'&&<WeightTab year={year} month={month} />}
   </div>);
