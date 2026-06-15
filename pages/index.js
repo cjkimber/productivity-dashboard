@@ -153,22 +153,14 @@ function GymCalendar({ year,month,externalLogs }) {
   const [moveDate,setMoveDate] = useState('');
 
   useEffect(() => { refreshData(); }, [year,month]);
-  useEffect(() => { if(externalLogs) setLogs(externalLogs); }, [externalLogs]);
 
   const byDate = {}; data.forEach(d => { byDate[d.date] = d; });
-  const logByDate = {}; logs.forEach(l => { logByDate[l.date] = l; });
+  const logByDate = {}; (externalLogs||logs).forEach(l => { logByDate[l.date] = l; });
 
   function refreshData() {
     fetch(`/api/workouts?year=${year}&month=${month+1}`).then(r=>r.json()).then(setData);
     fetch('/api/exercise-log').then(r=>r.json()).then(setLogs);
   }
-
-  // Also refresh when tab becomes visible (catches saves from Log tab)
-  useEffect(() => {
-    function onFocus() { refreshData(); }
-    window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
-  }, [year, month]);
 
   async function save() {
     await fetch('/api/workouts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:modal,type:form.type,intensity:null})});
