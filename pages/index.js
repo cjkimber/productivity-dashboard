@@ -187,6 +187,11 @@ function GymCalendar({ year,month }) {
     setDetailModal(null); setEditSession(null); setEditing(false);
     fetch('/api/exercise-log').then(r=>r.json()).then(setLogs);
   }
+  async function removeSession() {
+    if (!detailModal) return;
+    await fetch('/api/workouts',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:detailModal})});
+    setDetailModal(null); setEditSession(null); setEditing(false); refreshData();
+  }
   function openDay(day) {
     const dateStr = toDateStr(year,month,day);
     const entry = byDate[dateStr]; const log = logByDate[dateStr];
@@ -276,6 +281,7 @@ function GymCalendar({ year,month }) {
               <div style={{ fontSize:13,color:TH.textSec }}>{editSession.sessionNotes}</div></div>)}
             <Btn onClick={startEditing} variant="secondary" style={{ marginTop:4 }}>Edit session</Btn>
             <Btn onClick={() => {setMoveMode(true);setMoveDate(detailModal);}} variant="secondary">Move to different date</Btn>
+            <Btn onClick={removeSession} variant="danger">Remove session</Btn>
           </>) : moveMode ? (<>
             <div>
               <label style={{ fontSize:12,color:TH.textSec,display:'block',marginBottom:8,fontWeight:500 }}>Move workout to new date</label>
