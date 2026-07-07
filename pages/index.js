@@ -119,32 +119,46 @@ function CalendarGrid({ year,month,getCellStyle,onDayClick }) {
   const prevMonth = month===0?11:month-1;
   const prevYear = month===0?year-1:year;
   const prevMonthDays = getDaysInMonth(prevYear,prevMonth);
+  const nextMonth = month===11?0:month+1;
+  const nextYear = month===11?year+1:year;
   const trailOffset = (7 - ((leadOffset + days) % 7)) % 7;
-  const mutedCellStyle = { aspectRatio:'1',borderRadius:TH.radiusSm,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,color:TH.textMuted,opacity:0.35 };
+
+  function renderCell(key,day,dateStr,clickable) {
+    const s = getCellStyle(day,dateStr) || {}; const isSplit = !!s.splitBg;
+    const isToday = today && dateStr === today;
+    return (<div key={key} onClick={clickable?() => onDayClick(day):undefined}
+      style={{ aspectRatio:'1',borderRadius:s.borderRadius||TH.radiusSm,border:s.border||'none',background:isSplit?'transparent':(s.background||TH.cardAlt),display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,color:s.color||TH.textMuted,fontWeight:s.fontWeight||500,cursor:clickable?'pointer':'default',position:'relative',transition:'transform 150ms ease',overflow:'hidden',opacity:clickable?1:0.5,boxShadow:isToday?`0 0 0 2px ${TH.cyan}, 0 0 12px rgba(77,212,255,0.35)`:'none' }}>
+      {isSplit && (<svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position:'absolute',inset:0,width:'100%',height:'100%' }}>
+        <polygon points="0,0 100,0 0,100" fill={s.splitBg[0]} /><polygon points="100,0 100,100 0,100" fill={s.splitBg[1]} /></svg>)}
+      {s.trophy ? (
+        <span style={{ position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.6em',zIndex:2,lineHeight:1 }}>🏆</span>
+      ) : (
+        <>
+          <span style={{ position:'relative',zIndex:1,textShadow:isSplit?'0 0 3px rgba(0,0,0,0.35)':'none' }}>{day}</span>
+          {s.letter && <span style={{ position:'absolute',bottom:2,left:3,fontSize:8,fontWeight:700,color:s.color,opacity:0.85,zIndex:1,textShadow:isSplit?'0 0 3px rgba(0,0,0,0.35)':'none' }}>{s.letter}</span>}
+          {s.intensity && <span style={{ position:'absolute',bottom:2,right:3,fontSize:8,fontWeight:700,color:s.color,opacity:0.85,zIndex:1 }}>{s.intensity}</span>}
+          {s.bottomLabel && <span style={{ position:'absolute',bottom:2,fontSize:8,fontWeight:600,color:s.color,opacity:0.85,zIndex:1 }}>{s.bottomLabel}</span>}
+        </>
+      )}
+    </div>);
+  }
+
   return (<div style={{ display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:5,marginBottom:'1.5rem' }}>
     {['M','T','W','T','F','S','S'].map((d,i) => (<div key={i} style={{ textAlign:'center',fontSize:11,color:TH.textMuted,paddingBottom:6,fontWeight:600 }}>{d}</div>))}
-    {Array.from({ length:leadOffset }).map((_,i) => (<div key={`e${i}`} style={mutedCellStyle}>{prevMonthDays - leadOffset + i + 1}</div>))}
-    {Array.from({ length:days },(_,i) => i+1).map(day => {
-      const s = getCellStyle(day); const isSplit = !!s.splitBg;
-      const isToday = today && toDateStr(year,month,day) === today;
-      return (<div key={day} onClick={() => onDayClick(day)}
-        style={{ aspectRatio:'1',borderRadius:s.borderRadius||TH.radiusSm,border:s.border||'none',background:isSplit?'transparent':(s.background||TH.cardAlt),display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,color:s.color||TH.textMuted,fontWeight:s.fontWeight||500,cursor:'pointer',position:'relative',transition:'transform 150ms ease',overflow:'hidden',boxShadow:isToday?`0 0 0 2px ${TH.cyan}, 0 0 12px rgba(77,212,255,0.35)`:'none' }}>
-        {isSplit && (<svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position:'absolute',inset:0,width:'100%',height:'100%' }}>
-          <polygon points="0,0 100,0 0,100" fill={s.splitBg[0]} /><polygon points="100,0 100,100 0,100" fill={s.splitBg[1]} /></svg>)}
-        {s.trophy ? (
-          // Trophy fills the whole square
-          <span style={{ position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.6em',zIndex:2,lineHeight:1 }}>🏆</span>
-        ) : (
-          <>
-            <span style={{ position:'relative',zIndex:1,textShadow:isSplit?'0 0 3px rgba(0,0,0,0.35)':'none' }}>{day}</span>
-            {s.letter && <span style={{ position:'absolute',bottom:2,left:3,fontSize:8,fontWeight:700,color:s.color,opacity:0.85,zIndex:1,textShadow:isSplit?'0 0 3px rgba(0,0,0,0.35)':'none' }}>{s.letter}</span>}
-            {s.intensity && <span style={{ position:'absolute',bottom:2,right:3,fontSize:8,fontWeight:700,color:s.color,opacity:0.85,zIndex:1 }}>{s.intensity}</span>}
-            {s.bottomLabel && <span style={{ position:'absolute',bottom:2,fontSize:8,fontWeight:600,color:s.color,opacity:0.85,zIndex:1 }}>{s.bottomLabel}</span>}
-          </>
-        )}
-      </div>);
+    {Array.from({ length:leadOffset }).map((_,i) => {
+      const day = prevMonthDays - leadOffset + i + 1;
+      const dateStr = toDateStr(prevYear,prevMonth,day);
+      return renderCell(`e${i}`,day,dateStr,false);
     })}
-    {Array.from({ length:trailOffset }).map((_,i) => (<div key={`t${i}`} style={mutedCellStyle}>{i+1}</div>))}
+    {Array.from({ length:days },(_,i) => i+1).map(day => {
+      const dateStr = toDateStr(year,month,day);
+      return renderCell(day,day,dateStr,true);
+    })}
+    {Array.from({ length:trailOffset }).map((_,i) => {
+      const day = i+1;
+      const dateStr = toDateStr(nextYear,nextMonth,day);
+      return renderCell(`t${i}`,day,dateStr,false);
+    })}
     </div>);
 }
 
@@ -166,7 +180,13 @@ function GymCalendar({ year,month,externalLogs }) {
   const logByDate = {}; (externalLogs||logs).forEach(l => { logByDate[l.date] = l; });
 
   function refreshData() {
-    fetch(`/api/workouts?year=${year}&month=${month+1}`).then(r=>r.json()).then(setData);
+    const prevMonth0 = month===0?11:month-1; const prevYear = month===0?year-1:year;
+    const nextMonth0 = month===11?0:month+1; const nextYear = month===11?year+1:year;
+    Promise.all([
+      fetch(`/api/workouts?year=${year}&month=${month+1}`).then(r=>r.json()),
+      fetch(`/api/workouts?year=${prevYear}&month=${prevMonth0+1}`).then(r=>r.json()),
+      fetch(`/api/workouts?year=${nextYear}&month=${nextMonth0+1}`).then(r=>r.json()),
+    ]).then(([cur,prev,next]) => setData([...prev,...cur,...next]));
     fetch('/api/exercise-log').then(r=>r.json()).then(setLogs);
   }
 
@@ -214,8 +234,7 @@ function GymCalendar({ year,month,externalLogs }) {
 
   return (<div>
     <CalendarGrid year={year} month={month}
-      getCellStyle={day => {
-        const dateStr = toDateStr(year,month,day);
+      getCellStyle={(day,dateStr) => {
         const entry = byDate[dateStr];
         const log = logByDate[dateStr];
         if (!entry) return {border:`1px solid ${TH.border}`,color:TH.textMuted,borderRadius:TH.radiusSm};
@@ -641,8 +660,10 @@ function WeightTab({ year,month }) {
   async function fetchData() {
     const res=await fetch(`/api/weight?year=${year}&month=${month+1}`); const monthData=await res.json(); setData(monthData);
     const prevMonth=month===0?12:month; const prevYear=month===0?year-1:year;
-    const prevRes=await fetch(`/api/weight?year=${prevYear}&month=${prevMonth}`); const prevData=await prevRes.json();
-    const combined=[...prevData,...monthData].sort((a,b)=>a.date.localeCompare(b.date)); setAllData(combined);
+    const nextMonth=month===11?1:month+2; const nextYear=month===11?year+1:year;
+    const [prevRes,nextRes]=await Promise.all([fetch(`/api/weight?year=${prevYear}&month=${prevMonth}`),fetch(`/api/weight?year=${nextYear}&month=${nextMonth}`)]);
+    const [prevData,nextData]=await Promise.all([prevRes.json(),nextRes.json()]);
+    const combined=[...prevData,...monthData,...nextData].sort((a,b)=>a.date.localeCompare(b.date)); setAllData(combined);
   }
   const sorted=[...allData].sort((a,b)=>a.date.localeCompare(b.date));
   const weightByDate={}; sorted.forEach(e=>{weightByDate[e.date]=e.weight;});
@@ -664,7 +685,7 @@ function WeightTab({ year,month }) {
       <StatCard label="Lowest" value={`${lowest}`} sub="kg" />
       <StatCard label="Highest" value={`${highest}`} sub="kg" /></div>)}
     <CalendarGrid year={year} month={month}
-      getCellStyle={day=>{const dateStr=toDateStr(year,month,day);const hasEntry=weightByDate[dateStr]!==undefined;if(!hasEntry)return{border:`1px solid ${TH.border}`,color:TH.textMuted,borderRadius:TH.radiusSm};const direction=directionByDate[dateStr];let bg=TH.cardAlt;let color=TH.textSec;if(direction==='down'){bg=HEAT.green1;color=HEAT.green1Text;}else if(direction==='up'){bg=HEAT.red;color=HEAT.redText;}else{bg=TH.cardAlt;color=TH.textSec;}return{background:bg,color,borderRadius:TH.radiusSm,fontWeight:600,bottomLabel:`${weightByDate[dateStr]}`};}}
+      getCellStyle={(day,dateStr)=>{const hasEntry=weightByDate[dateStr]!==undefined;if(!hasEntry)return{border:`1px solid ${TH.border}`,color:TH.textMuted,borderRadius:TH.radiusSm};const direction=directionByDate[dateStr];let bg=TH.cardAlt;let color=TH.textSec;if(direction==='down'){bg=HEAT.green1;color=HEAT.green1Text;}else if(direction==='up'){bg=HEAT.red;color=HEAT.redText;}else{bg=TH.cardAlt;color=TH.textSec;}return{background:bg,color,borderRadius:TH.radiusSm,fontWeight:600,bottomLabel:`${weightByDate[dateStr]}`};}}
       onDayClick={day=>openModal(day)} />
     <div style={{display:'flex',flexWrap:'wrap',gap:12,marginBottom:'1.5rem'}}>
       <div style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:TH.textSec}}><div style={{width:12,height:12,borderRadius:4,background:TH.cardAlt,border:`1px solid ${TH.border}`}}/>First / same</div>
@@ -716,14 +737,24 @@ function darkChartOpts(extra={}) {
 
 // ─── DEEP WORK TAB ──────────────────────────────────────────────────────────
 function DeepWorkTab({ year,month }) {
-  const [data,setData]=useState([]); const [modal,setModal]=useState(null); const [form,setForm]=useState({minutes:'60',subject:'A'});
+  const [data,setData]=useState([]); const [adjData,setAdjData]=useState([]); const [modal,setModal]=useState(null); const [form,setForm]=useState({minutes:'60',subject:'A'});
   const [today,setToday]=useState(''); useEffect(()=>{setToday(todayStr());},[]);
   useEffect(()=>{fetchData();},[year,month]);
-  async function fetchData(){const res=await fetch(`/api/deepwork?year=${year}&month=${month+1}`);setData(await res.json());}
+  async function fetchData(){
+    const prevMonth0=month===0?11:month-1; const prevYear=month===0?year-1:year;
+    const nextMonth0=month===11?0:month+1; const nextYear=month===11?year+1:year;
+    const [cur,prev,next]=await Promise.all([
+      fetch(`/api/deepwork?year=${year}&month=${month+1}`).then(r=>r.json()),
+      fetch(`/api/deepwork?year=${prevYear}&month=${prevMonth0+1}`).then(r=>r.json()),
+      fetch(`/api/deepwork?year=${nextYear}&month=${nextMonth0+1}`).then(r=>r.json()),
+    ]);
+    setData(cur); setAdjData([...prev,...next]);
+  }
   async function save(){const hours=parseFloat((parseInt(form.minutes)/60).toFixed(2));await fetch('/api/deepwork',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:modal,hours,subject:form.subject,replace:false})});setModal(null);fetchData();}
   async function clearDay(){await fetch('/api/deepwork',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:modal})});setModal(null);fetchData();}
   const byDate={};data.forEach(d=>{if(!byDate[d.date])byDate[d.date]=[];byDate[d.date].push(d);});
-  function getDayTotals(dateStr){const sessions=byDate[dateStr]||[];const total=sessions.reduce((s,d)=>s+(d.hours||0),0);const subTotals={};sessions.forEach(s=>{subTotals[s.subject]=(subTotals[s.subject]||0)+s.hours;});return{total,sessions,subTotals};}
+  const byDateAll={};[...data,...adjData].forEach(d=>{if(!byDateAll[d.date])byDateAll[d.date]=[];byDateAll[d.date].push(d);});
+  function getDayTotals(dateStr,source){const sessions=(source||byDate)[dateStr]||[];const total=sessions.reduce((s,d)=>s+(d.hours||0),0);const subTotals={};sessions.forEach(s=>{subTotals[s.subject]=(subTotals[s.subject]||0)+s.hours;});return{total,sessions,subTotals};}
   function getHeatColor(total){if(!total)return{bg:HEAT.none,text:HEAT.noneText};if(total>=3)return{bg:HEAT.green2,text:HEAT.green2Text};if(total>=1.5)return{bg:HEAT.green1,text:HEAT.green1Text};return{bg:HEAT.amber,text:HEAT.amberText};}
   const allSessions=[...data].sort((a,b)=>b.date.localeCompare(a.date));
   const totalHours=data.reduce((s,d)=>s+(d.hours||0),0); const uniqueDays=Object.keys(byDate).length;
@@ -741,7 +772,13 @@ function DeepWorkTab({ year,month }) {
         const leadOffset=getMondayOffset(year,month);
         const prevMonth=month===0?11:month-1; const prevYear=month===0?year-1:year;
         const prevMonthDays=getDaysInMonth(prevYear,prevMonth);
-        return Array.from({length:leadOffset}).map((_,i)=>(<div key={`e${i}`} style={{aspectRatio:'1',borderRadius:TH.radiusSm,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:TH.textMuted,opacity:0.35}}>{prevMonthDays-leadOffset+i+1}</div>));
+        return Array.from({length:leadOffset}).map((_,i)=>{
+          const day=prevMonthDays-leadOffset+i+1;
+          const dateStr=toDateStr(prevYear,prevMonth,day);
+          const{total,subTotals}=getDayTotals(dateStr,byDateAll);const{bg,text}=getHeatColor(total);
+          return(<div key={`e${i}`} style={{aspectRatio:'1',borderRadius:TH.radiusSm,background:bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:text,position:'relative',fontWeight:500,opacity:0.5}}>
+            {day}{Object.keys(subTotals).length>0&&<span style={{position:'absolute',bottom:2,left:3,fontSize:8,fontWeight:700,color:text,opacity:0.85}}>{Object.keys(subTotals).sort().join('')}</span>}</div>);
+        });
       })()}
       {Array.from({length:days},(_,i)=>i+1).map(day=>{
         const dateStr=toDateStr(year,month,day);const{total,subTotals}=getDayTotals(dateStr);const{bg,text}=getHeatColor(total);const isToday=today&&dateStr===today;
@@ -751,7 +788,14 @@ function DeepWorkTab({ year,month }) {
       {(()=>{
         const leadOffset=getMondayOffset(year,month);
         const trailOffset=(7-((leadOffset+days)%7))%7;
-        return Array.from({length:trailOffset}).map((_,i)=>(<div key={`t${i}`} style={{aspectRatio:'1',borderRadius:TH.radiusSm,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:TH.textMuted,opacity:0.35}}>{i+1}</div>));
+        const nextMonth=month===11?0:month+1; const nextYear=month===11?year+1:year;
+        return Array.from({length:trailOffset}).map((_,i)=>{
+          const day=i+1;
+          const dateStr=toDateStr(nextYear,nextMonth,day);
+          const{total,subTotals}=getDayTotals(dateStr,byDateAll);const{bg,text}=getHeatColor(total);
+          return(<div key={`t${i}`} style={{aspectRatio:'1',borderRadius:TH.radiusSm,background:bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:text,position:'relative',fontWeight:500,opacity:0.5}}>
+            {day}{Object.keys(subTotals).length>0&&<span style={{position:'absolute',bottom:2,left:3,fontSize:8,fontWeight:700,color:text,opacity:0.85}}>{Object.keys(subTotals).sort().join('')}</span>}</div>);
+        });
       })()}
       </div>
     <div style={{display:'flex',flexWrap:'wrap',gap:12,marginBottom:8}}>
@@ -792,12 +836,21 @@ function DeepWorkTab({ year,month }) {
 function SwitchOffTab({ year,month }) {
   const [data,setData]=useState([]); const [modal,setModal]=useState(null); const [time,setTime]=useState('19:00');
   useEffect(()=>{fetchData();},[year,month]);
-  async function fetchData(){const res=await fetch(`/api/switchoff?year=${year}&month=${month+1}`);setData(await res.json());}
+  async function fetchData(){
+    const prevMonth0=month===0?11:month-1; const prevYear=month===0?year-1:year;
+    const nextMonth0=month===11?0:month+1; const nextYear=month===11?year+1:year;
+    const [cur,prev,next]=await Promise.all([
+      fetch(`/api/switchoff?year=${year}&month=${month+1}`).then(r=>r.json()),
+      fetch(`/api/switchoff?year=${prevYear}&month=${prevMonth0+1}`).then(r=>r.json()),
+      fetch(`/api/switchoff?year=${nextYear}&month=${nextMonth0+1}`).then(r=>r.json()),
+    ]);
+    setData([...prev,...cur,...next]);
+  }
   async function save(){await fetch('/api/switchoff',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:modal,time})});setModal(null);fetchData();}
   async function remove(){await fetch('/api/switchoff',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:modal})});setModal(null);fetchData();}
   const byDate={};data.forEach(d=>{byDate[d.date]=d;});
   function timeToMins(t){const[h,m]=t.split(':').map(Number);return h*60+m;}
-  function getHeatColor(day){const entry=byDate[toDateStr(year,month,day)];if(!entry)return{bg:HEAT.none,text:HEAT.noneText};const mins=timeToMins(entry.time);if(mins<=19*60)return{bg:HEAT.green1,text:HEAT.green1Text};if(mins<=20*60)return{bg:HEAT.green1,text:HEAT.green1Text};if(mins<=21*60)return{bg:HEAT.amber,text:HEAT.amberText};return{bg:HEAT.red,text:HEAT.redText};}
+  function getHeatColor(dateStr){const entry=byDate[dateStr];if(!entry)return{bg:HEAT.none,text:HEAT.noneText};const mins=timeToMins(entry.time);if(mins<=19*60)return{bg:HEAT.green1,text:HEAT.green1Text};if(mins<=20*60)return{bg:HEAT.green1,text:HEAT.green1Text};if(mins<=21*60)return{bg:HEAT.amber,text:HEAT.amberText};return{bg:HEAT.red,text:HEAT.redText};}
   const hitTarget=data.filter(d=>timeToMins(d.time)<=19*60).length;
   const avgMins=data.length?Math.round(data.reduce((s,d)=>s+timeToMins(d.time),0)/data.length):null;
   const avgStr=avgMins?`${Math.floor(avgMins/60)}:${pad(avgMins%60)}pm`:'--';
@@ -809,8 +862,8 @@ function SwitchOffTab({ year,month }) {
       <StatCard label="Days hit target" value={hitTarget} sub={`of ${days} days`} />
       <StatCard label="Target" value="7:00pm" sub="goal to reach" /></div>
     <CalendarGrid year={year} month={month}
-      getCellStyle={day=>{const{bg,text}=getHeatColor(day);return{background:bg,color:text,border:'none',borderRadius:TH.radiusSm,fontWeight:500};}}
-      onDayClick={day=>{const e=byDate[toDateStr(year,month,day)];setTime(e?e.time:'19:00');setModal(toDateStr(year,month,day));}} />
+      getCellStyle={(day,dateStr)=>{const{bg,text}=getHeatColor(dateStr);return{background:bg,color:text,border:'none',borderRadius:TH.radiusSm,fontWeight:500};}}
+      onDayClick={day=>{const dateStr=toDateStr(year,month,day);const e=byDate[dateStr];setTime(e?e.time:'19:00');setModal(dateStr);}} />
     <div style={{display:'flex',flexWrap:'wrap',gap:12,marginBottom:'1.5rem'}}>
       {[[HEAT.green1,'Hit target (7pm)'],[HEAT.green1,'7-8pm'],[HEAT.amber,'8-9pm'],[HEAT.red,'After 9pm']].map(([c,l],i)=>(<div key={i} style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:TH.textSec}}><div style={{width:12,height:12,borderRadius:4,background:c}}/>{l}</div>))}</div>
     <div style={{fontSize:12,color:TH.textMuted,marginBottom:8,fontWeight:500}}>Switch-off time - trend</div>
@@ -926,7 +979,16 @@ function NutritionSection() {
   useEffect(()=>{loadToday();loadSaved();},[]);
   useEffect(()=>{if(tab==='history')loadMonth();},[tab,year,month]);
   async function loadToday(){const res=await fetch(`/api/nutrition?date=${todayDate}`);setTodayMeals(await res.json());}
-  async function loadMonth(){const res=await fetch(`/api/nutrition?year=${year}&month=${month+1}`);setMonthData(await res.json());}
+  async function loadMonth(){
+    const prevMonth0=month===0?11:month-1; const prevYear=month===0?year-1:year;
+    const nextMonth0=month===11?0:month+1; const nextYear=month===11?year+1:year;
+    const [cur,prev,next]=await Promise.all([
+      fetch(`/api/nutrition?year=${year}&month=${month+1}`).then(r=>r.json()),
+      fetch(`/api/nutrition?year=${prevYear}&month=${prevMonth0+1}`).then(r=>r.json()),
+      fetch(`/api/nutrition?year=${nextYear}&month=${nextMonth0+1}`).then(r=>r.json()),
+    ]);
+    setMonthData([...prev,...cur,...next]);
+  }
   async function loadSaved(){const res=await fetch('/api/saved-foods');setSavedFoods(await res.json());}
   function openLogModal(){const n=new Date();setForm({food:'',time:`${pad(n.getHours())}:${pad(n.getMinutes())}`,remember:true,type:''});setSearch('');setModal('log');}
   async function saveEntry(){
@@ -1011,7 +1073,7 @@ function NutritionSection() {
         <StatCard label="In window" value={daysInWindow} sub={`of ${totalLogged}`} />
         <StatCard label="Window" value={`${WINDOW_HOURS}h`} sub="target" /></div>
       <CalendarGrid year={year} month={month}
-        getCellStyle={day=>{const dateStr=toDateStr(year,month,day);const{bg,text}=getHistHeatColor(dateStr);const s=getDayStatus(dateStr);return{background:bg,color:text,border:'none',borderRadius:TH.radiusSm,fontWeight:500,bottomLabel:s?`${s.meals}`:''};}}
+        getCellStyle={(day,dateStr)=>{const{bg,text}=getHistHeatColor(dateStr);const s=getDayStatus(dateStr);return{background:bg,color:text,border:'none',borderRadius:TH.radiusSm,fontWeight:500,bottomLabel:s?`${s.meals}`:''};}}
         onDayClick={day=>openDayDetail(toDateStr(year,month,day))} />
       <div style={{display:'flex',flexWrap:'wrap',gap:12,marginBottom:'1.5rem'}}>
         {[[HEAT.green1,`${WINDOW_HOURS}h window`],[HEAT.amber,`${WINDOW_HOURS}-${WINDOW_HOURS+1}h`],[HEAT.red,`over ${WINDOW_HOURS+1}h`]].map(([c,l],i)=>(<div key={i} style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:TH.textSec}}><div style={{width:12,height:12,borderRadius:4,background:c}}/>{l}</div>))}</div>
