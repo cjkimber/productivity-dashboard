@@ -115,9 +115,15 @@ function CalendarGrid({ year,month,getCellStyle,onDayClick }) {
   const [today,setToday] = useState('');
   useEffect(() => { setToday(todayStr()); }, []);
   const days = getDaysInMonth(year,month);
+  const leadOffset = getMondayOffset(year,month);
+  const prevMonth = month===0?11:month-1;
+  const prevYear = month===0?year-1:year;
+  const prevMonthDays = getDaysInMonth(prevYear,prevMonth);
+  const trailOffset = (7 - ((leadOffset + days) % 7)) % 7;
+  const mutedCellStyle = { aspectRatio:'1',borderRadius:TH.radiusSm,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,color:TH.textMuted,opacity:0.35 };
   return (<div style={{ display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:5,marginBottom:'1.5rem' }}>
     {['M','T','W','T','F','S','S'].map((d,i) => (<div key={i} style={{ textAlign:'center',fontSize:11,color:TH.textMuted,paddingBottom:6,fontWeight:600 }}>{d}</div>))}
-    {Array.from({ length:getMondayOffset(year,month) }).map((_,i) => <div key={`e${i}`} />)}
+    {Array.from({ length:leadOffset }).map((_,i) => (<div key={`e${i}`} style={mutedCellStyle}>{prevMonthDays - leadOffset + i + 1}</div>))}
     {Array.from({ length:days },(_,i) => i+1).map(day => {
       const s = getCellStyle(day); const isSplit = !!s.splitBg;
       const isToday = today && toDateStr(year,month,day) === today;
@@ -137,7 +143,9 @@ function CalendarGrid({ year,month,getCellStyle,onDayClick }) {
           </>
         )}
       </div>);
-    })}</div>);
+    })}
+    {Array.from({ length:trailOffset }).map((_,i) => (<div key={`t${i}`} style={mutedCellStyle}>{i+1}</div>))}
+    </div>);
 }
 
 // ─── GYM CALENDAR ───────────────────────────────────────────────────────────
@@ -729,12 +737,23 @@ function DeepWorkTab({ year,month }) {
       <StatCard label="Best day" value={`${best.toFixed(1)}h`} sub="this month" /></div>
     <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:5,marginBottom:'1.5rem'}}>
       {['M','T','W','T','F','S','S'].map((d,i)=>(<div key={i} style={{textAlign:'center',fontSize:11,color:TH.textMuted,paddingBottom:6,fontWeight:600}}>{d}</div>))}
-      {Array.from({length:getMondayOffset(year,month)}).map((_,i)=><div key={`e${i}`}/>)}
+      {(()=>{
+        const leadOffset=getMondayOffset(year,month);
+        const prevMonth=month===0?11:month-1; const prevYear=month===0?year-1:year;
+        const prevMonthDays=getDaysInMonth(prevYear,prevMonth);
+        return Array.from({length:leadOffset}).map((_,i)=>(<div key={`e${i}`} style={{aspectRatio:'1',borderRadius:TH.radiusSm,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:TH.textMuted,opacity:0.35}}>{prevMonthDays-leadOffset+i+1}</div>));
+      })()}
       {Array.from({length:days},(_,i)=>i+1).map(day=>{
         const dateStr=toDateStr(year,month,day);const{total,subTotals}=getDayTotals(dateStr);const{bg,text}=getHeatColor(total);const isToday=today&&dateStr===today;
         return(<div key={day} onClick={()=>{setForm({minutes:'60',subject:'A'});setModal(dateStr);}} style={{aspectRatio:'1',borderRadius:TH.radiusSm,background:bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:text,position:'relative',cursor:'pointer',userSelect:'none',fontWeight:500,boxShadow:isToday?`0 0 0 2px ${TH.cyan}, 0 0 12px rgba(77,212,255,0.35)`:'none'}}>
           {day}{Object.keys(subTotals).length>0&&<span style={{position:'absolute',bottom:2,left:3,fontSize:8,fontWeight:700,color:text,opacity:0.85}}>{Object.keys(subTotals).sort().join('')}</span>}</div>);
-      })}</div>
+      })}
+      {(()=>{
+        const leadOffset=getMondayOffset(year,month);
+        const trailOffset=(7-((leadOffset+days)%7))%7;
+        return Array.from({length:trailOffset}).map((_,i)=>(<div key={`t${i}`} style={{aspectRatio:'1',borderRadius:TH.radiusSm,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:TH.textMuted,opacity:0.35}}>{i+1}</div>));
+      })()}
+      </div>
     <div style={{display:'flex',flexWrap:'wrap',gap:12,marginBottom:8}}>
       {[[HEAT.amber,'under 1.5h'],[HEAT.green1,'1.5-3h'],[HEAT.green2,'3h+']].map(([c,l])=>(<div key={l} style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:TH.textSec}}><div style={{width:12,height:12,borderRadius:4,background:c}}/>{l}</div>))}</div>
     <div style={{display:'flex',flexWrap:'wrap',gap:12,marginBottom:'1.5rem'}}>
