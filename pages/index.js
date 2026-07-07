@@ -127,7 +127,7 @@ function CalendarGrid({ year,month,getCellStyle,onDayClick }) {
     const s = getCellStyle(day,dateStr) || {}; const isSplit = !!s.splitBg;
     const isToday = today && dateStr === today;
     return (<div key={key} onClick={clickable?() => onDayClick(day):undefined}
-      style={{ aspectRatio:'1',borderRadius:s.borderRadius||TH.radiusSm,border:s.border||'none',background:isSplit?'transparent':(s.background||TH.cardAlt),display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,color:s.color||TH.textMuted,fontWeight:s.fontWeight||500,cursor:clickable?'pointer':'default',position:'relative',transition:'transform 150ms ease',overflow:'hidden',opacity:clickable?1:0.5,boxShadow:isToday?`0 0 0 2px ${TH.cyan}, 0 0 12px rgba(77,212,255,0.35)`:'none' }}>
+      style={{ aspectRatio:'1',borderRadius:s.borderRadius||TH.radiusSm,border:s.border||'none',background:isSplit?'transparent':(s.background||TH.cardAlt),display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,color:s.color||TH.textMuted,fontWeight:s.fontWeight||500,cursor:clickable?'pointer':'default',position:'relative',transition:'transform 150ms ease',overflow:'hidden',boxShadow:isToday?`0 0 0 2px ${TH.cyan}, 0 0 12px rgba(77,212,255,0.35)`:'none' }}>
       {isSplit && (<svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position:'absolute',inset:0,width:'100%',height:'100%' }}>
         <polygon points="0,0 100,0 0,100" fill={s.splitBg[0]} /><polygon points="100,0 100,100 0,100" fill={s.splitBg[1]} /></svg>)}
       {s.trophy ? (
@@ -776,7 +776,7 @@ function DeepWorkTab({ year,month }) {
           const day=prevMonthDays-leadOffset+i+1;
           const dateStr=toDateStr(prevYear,prevMonth,day);
           const{total,subTotals}=getDayTotals(dateStr,byDateAll);const{bg,text}=getHeatColor(total);
-          return(<div key={`e${i}`} style={{aspectRatio:'1',borderRadius:TH.radiusSm,background:bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:text,position:'relative',fontWeight:500,opacity:0.5}}>
+          return(<div key={`e${i}`} style={{aspectRatio:'1',borderRadius:TH.radiusSm,background:bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:text,position:'relative',fontWeight:500}}>
             {day}{Object.keys(subTotals).length>0&&<span style={{position:'absolute',bottom:2,left:3,fontSize:8,fontWeight:700,color:text,opacity:0.85}}>{Object.keys(subTotals).sort().join('')}</span>}</div>);
         });
       })()}
@@ -793,7 +793,7 @@ function DeepWorkTab({ year,month }) {
           const day=i+1;
           const dateStr=toDateStr(nextYear,nextMonth,day);
           const{total,subTotals}=getDayTotals(dateStr,byDateAll);const{bg,text}=getHeatColor(total);
-          return(<div key={`t${i}`} style={{aspectRatio:'1',borderRadius:TH.radiusSm,background:bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:text,position:'relative',fontWeight:500,opacity:0.5}}>
+          return(<div key={`t${i}`} style={{aspectRatio:'1',borderRadius:TH.radiusSm,background:bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:text,position:'relative',fontWeight:500}}>
             {day}{Object.keys(subTotals).length>0&&<span style={{position:'absolute',bottom:2,left:3,fontSize:8,fontWeight:700,color:text,opacity:0.85}}>{Object.keys(subTotals).sort().join('')}</span>}</div>);
         });
       })()}
