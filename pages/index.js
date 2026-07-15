@@ -899,253 +899,297 @@ function HabitsSection() {
   </div>);
 }
 
-// ─── NUTRITION SECTION ───────────────────────────────────────────────────────
-const WINDOW_HOURS = 8;
-const WINDOW_MINS = WINDOW_HOURS * 60;
-
+// ─── NUTRITION SECTION (calorie counting) ───────────────────────────────────
 function timeToMinsN(t) { const [h,m] = t.split(':').map(Number); return h * 60 + m; }
 function minsToLabel(m) { const h=Math.floor(m/60); const mm=m%60; return `${h>12?h-12:h||12}:${pad(mm)}${h>=12?'pm':'am'}`; }
+function cal100(f) { return (Number(f.carbsPer100)||0)*4 + (Number(f.proteinPer100)||0)*4 + (Number(f.fatPer100)||0)*9; }
+function scaleFood(f,grams) {
+  const factor = (Number(grams)||0)/100;
+  return {
+    grams:Number(grams)||0,
+    carbs:Math.round((Number(f.carbsPer100)||0)*factor*10)/10,
+    protein:Math.round((Number(f.proteinPer100)||0)*factor*10)/10,
+    fat:Math.round((Number(f.fatPer100)||0)*factor*10)/10,
+    calories:Math.round(cal100(f)*factor),
+  };
+}
+function yesterdayStr() { const n=new Date(); n.setDate(n.getDate()-1); return `${n.getFullYear()}-${pad(n.getMonth()+1)}-${pad(n.getDate())}`; }
 
-function FastingRing({ meals }) {
-  const [now,setNow] = useState(new Date());
-  useEffect(() => { const iv = setInterval(() => setNow(new Date()), 30000); return () => clearInterval(iv); }, []);
-  const sorted = [...meals].sort((a,b) => a.time.localeCompare(b.time));
-  const first = sorted[0]; const last = sorted[sorted.length-1];
-  const size=220; const cx=size/2; const cy=size/2; const r=88; const sw=10;
-  const circ=2*Math.PI*r;
-  if (!first) {
-    return (<div style={{display:'flex',flexDirection:'column',alignItems:'center',padding:'1rem 0 0.5rem'}}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(77,212,255,0.06)" strokeWidth={sw} />
-        <text x={cx} y={cy-8} textAnchor="middle" fill={TH.textSec} fontSize={15} fontWeight={600} fontFamily={TH.heading}>8h window</text>
-        <text x={cx} y={cy+12} textAnchor="middle" fill={TH.textMuted} fontSize={12}>Log first meal to start</text>
-      </svg></div>);
+// ─── FOODS TAB ───────────────────────────────────────────────────────────────
+function FoodsTab({ foods,onChanged }) {
+  const [filter,setFilter] = useState('all');
+  const [modal,setModal] = useState(null); // null | 'add' | food object being edited
+  const [form,setForm] = useState({ name:'',type:'meal',carbsPer100:'',proteinPer100:'',fatPer100:'',defaultGrams:'' });
+
+  function openAdd() { setForm({ name:'',type:'meal',carbsPer100:'',proteinPer100:'',fatPer100:'',defaultGrams:'' }); setModal('add'); }
+  function openEdit(f) { setForm({ id:f._id,name:f.name,type:f.type,carbsPer100:String(f.carbsPer100||''),proteinPer100:String(f.proteinPer100||''),fatPer100:String(f.fatPer100||''),defaultGrams:String(f.defaultGrams||'') }); setModal('edit'); }
+
+  async function save() {
+    if(!form.name.trim()) return;
+    const payload = {
+      id:form.id, name:form.name.trim(), type:form.type,
+      carbsPer100:parseFloat(form.carbsPer100)||0, proteinPer100:parseFloat(form.proteinPer100)||0,
+      fatPer100:parseFloat(form.fatPer100)||0, defaultGrams:parseFloat(form.defaultGrams)||100,
+    };
+    await fetch('/api/saved-foods',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    setModal(null); onChanged();
   }
-  const firstMins=timeToMinsN(first.time);
-  const nowMins=now.getHours()*60+now.getMinutes();
-  const elapsed=Math.max(nowMins-firstMins,0);
-  const progress=Math.min(elapsed/WINDOW_MINS,1);
-  const remaining=Math.max(WINDOW_MINS-elapsed,0);
-  const windowOpen=elapsed<WINDOW_MINS;
-  const lastMins=timeToMinsN(last.time);
-  const withinWindow=(lastMins-firstMins)<=WINDOW_MINS;
-  let ringColor;
-  if(!windowOpen) ringColor=withinWindow?'#34D399':'#EF4444';
-  else if(progress<0.6) ringColor=TH.cyan;
-  else if(progress<0.85) ringColor=TH.purple;
-  else ringColor=TH.pink;
-  const offset=circ*(1-progress);
-  const mealDots=sorted.map(meal=>{const mealMins=timeToMinsN(meal.time);const mp=Math.min((mealMins-firstMins)/WINDOW_MINS,1);const angle=mp*2*Math.PI-Math.PI/2;return{x:cx+r*Math.cos(angle),y:cy+r*Math.sin(angle),food:meal.food};});
-  const rh=Math.floor(remaining/60); const rm=remaining%60;
-  const windowEnd=firstMins+WINDOW_MINS;
-  return (<div style={{display:'flex',flexDirection:'column',alignItems:'center',padding:'1rem 0 0.5rem'}}>
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      <defs><filter id="glow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(77,212,255,0.06)" strokeWidth={sw} />
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke={ringColor} strokeWidth={sw} strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round" transform={`rotate(-90 ${cx} ${cy})`} filter="url(#glow)" style={{transition:'stroke-dashoffset 1s ease, stroke 0.5s ease'}} />
-      {mealDots.map((dot,i)=><circle key={i} cx={dot.x} cy={dot.y} r={4.5} fill={ringColor} filter="url(#glow)" />)}
-      {windowOpen?(<>
-        <text x={cx} y={cy-12} textAnchor="middle" fill={TH.text} fontSize={28} fontWeight={800} fontFamily={TH.heading}>{rh}h {rm}m</text>
-        <text x={cx} y={cy+10} textAnchor="middle" fill={TH.textSec} fontSize={12} fontWeight={500}>remaining</text>
-        <text x={cx} y={cy+28} textAnchor="middle" fill={TH.textMuted} fontSize={11}>closes {minsToLabel(windowEnd)}</text>
-      </>):(<>
-        <text x={cx} y={cy-8} textAnchor="middle" fill={ringColor} fontSize={20} fontWeight={800} fontFamily={TH.heading}>{withinWindow?'Done':'Over'}</text>
-        <text x={cx} y={cy+12} textAnchor="middle" fill={TH.textSec} fontSize={12}>Window closed</text>
-      </>)}
-    </svg>
-    <div style={{display:'flex',gap:20,marginTop:4}}>
-      <div style={{textAlign:'center'}}><div style={{fontSize:11,color:TH.textMuted,marginBottom:2}}>Started</div><div style={{fontSize:14,fontWeight:700,color:TH.text,fontFamily:TH.heading}}>{minsToLabel(firstMins)}</div></div>
-      <div style={{textAlign:'center'}}><div style={{fontSize:11,color:TH.textMuted,marginBottom:2}}>Ends</div><div style={{fontSize:14,fontWeight:700,color:TH.text,fontFamily:TH.heading}}>{minsToLabel(windowEnd)}</div></div>
-      <div style={{textAlign:'center'}}><div style={{fontSize:11,color:TH.textMuted,marginBottom:2}}>Meals</div><div style={{fontSize:14,fontWeight:700,color:TH.text,fontFamily:TH.heading}}>{sorted.length}</div></div>
+  async function remove(id) { await fetch('/api/saved-foods',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})}); onChanged(); }
+
+  const meals = foods.filter(f=>f.type==='meal');
+  const snacks = foods.filter(f=>f.type==='snack');
+  const display = filter==='meal'?meals:filter==='snack'?snacks:foods;
+
+  function FoodRow({ f }) {
+    return (<div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 14px',background:TH.card,borderRadius:TH.radiusSm,marginBottom:6,border:`1px solid ${TH.border}` }}>
+      <div onClick={()=>openEdit(f)} style={{ cursor:'pointer',minWidth:0,flex:1 }}>
+        <div style={{ fontSize:14,color:TH.text,fontWeight:600 }}>{f.name}</div>
+        <div style={{ fontSize:11,color:TH.textMuted,marginTop:2 }}>{Math.round(cal100(f))} kcal/100g · C{f.carbsPer100||0} P{f.proteinPer100||0} F{f.fatPer100||0} · default {f.defaultGrams||100}g</div>
+      </div>
+      <button onClick={()=>remove(f._id)} style={{ background:'none',border:'none',color:TH.textMuted,fontSize:16,cursor:'pointer',padding:'4px 8px',flexShrink:0 }}>x</button>
+    </div>);
+  }
+
+  return (<div>
+    <div style={{ display:'flex',gap:6,marginBottom:'1rem' }}>
+      {[['all','All'],['meal','Meals'],['snack','Snacks']].map(([k,l])=>(<button key={k} onClick={()=>setFilter(k)} style={{ flex:1,padding:'9px',borderRadius:10,border:`2px solid ${filter===k?TH.cyan:TH.border}`,background:filter===k?'rgba(77,212,255,0.08)':'transparent',color:filter===k?TH.cyan:TH.textMuted,fontWeight:600,cursor:'pointer',fontFamily:'inherit',fontSize:13,transition:'all 150ms ease' }}>{l}{k==='meal'?` (${meals.length})`:k==='snack'?` (${snacks.length})`:` (${foods.length})`}</button>))}
     </div>
+    {display.length===0 && <div style={{ textAlign:'center',padding:'2rem',color:TH.textMuted,fontSize:14 }}>{foods.length===0?'No foods saved yet':'None here yet'}</div>}
+    {filter==='all' ? (<>
+      {meals.length>0 && (<div style={{ marginBottom:'1.25rem' }}>
+        <div style={{ fontSize:12,color:TH.pink,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:8 }}>Meals ({meals.length})</div>
+        {meals.map(f=><FoodRow key={f._id} f={f} />)}
+      </div>)}
+      {snacks.length>0 && (<div style={{ marginBottom:'1.25rem' }}>
+        <div style={{ fontSize:12,color:TH.purple,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:8 }}>Snacks ({snacks.length})</div>
+        {snacks.map(f=><FoodRow key={f._id} f={f} />)}
+      </div>)}
+    </>) : display.map(f=><FoodRow key={f._id} f={f} />)}
+    <Btn onClick={openAdd} variant="secondary" style={{ width:'100%',marginTop:'0.5rem' }}>+ Add a food</Btn>
+
+    {modal && (<Modal title={modal==='edit'?'Edit food':'Add a food'} onClose={()=>setModal(null)}>
+      <div style={{ display:'flex',flexDirection:'column',gap:12 }}>
+        <div><label style={{ fontSize:12,color:TH.textSec,display:'block',marginBottom:6,fontWeight:500 }}>Type</label>
+          <div style={{ display:'flex',gap:8 }}>
+            {[['meal','Meal'],['snack','Snack']].map(([k,l])=>(<button key={k} onClick={()=>setForm(f=>({...f,type:k}))} style={{ flex:1,padding:'11px',borderRadius:TH.radiusSm,border:`2px solid ${form.type===k?(k==='meal'?TH.pink:TH.purple):TH.border}`,background:form.type===k?(k==='meal'?'rgba(236,116,135,0.1)':'rgba(139,92,246,0.1)'):'transparent',color:form.type===k?(k==='meal'?TH.pink:TH.purple):TH.textMuted,fontWeight:600,cursor:'pointer',fontFamily:'inherit',fontSize:14,transition:'all 150ms ease' }}>{l}</button>))}
+          </div></div>
+        <div><label style={{ fontSize:12,color:TH.textSec,display:'block',marginBottom:4,fontWeight:500 }}>Food name</label>
+          <input type="text" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="e.g. Chicken curry" style={{ width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:14,fontFamily:'inherit',boxShadow:TH.glow,boxSizing:'border-box' }} /></div>
+        <div style={{ fontSize:11,color:TH.textMuted,fontWeight:500 }}>Macros per 100g</div>
+        <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8 }}>
+          <div><label style={{ fontSize:10,color:TH.textMuted,display:'block',marginBottom:4 }}>Carbs (g)</label>
+            <input type="number" value={form.carbsPer100} onChange={e=>setForm(f=>({...f,carbsPer100:e.target.value}))} style={inputStyle} /></div>
+          <div><label style={{ fontSize:10,color:TH.textMuted,display:'block',marginBottom:4 }}>Protein (g)</label>
+            <input type="number" value={form.proteinPer100} onChange={e=>setForm(f=>({...f,proteinPer100:e.target.value}))} style={inputStyle} /></div>
+          <div><label style={{ fontSize:10,color:TH.textMuted,display:'block',marginBottom:4 }}>Fat (g)</label>
+            <input type="number" value={form.fatPer100} onChange={e=>setForm(f=>({...f,fatPer100:e.target.value}))} style={inputStyle} /></div>
+        </div>
+        <div><label style={{ fontSize:12,color:TH.textSec,display:'block',marginBottom:4,fontWeight:500 }}>Default portion (g)</label>
+          <input type="number" value={form.defaultGrams} onChange={e=>setForm(f=>({...f,defaultGrams:e.target.value}))} placeholder="e.g. 150" style={{ width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:14,fontFamily:'inherit',boxShadow:TH.glow,boxSizing:'border-box' }} /></div>
+        {(form.carbsPer100||form.proteinPer100||form.fatPer100) && (<div style={{ fontSize:12,color:TH.cyan,fontWeight:600 }}>≈ {Math.round(cal100({carbsPer100:parseFloat(form.carbsPer100)||0,proteinPer100:parseFloat(form.proteinPer100)||0,fatPer100:parseFloat(form.fatPer100)||0}))} kcal/100g</div>)}
+        <Btn onClick={save} style={{ opacity:form.name.trim()?1:0.4 }}>{modal==='edit'?'Save changes':`Save ${form.type}`}</Btn>
+      </div>
+    </Modal>)}
   </div>);
 }
 
-function NutritionSection() {
-  const now=new Date();
-  const [tab,setTab]=useState('today');
-  const [year,setYear]=useState(now.getFullYear()); const [month,setMonth]=useState(now.getMonth());
-  const [todayMeals,setTodayMeals]=useState([]);
-  const [monthData,setMonthData]=useState([]);
-  const [savedFoods,setSavedFoods]=useState([]);
-  const [modal,setModal]=useState(null);
-  const [form,setForm]=useState({food:'',time:'',remember:true,type:'meal'});
-  const [search,setSearch]=useState('');
-  const [addFoodForm,setAddFoodForm]=useState({name:'',type:'meal'});
-  const [detailDay,setDetailDay]=useState(null);
-  const [detailMeals,setDetailMeals]=useState([]);
-  const [foodsFilter,setFoodsFilter]=useState('all');
-  const todayDate=todayStr();
-  useEffect(()=>{loadToday();loadSaved();},[]);
-  useEffect(()=>{if(tab==='history')loadMonth();},[tab,year,month]);
-  async function loadToday(){const res=await fetch(`/api/nutrition?date=${todayDate}`);setTodayMeals(await res.json());}
-  async function loadMonth(){
+// ─── LOG TAB ─────────────────────────────────────────────────────────────────
+function LogTab({ foods,onFoodsChanged }) {
+  const todayDate = todayStr(); const yDate = yesterdayStr();
+  const [todayEntries,setTodayEntries] = useState([]);
+  const [yesterdayEntries,setYesterdayEntries] = useState([]);
+  const [modal,setModal] = useState(null);
+  const [pickType,setPickType] = useState('');
+  const [search,setSearch] = useState('');
+  const [selectedFood,setSelectedFood] = useState(null);
+  const [grams,setGrams] = useState('');
+  const [time,setTime] = useState('');
+
+  useEffect(()=>{ loadToday(); loadYesterday(); },[]);
+  async function loadToday(){ const res=await fetch(`/api/nutrition?date=${todayDate}`); setTodayEntries(await res.json()); }
+  async function loadYesterday(){ const res=await fetch(`/api/nutrition?date=${yDate}`); setYesterdayEntries(await res.json()); }
+
+  function openLog() {
+    const n = new Date();
+    setPickType(''); setSearch(''); setSelectedFood(null); setGrams('');
+    setTime(`${pad(n.getHours())}:${pad(n.getMinutes())}`);
+    setModal('log');
+  }
+  function pickFood(f) { setSelectedFood(f); setGrams(String(f.defaultGrams||100)); }
+
+  async function logEntry() {
+    if(!selectedFood||!time) return;
+    const scaled = scaleFood(selectedFood,grams);
+    await fetch('/api/nutrition',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      date:todayDate,time,food:selectedFood.name,type:selectedFood.type,
+      grams:scaled.grams,carbs:scaled.carbs,protein:scaled.protein,fat:scaled.fat,calories:scaled.calories,
+    })});
+    setModal(null); loadToday();
+  }
+  async function logFromYesterday(entry) {
+    const n = new Date();
+    const match = foods.find(f=>f.name===entry.food&&f.type===entry.type);
+    const grams = entry.grams || (match?match.defaultGrams:100) || 100;
+    const scaled = match ? scaleFood(match,grams) : {grams,carbs:entry.carbs||0,protein:entry.protein||0,fat:entry.fat||0,calories:entry.calories||0};
+    await fetch('/api/nutrition',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      date:todayDate,time:`${pad(n.getHours())}:${pad(n.getMinutes())}`,food:entry.food,type:entry.type,
+      grams:scaled.grams,carbs:scaled.carbs,protein:scaled.protein,fat:scaled.fat,calories:scaled.calories,
+    })});
+    loadToday();
+  }
+  async function deleteEntry(id) { await fetch('/api/nutrition',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})}); loadToday(); }
+
+  const totalCal = todayEntries.reduce((s,e)=>s+(e.calories||0),0);
+  const totalCarbs = todayEntries.reduce((s,e)=>s+(e.carbs||0),0);
+  const totalProtein = todayEntries.reduce((s,e)=>s+(e.protein||0),0);
+  const totalFat = todayEntries.reduce((s,e)=>s+(e.fat||0),0);
+  const pickerFoods = foods.filter(f=>f.type===pickType&&(!search||f.name.toLowerCase().includes(search.toLowerCase())));
+  const loggedYesterdayNames = new Set(todayEntries.map(e=>`${e.type}::${e.food}`));
+  const yesterdayUnique = [];
+  const seen = new Set();
+  [...yesterdayEntries].sort((a,b)=>a.time.localeCompare(b.time)).forEach(e=>{ const key=`${e.type}::${e.food}`; if(!seen.has(key)){ seen.add(key); yesterdayUnique.push(e); } });
+
+  return (<div>
+    <div style={{ display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8,marginBottom:'1.25rem' }}>
+      <StatCard label="Calories" value={totalCal} sub="today" />
+      <StatCard label="Carbs" value={`${Math.round(totalCarbs)}g`} />
+      <StatCard label="Protein" value={`${Math.round(totalProtein)}g`} />
+      <StatCard label="Fat" value={`${Math.round(totalFat)}g`} />
+    </div>
+
+    <Btn onClick={openLog} style={{ width:'100%',fontSize:15,padding:'14px',marginBottom:'1.25rem' }}>+ Log food</Btn>
+
+    {yesterdayUnique.length>0 && (<div style={{ marginBottom:'1.25rem' }}>
+      <div style={{ fontSize:12,color:TH.textMuted,marginBottom:8,fontWeight:500 }}>Copy from yesterday</div>
+      <div style={{ display:'flex',flexDirection:'column',gap:6 }}>
+        {yesterdayUnique.map((e,i)=>(<div key={i} style={{ display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 12px',background:TH.cardAlt,borderRadius:TH.radiusSm,border:`1px solid ${TH.border}` }}>
+          <div style={{ minWidth:0,flex:1 }}>
+            <span style={{ fontSize:13,color:TH.text }}>{e.food}</span>
+            <span style={{ fontSize:10,color:e.type==='snack'?TH.purple:TH.pink,fontWeight:600,marginLeft:8,textTransform:'uppercase' }}>{e.type}</span>
+          </div>
+          <button onClick={()=>logFromYesterday(e)} style={{ background:'rgba(77,212,255,0.08)',border:`1px solid ${TH.borderMed}`,color:TH.cyan,fontSize:13,fontWeight:700,cursor:'pointer',padding:'6px 12px',borderRadius:8,fontFamily:'inherit',flexShrink:0 }}>+ Log</button>
+        </div>))}
+      </div>
+    </div>)}
+
+    <div style={{ fontSize:12,color:TH.textMuted,marginBottom:8,fontWeight:500 }}>Today</div>
+    {todayEntries.length===0 && <div style={{ textAlign:'center',padding:'1.5rem',color:TH.textMuted,fontSize:14 }}>Nothing logged today</div>}
+    {[...todayEntries].sort((a,b)=>a.time.localeCompare(b.time)).map((e,i)=>(
+      <div key={e._id||i} style={{ display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 14px',background:TH.card,borderRadius:TH.radiusSm,marginBottom:6,border:`1px solid ${TH.border}` }}>
+        <div style={{ display:'flex',alignItems:'center',gap:10,minWidth:0,flex:1 }}>
+          <span style={{ fontSize:13,fontWeight:700,color:TH.cyan,fontFamily:TH.heading,flexShrink:0 }}>{minsToLabel(timeToMinsN(e.time))}</span>
+          <div style={{ minWidth:0 }}>
+            <div style={{ fontSize:14,color:TH.text,fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{e.food} <span style={{ color:TH.textMuted,fontWeight:400 }}>· {e.grams||0}g</span></div>
+            <div style={{ fontSize:11,color:TH.textMuted,marginTop:1 }}>{e.calories||0} kcal · C{e.carbs||0} P{e.protein||0} F{e.fat||0}</div>
+          </div>
+        </div>
+        <button onClick={()=>deleteEntry(e._id)} style={{ background:'none',border:'none',color:TH.textMuted,fontSize:16,cursor:'pointer',padding:'4px 6px',flexShrink:0 }}>x</button>
+      </div>
+    ))}
+
+    {modal==='log' && (<Modal title="Log food" onClose={()=>setModal(null)}>
+      <div style={{ display:'flex',flexDirection:'column',gap:14 }}>
+        <div><label style={{ fontSize:12,color:TH.textSec,display:'block',marginBottom:4,fontWeight:500 }}>Time</label>
+          <input type="time" value={time} onChange={e=>setTime(e.target.value)} style={{ width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:16,fontFamily:'inherit',boxShadow:TH.glow }} /></div>
+        <div style={{ display:'flex',gap:8 }}>
+          {[['meal','Meal'],['snack','Snack']].map(([k,l])=>(<button key={k} onClick={()=>{setPickType(pickType===k?'':k);setSelectedFood(null);setSearch('');}} style={{ flex:1,padding:'12px',borderRadius:TH.radiusSm,border:`2px solid ${pickType===k?(k==='meal'?TH.pink:TH.purple):TH.border}`,background:pickType===k?(k==='meal'?'rgba(236,116,135,0.12)':'rgba(139,92,246,0.12)'):'transparent',color:pickType===k?(k==='meal'?TH.pink:TH.purple):TH.textMuted,fontWeight:700,cursor:'pointer',fontFamily:'inherit',fontSize:14,transition:'all 150ms ease' }}>{l}</button>))}
+        </div>
+        {pickType && (pickerFoods.length>0 ? (<>
+          {foods.filter(f=>f.type===pickType).length>6 && (<input type="text" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search..." style={{ width:'100%',padding:'8px 12px',borderRadius:10,border:`1px solid ${TH.border}`,background:TH.input,color:TH.text,fontSize:13,fontFamily:'inherit',boxShadow:TH.glow }} />)}
+          <div style={{ display:'flex',flexDirection:'column',gap:5,maxHeight:180,overflowY:'auto' }}>
+            {pickerFoods.map(f=>{ const sel=selectedFood&&selectedFood._id===f._id; return (<button key={f._id} onClick={()=>pickFood(f)}
+              style={{ display:'flex',alignItems:'center',justifyContent:'space-between',padding:'11px 14px',borderRadius:12,border:`1.5px solid ${sel?TH.cyan:TH.borderMed}`,background:sel?'rgba(77,212,255,0.08)':TH.input,color:sel?TH.text:TH.textSec,fontSize:14,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease',textAlign:'left',fontWeight:sel?600:400 }}>
+              <span>{f.name}</span><span style={{ fontSize:11,color:TH.textMuted }}>{Math.round(cal100(f))} kcal/100g</span>
+            </button>);})}
+          </div>
+        </>) : (<div style={{ padding:'16px',textAlign:'center',color:TH.textMuted,fontSize:13,background:TH.input,borderRadius:12,border:`1px solid ${TH.border}` }}>No saved {pickType}s yet — add one in the Foods tab</div>))}
+        {selectedFood && (<>
+          <div><label style={{ fontSize:12,color:TH.textSec,display:'block',marginBottom:4,fontWeight:500 }}>Amount (g)</label>
+            <input type="number" value={grams} onChange={e=>setGrams(e.target.value)} style={{ width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:16,fontWeight:600,textAlign:'center',fontFamily:'inherit',boxShadow:TH.glow }} /></div>
+          <div style={{ fontSize:13,color:TH.cyan,fontWeight:600,textAlign:'center' }}>≈ {scaleFood(selectedFood,grams).calories} kcal · C{scaleFood(selectedFood,grams).carbs} P{scaleFood(selectedFood,grams).protein} F{scaleFood(selectedFood,grams).fat}</div>
+          <Btn onClick={logEntry}>Log {selectedFood.name}</Btn>
+        </>)}
+      </div>
+    </Modal>)}
+  </div>);
+}
+
+// ─── NUTRITION CALENDAR TAB ──────────────────────────────────────────────────
+function NutritionCalendarTab() {
+  const now = new Date();
+  const [year,setYear] = useState(now.getFullYear()); const [month,setMonth] = useState(now.getMonth());
+  const [monthData,setMonthData] = useState([]);
+  const [detailDay,setDetailDay] = useState(null);
+  const [detailEntries,setDetailEntries] = useState([]);
+
+  useEffect(()=>{ loadMonth(); },[year,month]);
+  async function loadMonth() {
     const prevMonth0=month===0?11:month-1; const prevYear=month===0?year-1:year;
     const nextMonth0=month===11?0:month+1; const nextYear=month===11?year+1:year;
-    const [cur,prev,next]=await Promise.all([
+    const [cur,prev,next] = await Promise.all([
       fetch(`/api/nutrition?year=${year}&month=${month+1}`).then(r=>r.json()),
       fetch(`/api/nutrition?year=${prevYear}&month=${prevMonth0+1}`).then(r=>r.json()),
       fetch(`/api/nutrition?year=${nextYear}&month=${nextMonth0+1}`).then(r=>r.json()),
     ]);
     setMonthData([...prev,...cur,...next]);
   }
-  async function loadSaved(){const res=await fetch('/api/saved-foods');setSavedFoods(await res.json());}
-  function openLogModal(){const n=new Date();setForm({food:'',time:`${pad(n.getHours())}:${pad(n.getMinutes())}`,remember:true,type:''});setSearch('');setModal('log');}
-  async function saveEntry(){
-    if(!form.food.trim()||!form.time)return;
-    const entryType=form.type||'meal';
-    await fetch('/api/nutrition',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:todayDate,time:form.time,food:form.food.trim(),type:entryType})});
-    if(form.remember){await fetch('/api/saved-foods',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:form.food.trim(),type:entryType})});loadSaved();}
-    setModal(null);loadToday();
-  }
-  async function deleteEntry(id){await fetch('/api/nutrition',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});loadToday();if(tab==='history')loadMonth();}
-  async function deleteSavedFood(id){await fetch('/api/saved-foods',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});loadSaved();}
-  async function addSavedFood(){if(!addFoodForm.name.trim())return;await fetch('/api/saved-foods',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:addFoodForm.name.trim(),type:addFoodForm.type})});setAddFoodForm({name:'',type:addFoodForm.type});setModal(null);loadSaved();}
-  async function openDayDetail(dateStr){const res=await fetch(`/api/nutrition?date=${dateStr}`);setDetailDay(dateStr);setDetailMeals(await res.json());}
-  const modalFoods=savedFoods.filter(f=>f.type===form.type&&(!search||f.name.toLowerCase().includes(search.toLowerCase())));
-  const foodsMeals=savedFoods.filter(f=>f.type==='meal');
-  const foodsSnacks=savedFoods.filter(f=>f.type==='snack');
-  const displayFoods=foodsFilter==='meal'?foodsMeals:foodsFilter==='snack'?foodsSnacks:savedFoods;
-  const byDate={};monthData.forEach(m=>{if(!byDate[m.date])byDate[m.date]=[];byDate[m.date].push(m);});
-  function getDayStatus(dateStr){const meals=byDate[dateStr];if(!meals||meals.length===0)return null;const sorted=[...meals].sort((a,b)=>a.time.localeCompare(b.time));const span=timeToMinsN(sorted[sorted.length-1].time)-timeToMinsN(sorted[0].time);return{meals:sorted.length,span,withinWindow:span<=WINDOW_MINS,first:sorted[0].time,last:sorted[sorted.length-1].time};}
-  function getHistHeatColor(dateStr){const s=getDayStatus(dateStr);if(!s)return{bg:HEAT.none,text:HEAT.noneText};if(s.withinWindow)return{bg:HEAT.green1,text:HEAT.green1Text};if(s.span<=(WINDOW_HOURS+1)*60)return{bg:HEAT.amber,text:HEAT.amberText};return{bg:HEAT.red,text:HEAT.redText};}
-  const daysInWindow=Object.keys(byDate).filter(d=>getDayStatus(d)?.withinWindow).length;
-  const totalLogged=Object.keys(byDate).length;
-  function prevMonth(){if(month===0){setMonth(11);setYear(y=>y-1);}else setMonth(m=>m-1);}
-  function nextMonth(){if(month===11){setMonth(0);setYear(y=>y+1);}else setMonth(m=>m+1);}
-  const monthLabel=new Date(year,month).toLocaleString('default',{month:'long',year:'numeric'});
-  const NUTR_TABS=[{key:'today',label:'Today'},{key:'foods',label:'Foods'},{key:'history',label:'History'}];
+  async function openDayDetail(dateStr) { const res=await fetch(`/api/nutrition?date=${dateStr}`); setDetailDay(dateStr); setDetailEntries(await res.json()); }
+  function prevMonth(){ if(month===0){setMonth(11);setYear(y=>y-1);}else setMonth(m=>m-1); }
+  function nextMonth(){ if(month===11){setMonth(0);setYear(y=>y+1);}else setMonth(m=>m+1); }
+  const monthLabel = new Date(year,month).toLocaleString('default',{month:'long',year:'numeric'});
+
+  const byDate = {}; monthData.forEach(e=>{ if(!byDate[e.date]) byDate[e.date]=[]; byDate[e.date].push(e); });
+  function dayTotal(dateStr) { return (byDate[dateStr]||[]).reduce((s,e)=>s+(e.calories||0),0); }
+  const loggedDays = Object.keys(byDate).filter(d=>byDate[d].length>0);
+  const avgCal = loggedDays.length ? Math.round(loggedDays.reduce((s,d)=>s+dayTotal(d),0)/loggedDays.length) : 0;
+  const daysThisMonth = loggedDays.filter(d=>d.startsWith(`${year}-${pad(month+1)}`));
 
   return (<div>
-    <div style={{display:'flex',gap:4,marginBottom:'1.5rem',background:TH.card,borderRadius:TH.radiusSm,padding:4,border:`1px solid ${TH.border}`}}>
-      {NUTR_TABS.map(t=>(<button key={t.key} onClick={()=>setTab(t.key)} style={{flex:1,padding:'10px 0',background:tab===t.key?TH.pink:'transparent',border:'none',borderRadius:10,color:tab===t.key?'#fff':TH.textMuted,fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease',boxShadow:tab===t.key?'0 0 12px rgba(236,116,135,0.3)':'none'}}>{t.label}</button>))}</div>
-
-    {tab==='today'&&(<div>
-      <FastingRing meals={todayMeals} />
-      <Btn onClick={openLogModal} style={{width:'100%',fontSize:15,padding:'14px',marginTop:'1rem',marginBottom:'1.25rem'}}>+ Log food</Btn>
-      {todayMeals.length===0&&<div style={{textAlign:'center',padding:'1.5rem',color:TH.textMuted,fontSize:14}}>No meals logged today</div>}
-      {[...todayMeals].sort((a,b)=>a.time.localeCompare(b.time)).map((m,i)=>(
-        <div key={m._id||i} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 14px',background:TH.card,borderRadius:TH.radiusSm,marginBottom:6,border:`1px solid ${TH.border}`,position:'relative',overflow:'hidden'}}>
-          <div style={{position:'absolute',top:0,left:0,right:0,height:1,background:`linear-gradient(90deg, transparent, ${TH.borderGlow}, transparent)`}} />
-          <div style={{display:'flex',alignItems:'center',gap:10,minWidth:0,flex:1}}>
-            <span style={{fontSize:13,fontWeight:700,color:TH.cyan,fontFamily:TH.heading,flexShrink:0}}>{minsToLabel(timeToMinsN(m.time))}</span>
-            <span style={{fontSize:14,color:TH.text,fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{m.food}</span>
-            <span style={{fontSize:10,color:m.type==='snack'?TH.purple:TH.pink,fontWeight:600,flexShrink:0,textTransform:'uppercase',letterSpacing:'0.05em'}}>{m.type||'meal'}</span>
-          </div>
-          <button onClick={()=>deleteEntry(m._id)} style={{background:'none',border:'none',color:TH.textMuted,fontSize:16,cursor:'pointer',padding:'4px 6px',flexShrink:0}}>x</button>
+    <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'1.25rem' }}>
+      <button onClick={prevMonth} style={{ background:TH.card,border:`1px solid ${TH.border}`,borderRadius:8,padding:'7px 16px',fontSize:16,color:TH.textSec,cursor:'pointer' }}>&#8249;</button>
+      <span style={{ fontWeight:700,fontSize:15,fontFamily:TH.heading,color:TH.text }}>{monthLabel}</span>
+      <button onClick={nextMonth} style={{ background:TH.card,border:`1px solid ${TH.border}`,borderRadius:8,padding:'7px 16px',fontSize:16,color:TH.textSec,cursor:'pointer' }}>&#8250;</button></div>
+    <div style={{ display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:10,marginBottom:'1.5rem' }}>
+      <StatCard label="Days logged" value={daysThisMonth.length} sub="this month" />
+      <StatCard label="Avg calories" value={avgCal} sub="per logged day" />
+    </div>
+    <CalendarGrid year={year} month={month}
+      getCellStyle={(day,dateStr)=>{ const entries=byDate[dateStr]||[]; if(entries.length===0) return {border:`1px solid ${TH.border}`,color:TH.textMuted,borderRadius:TH.radiusSm}; return {background:TH.cardAlt,color:TH.cyan,border:`1px solid ${TH.borderMed}`,borderRadius:TH.radiusSm,fontWeight:600,bottomLabel:`${dayTotal(dateStr)}`}; }}
+      onDayClick={day=>openDayDetail(toDateStr(year,month,day))} />
+    {detailDay && (<div style={{ background:TH.card,borderRadius:TH.radiusSm,padding:'14px',border:`1px solid ${TH.border}`,marginBottom:'1rem',position:'relative',overflow:'hidden' }}>
+      <div style={{ position:'absolute',top:0,left:0,right:0,height:1,background:`linear-gradient(90deg, transparent, ${TH.borderGlow}, transparent)` }} />
+      <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10 }}>
+        <span style={{ fontWeight:700,fontSize:14,fontFamily:TH.heading,color:TH.text }}>{fmtDate(detailDay)}</span>
+        <button onClick={()=>{setDetailDay(null);setDetailEntries([]);}} style={{ background:'none',border:'none',color:TH.textMuted,fontSize:18,cursor:'pointer' }}>x</button></div>
+      {detailEntries.length===0 && <div style={{ color:TH.textMuted,fontSize:13 }}>No food logged</div>}
+      {[...detailEntries].sort((a,b)=>a.time.localeCompare(b.time)).map((e,i)=>(
+        <div key={e._id||i} style={{ display:'flex',alignItems:'center',gap:10,padding:'6px 0',borderBottom:i<detailEntries.length-1?`1px solid ${TH.border}`:'none' }}>
+          <span style={{ fontSize:12,fontWeight:700,color:TH.cyan,fontFamily:TH.heading,flexShrink:0,width:56 }}>{minsToLabel(timeToMinsN(e.time))}</span>
+          <span style={{ fontSize:13,color:TH.text,flex:1 }}>{e.food} <span style={{ color:TH.textMuted }}>· {e.grams||0}g</span></span>
+          <span style={{ fontSize:12,color:TH.textSec,fontWeight:600 }}>{e.calories||0} kcal</span>
         </div>
       ))}
-    </div>)}
-
-    {tab==='foods'&&(<div>
-      <div style={{display:'flex',gap:6,marginBottom:'1rem'}}>
-        {[['all','All'],['meal','Meals'],['snack','Snacks']].map(([k,l])=>(<button key={k} onClick={()=>setFoodsFilter(k)} style={{flex:1,padding:'9px',borderRadius:10,border:`2px solid ${foodsFilter===k?TH.cyan:TH.border}`,background:foodsFilter===k?'rgba(77,212,255,0.08)':'transparent',color:foodsFilter===k?TH.cyan:TH.textMuted,fontWeight:600,cursor:'pointer',fontFamily:'inherit',fontSize:13,transition:'all 150ms ease'}}>{l}{k==='meal'?` (${foodsMeals.length})`:k==='snack'?` (${foodsSnacks.length})`:` (${savedFoods.length})`}</button>))}
-      </div>
-      {displayFoods.length===0&&<div style={{textAlign:'center',padding:'2rem',color:TH.textMuted,fontSize:14}}>{savedFoods.length===0?'No saved foods yet':'No '+foodsFilter+'s saved'}</div>}
-      {foodsFilter==='all'&&foodsMeals.length>0&&(<div style={{marginBottom:'1.25rem'}}>
-        <div style={{fontSize:12,color:TH.pink,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:8}}>Meals ({foodsMeals.length})</div>
-        {foodsMeals.map(f=>(<div key={f._id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 12px',background:TH.card,borderRadius:TH.radiusSm,marginBottom:4,border:`1px solid ${TH.border}`}}>
-          <span style={{fontSize:14,color:TH.text}}>{f.name}</span>
-          <button onClick={()=>deleteSavedFood(f._id)} style={{background:'none',border:'none',color:TH.textMuted,fontSize:16,cursor:'pointer',padding:'2px 6px'}}>x</button>
-        </div>))}
-      </div>)}
-      {foodsFilter==='all'&&foodsSnacks.length>0&&(<div style={{marginBottom:'1.25rem'}}>
-        <div style={{fontSize:12,color:TH.purple,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:8}}>Snacks ({foodsSnacks.length})</div>
-        {foodsSnacks.map(f=>(<div key={f._id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 12px',background:TH.card,borderRadius:TH.radiusSm,marginBottom:4,border:`1px solid ${TH.border}`}}>
-          <span style={{fontSize:14,color:TH.text}}>{f.name}</span>
-          <button onClick={()=>deleteSavedFood(f._id)} style={{background:'none',border:'none',color:TH.textMuted,fontSize:16,cursor:'pointer',padding:'2px 6px'}}>x</button>
-        </div>))}
-      </div>)}
-      {foodsFilter!=='all'&&displayFoods.map(f=>(<div key={f._id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 12px',background:TH.card,borderRadius:TH.radiusSm,marginBottom:4,border:`1px solid ${TH.border}`}}>
-        <span style={{fontSize:14,color:TH.text}}>{f.name}</span>
-        <button onClick={()=>deleteSavedFood(f._id)} style={{background:'none',border:'none',color:TH.textMuted,fontSize:16,cursor:'pointer',padding:'2px 6px'}}>x</button>
-      </div>))}
-      <Btn onClick={()=>{setAddFoodForm({name:'',type:'meal'});setModal('addFood');}} variant="secondary" style={{width:'100%',marginTop:'0.5rem'}}>+ Add a food</Btn>
-    </div>)}
-
-    {tab==='history'&&(<div>
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'1.25rem'}}>
-        <button onClick={prevMonth} style={{background:TH.card,border:`1px solid ${TH.border}`,borderRadius:8,padding:'7px 16px',fontSize:16,color:TH.textSec,cursor:'pointer'}}>&#8249;</button>
-        <span style={{fontWeight:700,fontSize:15,fontFamily:TH.heading,color:TH.text}}>{monthLabel}</span>
-        <button onClick={nextMonth} style={{background:TH.card,border:`1px solid ${TH.border}`,borderRadius:8,padding:'7px 16px',fontSize:16,color:TH.textSec,cursor:'pointer'}}>&#8250;</button></div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginBottom:'1.5rem'}}>
-        <StatCard label="Days logged" value={totalLogged} sub="this month" />
-        <StatCard label="In window" value={daysInWindow} sub={`of ${totalLogged}`} />
-        <StatCard label="Window" value={`${WINDOW_HOURS}h`} sub="target" /></div>
-      <CalendarGrid year={year} month={month}
-        getCellStyle={(day,dateStr)=>{const{bg,text}=getHistHeatColor(dateStr);const s=getDayStatus(dateStr);return{background:bg,color:text,border:'none',borderRadius:TH.radiusSm,fontWeight:500,bottomLabel:s?`${s.meals}`:''};}}
-        onDayClick={day=>openDayDetail(toDateStr(year,month,day))} />
-      <div style={{display:'flex',flexWrap:'wrap',gap:12,marginBottom:'1.5rem'}}>
-        {[[HEAT.green1,`${WINDOW_HOURS}h window`],[HEAT.amber,`${WINDOW_HOURS}-${WINDOW_HOURS+1}h`],[HEAT.red,`over ${WINDOW_HOURS+1}h`]].map(([c,l],i)=>(<div key={i} style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:TH.textSec}}><div style={{width:12,height:12,borderRadius:4,background:c}}/>{l}</div>))}</div>
-      {detailDay&&(<div style={{background:TH.card,borderRadius:TH.radiusSm,padding:'14px',border:`1px solid ${TH.border}`,marginBottom:'1rem',position:'relative',overflow:'hidden'}}>
-        <div style={{position:'absolute',top:0,left:0,right:0,height:1,background:`linear-gradient(90deg, transparent, ${TH.borderGlow}, transparent)`}} />
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-          <span style={{fontWeight:700,fontSize:14,fontFamily:TH.heading,color:TH.text}}>{fmtDate(detailDay)}</span>
-          <button onClick={()=>{setDetailDay(null);setDetailMeals([]);}} style={{background:'none',border:'none',color:TH.textMuted,fontSize:18,cursor:'pointer'}}>x</button></div>
-        {detailMeals.length===0&&<div style={{color:TH.textMuted,fontSize:13}}>No meals logged</div>}
-        {[...detailMeals].sort((a,b)=>a.time.localeCompare(b.time)).map((m,i)=>(
-          <div key={m._id||i} style={{display:'flex',alignItems:'center',gap:10,padding:'6px 0',borderBottom:i<detailMeals.length-1?`1px solid ${TH.border}`:'none'}}>
-            <span style={{fontSize:12,fontWeight:700,color:TH.cyan,fontFamily:TH.heading,flexShrink:0,width:60}}>{minsToLabel(timeToMinsN(m.time))}</span>
-            <span style={{fontSize:13,color:TH.text,flex:1}}>{m.food}</span>
-            <span style={{fontSize:10,color:m.type==='snack'?TH.purple:TH.pink,fontWeight:600,textTransform:'uppercase'}}>{m.type||'meal'}</span>
-          </div>
-        ))}
-        {(()=>{const s=getDayStatus(detailDay);if(!s)return null;return(<div style={{marginTop:8,paddingTop:8,borderTop:`1px solid ${TH.border}`,fontSize:12,color:TH.textMuted}}>
-          Window: {minsToLabel(timeToMinsN(s.first))} to {minsToLabel(timeToMinsN(s.last))} ({Math.floor(s.span/60)}h {s.span%60}m)
-          {s.withinWindow?<span style={{color:HEAT.green1,marginLeft:8}}>Within {WINDOW_HOURS}h</span>:<span style={{color:HEAT.red,marginLeft:8}}>Over by {Math.floor((s.span-WINDOW_MINS)/60)}h {(s.span-WINDOW_MINS)%60}m</span>}
-        </div>);})()}
+      {detailEntries.length>0 && (<div style={{ marginTop:8,paddingTop:8,borderTop:`1px solid ${TH.border}`,fontSize:12,color:TH.textMuted }}>
+        Total: <strong style={{ color:TH.text }}>{detailEntries.reduce((s,e)=>s+(e.calories||0),0)} kcal</strong>
+        {' · '}C{Math.round(detailEntries.reduce((s,e)=>s+(e.carbs||0),0))} P{Math.round(detailEntries.reduce((s,e)=>s+(e.protein||0),0))} F{Math.round(detailEntries.reduce((s,e)=>s+(e.fat||0),0))}
       </div>)}
     </div>)}
+  </div>);
+}
 
-    {modal==='log'&&(()=>{
-      const isNewFood=form.food.trim()&&!savedFoods.some(f=>f.type===form.type&&f.name.toLowerCase()===form.food.trim().toLowerCase());
-      return(<Modal title="Log food" onClose={()=>setModal(null)}>
-      <div style={{display:'flex',flexDirection:'column',gap:14}}>
-        <div><label style={{fontSize:12,color:TH.textSec,display:'block',marginBottom:4,fontWeight:500}}>Time</label>
-          <input type="time" value={form.time} onChange={e=>setForm(f=>({...f,time:e.target.value}))} style={{width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:16,fontFamily:'inherit',boxShadow:TH.glow}} /></div>
-        <div>
-          <div style={{display:'flex',gap:8,marginBottom:form.type?10:0}}>
-            {[['meal','Meal'],['snack','Snack']].map(([k,l])=>(<button key={k} onClick={()=>{setForm(f=>({...f,type:f.type===k?'':k,food:''}));setSearch('');}} style={{flex:1,padding:'12px',borderRadius:TH.radiusSm,border:`2px solid ${form.type===k?(k==='meal'?TH.pink:TH.purple):TH.border}`,background:form.type===k?(k==='meal'?'rgba(236,116,135,0.12)':'rgba(139,92,246,0.12)'):'transparent',color:form.type===k?(k==='meal'?TH.pink:TH.purple):TH.textMuted,fontWeight:700,cursor:'pointer',fontFamily:'inherit',fontSize:14,transition:'all 150ms ease',boxShadow:form.type===k?`0 0 12px ${k==='meal'?'rgba(236,116,135,0.2)':'rgba(139,92,246,0.2)'}`:'none'}}>{l}</button>))}
-          </div>
-          {form.type&&(<>
-            {modalFoods.length>0?(<>
-              {savedFoods.filter(f=>f.type===form.type).length>6&&(<input type="text" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search..." style={{width:'100%',padding:'8px 12px',borderRadius:10,border:`1px solid ${TH.border}`,background:TH.input,color:TH.text,fontSize:13,fontFamily:'inherit',marginBottom:6,boxShadow:TH.glow}} />)}
-              <div style={{display:'flex',flexDirection:'column',gap:5,maxHeight:180,overflowY:'auto'}}>
-                {modalFoods.map(f=>{const sel=form.food===f.name;return(<button key={f._id} onClick={()=>{setForm(fm=>({...fm,food:sel?'':f.name,remember:false}));setSearch('');}}
-                  style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'11px 14px',borderRadius:12,border:`1.5px solid ${sel?TH.cyan:TH.borderMed}`,background:sel?'rgba(77,212,255,0.08)':TH.input,color:sel?TH.text:TH.textSec,fontSize:14,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease',textAlign:'left',fontWeight:sel?600:400}}>
-                  <span>{f.name}</span>{sel&&<span style={{fontSize:16,color:TH.cyan}}>✓</span>}
-                </button>);})}
-              </div>
-            </>):(<div style={{padding:'16px',textAlign:'center',color:TH.textMuted,fontSize:13,background:TH.input,borderRadius:12,border:`1px solid ${TH.border}`}}>No saved {form.type}s yet</div>)}
-          </>)}
-        </div>
-        <div style={{display:'flex',alignItems:'center',gap:8}}>
-          <div style={{flex:1,height:1,background:TH.borderMed}} />
-          <span style={{fontSize:11,color:TH.textMuted,flexShrink:0}}>or new</span>
-          <div style={{flex:1,height:1,background:TH.borderMed}} /></div>
-        <input type="text" value={isNewFood?form.food:''} onChange={e=>{setForm(f=>({...f,food:e.target.value,remember:true,type:f.type||'meal'}));setSearch('');}} placeholder="Type a new food..." style={{width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${isNewFood?TH.cyan:TH.borderMed}`,background:TH.input,color:TH.text,fontSize:14,fontFamily:'inherit',boxShadow:isNewFood?`0 0 8px rgba(77,212,255,0.15)`:TH.glow}} />
-        {isNewFood&&(<div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-          <div style={{display:'flex',alignItems:'center',gap:8}}>
-            <button onClick={()=>setForm(f=>({...f,remember:!f.remember}))} style={{width:36,height:20,borderRadius:10,border:'none',background:form.remember?TH.cyan:'rgba(77,212,255,0.15)',cursor:'pointer',position:'relative',transition:'background 200ms ease'}}>
-              <div style={{width:16,height:16,borderRadius:8,background:'#fff',position:'absolute',top:2,left:form.remember?18:2,transition:'left 200ms ease',boxShadow:'0 1px 3px rgba(0,0,0,0.3)'}} /></button>
-            <span style={{fontSize:12,color:form.remember?TH.text:TH.textMuted}}>Remember</span></div>
-          {form.remember&&(<div style={{display:'flex',gap:4}}>
-            {[['meal','Meal'],['snack','Snack']].map(([k,l])=>(<button key={k} onClick={()=>setForm(f=>({...f,type:k}))} style={{padding:'4px 10px',borderRadius:6,border:`1px solid ${form.type===k?(k==='meal'?TH.pink:TH.purple):TH.border}`,background:'transparent',color:form.type===k?(k==='meal'?TH.pink:TH.purple):TH.textMuted,fontWeight:600,cursor:'pointer',fontFamily:'inherit',fontSize:11,transition:'all 150ms ease'}}>{l}</button>))}
-          </div>)}
-        </div>)}
-        <Btn onClick={saveEntry} style={{opacity:form.food.trim()?1:0.3,marginTop:2}}>{form.food.trim()?`Log ${form.food.trim()}`:'Log food'}</Btn>
-      </div></Modal>);})()}
-
-    {modal==='addFood'&&(<Modal title="Add a saved food" onClose={()=>setModal(null)}>
-      <div style={{display:'flex',flexDirection:'column',gap:12}}>
-        <div><label style={{fontSize:12,color:TH.textSec,display:'block',marginBottom:6,fontWeight:500}}>Type</label>
-          <div style={{display:'flex',gap:8}}>
-            {[['meal','Meal'],['snack','Snack']].map(([k,l])=>(<button key={k} onClick={()=>setAddFoodForm(f=>({...f,type:k}))} style={{flex:1,padding:'11px',borderRadius:TH.radiusSm,border:`2px solid ${addFoodForm.type===k?(k==='meal'?TH.pink:TH.purple):TH.border}`,background:addFoodForm.type===k?(k==='meal'?'rgba(236,116,135,0.1)':'rgba(139,92,246,0.1)'):'transparent',color:addFoodForm.type===k?(k==='meal'?TH.pink:TH.purple):TH.textMuted,fontWeight:600,cursor:'pointer',fontFamily:'inherit',fontSize:14,transition:'all 150ms ease'}}>{l}</button>))}
-          </div></div>
-        <div><label style={{fontSize:12,color:TH.textSec,display:'block',marginBottom:4,fontWeight:500}}>Food name</label>
-          <input type="text" value={addFoodForm.name} onChange={e=>setAddFoodForm(f=>({...f,name:e.target.value}))} placeholder="e.g. Chicken curry" autoFocus style={{width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:14,fontFamily:'inherit',boxShadow:TH.glow}} /></div>
-        <Btn onClick={addSavedFood} style={{opacity:addFoodForm.name.trim()?1:0.4}}>Save {addFoodForm.type}</Btn>
-      </div></Modal>)}
+// ─── NUTRITION SECTION SHELL ─────────────────────────────────────────────────
+const NUTR_TABS=[{key:'foods',label:'Foods'},{key:'log',label:'Log'},{key:'calendar',label:'Calendar'}];
+function NutritionSection() {
+  const [tab,setTab] = useState('log');
+  const [foods,setFoods] = useState([]);
+  useEffect(()=>{ loadFoods(); },[]);
+  async function loadFoods() { const res=await fetch('/api/saved-foods'); setFoods(await res.json()); }
+  return (<div>
+    <div style={{ display:'flex',gap:4,marginBottom:'1.5rem',background:TH.card,borderRadius:TH.radiusSm,padding:4,border:`1px solid ${TH.border}` }}>
+      {NUTR_TABS.map(t=>(<button key={t.key} onClick={()=>setTab(t.key)} style={{ flex:1,padding:'10px 0',background:tab===t.key?TH.pink:'transparent',border:'none',borderRadius:10,color:tab===t.key?'#fff':TH.textMuted,fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease',boxShadow:tab===t.key?'0 0 12px rgba(236,116,135,0.3)':'none' }}>{t.label}</button>))}</div>
+    {tab==='foods' && <FoodsTab foods={foods} onChanged={loadFoods} />}
+    {tab==='log' && <LogTab foods={foods} onFoodsChanged={loadFoods} />}
+    {tab==='calendar' && <NutritionCalendarTab />}
   </div>);
 }
 
