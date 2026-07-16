@@ -21,9 +21,19 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    const { date, time, food, type } = req.body;
+    const { date, time, food, type, grams, carbs, protein, fat, calories } = req.body;
     if (!date || !time || !food) return res.status(400).json({ error: 'Missing fields' });
-    const result = await col.insertOne({ date, time, food, type: type || 'meal' });
+    const result = await col.insertOne({
+      date,
+      time,
+      food,
+      type: type || 'meal',
+      grams: Number(grams) || 0,
+      carbs: Number(carbs) || 0,
+      protein: Number(protein) || 0,
+      fat: Number(fat) || 0,
+      calories: Number(calories) || 0,
+    });
     return res.json({ success: true, id: result.insertedId });
   }
 
