@@ -759,10 +759,17 @@ function DailyTasksSection() {
   const [savingToday,setSavingToday] = useState(false);
   const [modal,setModal] = useState(null);
   const [modalEntry,setModalEntry] = useState(null);
+  const [magicTodos,setMagicTodos] = useState([]);
+  const [balloonTodos,setBalloonTodos] = useState([]);
+  const [pickerList,setPickerList] = useState(null);
+  const [newTodoText,setNewTodoText] = useState('');
+  const [manageMode,setManageMode] = useState(false);
+  const [showManualEntry,setShowManualEntry] = useState(false);
 
   useEffect(() => { setToday(todayStr()); }, []);
   useEffect(() => { loadMonth(); }, [year,month]);
   useEffect(() => { loadToday(); }, []);
+  useEffect(() => { loadTodos(); }, []);
 
   async function loadMonth() {
     const prevMonth0 = month===0?11:month-1; const prevYear = month===0?year-1:year;
@@ -779,22 +786,60 @@ function DailyTasksSection() {
     const data = await res.json();
     setTodayEntry(data && data.length ? data[0] : null);
   }
+  async function loadTodos() {
+    const [m,b] = await Promise.all([
+      fetch('/api/todos?list=magic').then(r=>r.json()),
+      fetch('/api/todos?list=balloon').then(r=>r.json()),
+    ]);
+    setMagicTodos(m); setBalloonTodos(b);
+  }
 
   async function saveTodayTask() {
     if(!taskText.trim()) return;
     setSavingToday(true);
-    await fetch('/api/dailytasks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:todayStr(),category,task:taskText.trim(),done:false})});
-    setTaskText(''); setSavingToday(false);
+    await fetch('/api/dailytasks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:todayStr(),category,task:taskText.trim(),done:false,todoId:null})});
+    setTaskText(''); setSavingToday(false); setShowManualEntry(false);
     loadToday(); loadMonth();
+  }
+  async function useTodoToday(item) {
+    await fetch('/api/dailytasks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:todayStr(),category:item.list,task:item.text,done:false,todoId:item._id})});
+    closePicker(); loadToday(); loadMonth();
   }
   async function toggleDone() {
     if(!todayEntry) return;
-    await fetch('/api/dailytasks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:todayEntry.date,category:todayEntry.category,task:todayEntry.task,done:!todayEntry.done})});
-    loadToday(); loadMonth();
+    const newDone = !todayEntry.done;
+    await fetch('/api/dailytasks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:todayEntry.date,category:todayEntry.category,task:todayEntry.task,done:newDone,todoId:todayEntry.todoId||null})});
+    if(todayEntry.todoId) {
+      await fetch('/api/todos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:todayEntry.todoId,done:newDone})});
+    }
+    loadToday(); loadMonth(); loadTodos();
   }
   async function clearToday() {
     await fetch('/api/dailytasks',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:todayStr()})});
     setTodayEntry(null); loadMonth();
+  }
+
+  function openPicker(list) { setPickerList(list); setManageMode(false); setNewTodoText(''); }
+  function closePicker() { setPickerList(null); setManageMode(false); setNewTodoText(''); }
+  async function addTodoItem(list) {
+    if(!newTodoText.trim()) return;
+    await fetch('/api/todos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({list,text:newTodoText.trim()})});
+    setNewTodoText(''); loadTodos();
+  }
+  async function toggleTodoDone(item) {
+    await fetch('/api/todos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:item._id,done:!item.done})});
+    loadTodos();
+  }
+  async function deleteTodoItem(id) {
+    await fetch('/api/todos',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
+    loadTodos();
+  }
+  async function reorderTodo(list,items,index,direction) {
+    const newIndex = index+direction; if(newIndex<0||newIndex>=items.length) return;
+    const updated = [...items]; [updated[index],updated[newIndex]] = [updated[newIndex],updated[index]];
+    const ids = updated.map(i => i._id);
+    await fetch('/api/todos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'reorder',list,ids})});
+    loadTodos();
   }
 
   const byDateAll = {}; [...monthData,...adjData].forEach(e => { byDateAll[e.date] = e; });
@@ -837,13 +882,28 @@ function DailyTasksSection() {
       <div style={{ fontSize:12,color:TH.textMuted,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:10 }}>Today's task</div>
       {!todayEntry ? (<div style={{ display:'flex',flexDirection:'column',gap:10 }}>
         <div style={{ display:'flex',gap:8 }}>
-          {Object.entries(TASK_CATEGORIES).map(([k,c]) => (<button key={k} onClick={() => setCategory(k)}
-            style={{ flex:1,padding:'10px',borderRadius:TH.radiusSm,border:`2px solid ${category===k?c.color:TH.border}`,background:category===k?c.color+'20':'transparent',color:category===k?c.color:TH.textMuted,fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease' }}>{c.label}</button>))}
+          {Object.entries(TASK_CATEGORIES).map(([k,c]) => {
+            const list = k==='magic'?magicTodos:balloonTodos;
+            const remaining = list.filter(i => !i.done).length;
+            return (<button key={k} onClick={() => openPicker(k)}
+              style={{ flex:1,padding:'14px 10px',borderRadius:TH.radiusSm,border:`2px solid ${c.color}`,background:c.color+'15',color:c.color,fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease',textAlign:'center' }}>
+              <div>{c.label}</div>
+              <div style={{ fontSize:11,fontWeight:500,opacity:0.85,marginTop:3 }}>{remaining} to do</div>
+            </button>);
+          })}
         </div>
-        <input type="text" value={taskText} onChange={e => setTaskText(e.target.value)} placeholder="What are you doing today?"
-          onKeyDown={e => { if(e.key==='Enter'&&taskText.trim()) saveTodayTask(); }}
-          style={{ width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:14,fontFamily:'inherit',boxShadow:TH.glow,boxSizing:'border-box' }} />
-        <Btn onClick={saveTodayTask} style={{ opacity:taskText.trim()?1:0.4 }}>{savingToday?'Saving...':'Set task'}</Btn>
+        {!showManualEntry ? (
+          <button onClick={() => setShowManualEntry(true)} style={{ background:'none',border:'none',color:TH.textMuted,fontSize:12,cursor:'pointer',fontFamily:'inherit',textDecoration:'underline',padding:0,textAlign:'left' }}>or type a one-off task</button>
+        ) : (<>
+          <div style={{ display:'flex',gap:8 }}>
+            {Object.entries(TASK_CATEGORIES).map(([k,c]) => (<button key={k} onClick={() => setCategory(k)}
+              style={{ flex:1,padding:'10px',borderRadius:TH.radiusSm,border:`2px solid ${category===k?c.color:TH.border}`,background:category===k?c.color+'20':'transparent',color:category===k?c.color:TH.textMuted,fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease' }}>{c.label}</button>))}
+          </div>
+          <input type="text" value={taskText} onChange={e => setTaskText(e.target.value)} placeholder="What are you doing today?"
+            onKeyDown={e => { if(e.key==='Enter'&&taskText.trim()) saveTodayTask(); }}
+            style={{ width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:14,fontFamily:'inherit',boxShadow:TH.glow,boxSizing:'border-box' }} />
+          <Btn onClick={saveTodayTask} style={{ opacity:taskText.trim()?1:0.4 }}>{savingToday?'Saving...':'Set task'}</Btn>
+        </>)}
       </div>) : (<div>
         <div style={{ marginBottom:6 }}>
           <span style={{ fontSize:11,fontWeight:700,color:TASK_CATEGORIES[todayEntry.category]?.color,textTransform:'uppercase',letterSpacing:'0.04em' }}>{TASK_CATEGORIES[todayEntry.category]?.label}</span>
@@ -863,6 +923,22 @@ function DailyTasksSection() {
       <StatCard label="Magic" value={magicCount} sub="this month" />
       <StatCard label="Balloon Biz" value={balloonCount} sub="this month" />
     </div>
+
+    {balloonTodos.length>0 && (() => {
+      const doneCount = balloonTodos.filter(t=>t.done).length;
+      const total = balloonTodos.length;
+      const pct = total ? Math.round((doneCount/total)*100) : 0;
+      return (<div style={{ background:TH.card,borderRadius:TH.radiusSm,padding:'14px 16px',marginBottom:'1.5rem',border:`1px solid ${TH.border}`,boxShadow:TH.shadowSm }}>
+        <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8 }}>
+          <span style={{ fontSize:12,color:TH.textMuted,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em' }}>🎈 Balloon Business launch progress</span>
+          <span style={{ fontSize:13,fontWeight:700,color:TASK_CATEGORIES.balloon.color }}>{doneCount}/{total}</span>
+        </div>
+        <div style={{ height:10,background:TH.cardAlt,borderRadius:6,overflow:'hidden' }}>
+          <div style={{ height:'100%',width:`${pct}%`,background:TASK_CATEGORIES.balloon.color,borderRadius:6,transition:'width 300ms ease' }} />
+        </div>
+        <div style={{ fontSize:12,color:TH.textMuted,marginTop:8 }}>{pct===100 ? '🎉 All steps complete — ready to launch!' : `${total-doneCount} step${total-doneCount===1?'':'s'} to go`}</div>
+      </div>);
+    })()}
 
     <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'1.25rem' }}>
       <button onClick={prevMonth} style={{ background:TH.card,border:`1px solid ${TH.border}`,borderRadius:8,padding:'7px 16px',fontSize:16,color:TH.textSec,cursor:'pointer' }}>&#8249;</button>
@@ -904,6 +980,33 @@ function DailyTasksSection() {
         <div style={{ fontSize:13,color:modalEntry.done?'#34D399':HEAT.red }}>{modalEntry.done?'Done':'Not done'}</div>
         <Btn onClick={removeModalEntry} variant="danger">Remove entry</Btn>
       </div>) : (<div style={{ color:TH.textMuted,fontSize:13 }}>No task logged for this day</div>)}
+    </Modal>)}
+
+    {pickerList && (<Modal title={`${TASK_CATEGORIES[pickerList].label} to-dos`} onClose={closePicker}>
+      <div style={{ display:'flex',flexDirection:'column',gap:8 }}>
+        {(pickerList==='magic'?magicTodos:balloonTodos).length===0 && <div style={{ color:TH.textMuted,fontSize:13 }}>No items yet — add one below</div>}
+        {(pickerList==='magic'?magicTodos:balloonTodos).map((item,idx,arr) => (
+          <div key={item._id} style={{ display:'flex',alignItems:'center',gap:8,padding:'10px 12px',background:TH.cardAlt,borderRadius:10,border:`1px solid ${TH.border}`,opacity:item.done?0.5:1 }}>
+            {pickerList==='balloon' && <span style={{ fontSize:11,color:TH.textMuted,fontWeight:700,width:18,flexShrink:0 }}>{idx+1}</span>}
+            <span style={{ fontSize:13,color:TH.text,flex:1,textDecoration:item.done?'line-through':'none' }}>{item.text}</span>
+            {manageMode ? (<div style={{ display:'flex',gap:4,flexShrink:0,alignItems:'center' }}>
+              {pickerList==='balloon' && (<>
+                <button onClick={() => reorderTodo(pickerList,arr,idx,-1)} disabled={idx===0} style={{ background:'none',border:`1px solid ${TH.border}`,borderRadius:4,color:idx===0?TH.textMuted:TH.textSec,fontSize:11,padding:'3px 6px',cursor:idx===0?'default':'pointer' }}>▲</button>
+                <button onClick={() => reorderTodo(pickerList,arr,idx,1)} disabled={idx===arr.length-1} style={{ background:'none',border:`1px solid ${TH.border}`,borderRadius:4,color:idx===arr.length-1?TH.textMuted:TH.textSec,fontSize:11,padding:'3px 6px',cursor:idx===arr.length-1?'default':'pointer' }}>▼</button>
+              </>)}
+              <button onClick={() => toggleTodoDone(item)} style={{ background:'none',border:`1px solid ${TH.border}`,borderRadius:4,color:item.done?'#34D399':TH.textMuted,fontSize:11,padding:'3px 6px',cursor:'pointer' }}>{item.done?'✓':'○'}</button>
+              <button onClick={() => deleteTodoItem(item._id)} style={{ background:'none',border:'none',color:TH.textMuted,fontSize:14,cursor:'pointer',padding:'3px 6px' }}>x</button>
+            </div>) : (!item.done && <button onClick={() => useTodoToday(item)} style={{ background:'rgba(77,212,255,0.08)',border:`1px solid ${TH.borderMed}`,color:TH.cyan,fontSize:12,fontWeight:700,cursor:'pointer',padding:'6px 10px',borderRadius:8,fontFamily:'inherit',flexShrink:0 }}>Use today</button>)}
+          </div>
+        ))}
+        <div style={{ display:'flex',gap:8,marginTop:4 }}>
+          <input type="text" value={newTodoText} onChange={e => setNewTodoText(e.target.value)} placeholder="Add new item..."
+            onKeyDown={e => { if(e.key==='Enter'&&newTodoText.trim()) addTodoItem(pickerList); }}
+            style={{ flex:1,padding:'10px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:13,fontFamily:'inherit',boxShadow:TH.glow,boxSizing:'border-box' }} />
+          <Btn onClick={() => addTodoItem(pickerList)} style={{ padding:'10px 14px',fontSize:13 }}>Add</Btn>
+        </div>
+        <Btn onClick={() => setManageMode(m => !m)} variant="secondary" style={{ marginTop:4 }}>{manageMode?'Done managing':'Manage list'}</Btn>
+      </div>
     </Modal>)}
   </div>);
 }
