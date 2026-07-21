@@ -25,10 +25,10 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    const { date, category, task, done } = req.body;
+    const { date, category, task, done, todoId } = req.body;
     if (!date) return res.status(400).json({ error: 'date required' });
     await collection.deleteOne({ date });
-    await collection.insertOne({ date, category, task, done: !!done });
+    await collection.insertOne({ date, category, task, done: !!done, todoId: todoId || null });
     return res.status(200).json({ ok: true });
   }
 
