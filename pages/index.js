@@ -59,9 +59,6 @@ const HEAT = {
   red:'#EF4444',redText:'#FFF0F0',
   none:'#12182A',noneText:'#6F7B91',
 };
-const DW_SUBJECTS = { A:'Ozzy Wizzpop',B:'Reading',C:'Magic study' };
-const DW_COLORS = { A:'#34D399',B:'#4DD4FF',C:'#C084FC' };
-
 function getDaysInMonth(y,m) { return new Date(y,m+1,0).getDate(); }
 function getFirstDayOfMonth(y,m) { return new Date(y,m,1).getDay(); }
 function getMondayOffset(y,m) { const fd=getFirstDayOfMonth(y,m); return fd===0?6:fd-1; }
@@ -101,7 +98,7 @@ function SplitIcon({ size=30,radius=8 }) {
     <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position:'absolute',inset:0,width:'100%',height:'100%' }}>
       <polygon points="0,0 100,0 0,100" fill="#9884E8" /><polygon points="100,0 100,100 0,100" fill="#9EF0DE" /></svg></span>);
 }
-const TOP_SECTIONS = [{key:'gym',label:'GYM'},{key:'nutrition',label:'NUTRITION'},{key:'habits',label:'HABITS'}];
+const TOP_SECTIONS = [{key:'gym',label:'GYM'},{key:'nutrition',label:'NUTRITION'},{key:'tasks',label:'TASKS'}];
 
 const inputStyle = {
   padding:'9px',borderRadius:10,
@@ -467,8 +464,15 @@ function SessionLogger({ session,onSave,onMoveInactive,inactive,allLogs,customEx
   useEffect(() => {
     if(!allLogs||isRowingType) return;
     const sameBPLogs = allLogs.filter(l => l.workoutType===session.workoutType&&!l.noData&&l.date!==session.date).sort((a,b) => b.date.localeCompare(a.date));
-    if(sameBPLogs.length===0) return;
-    const prevMap = {}; (sameBPLogs[0].exercises||[]).forEach(ex => { prevMap[ex.name] = {sets:ex.sets,date:sameBPLogs[0].date}; });
+    const prevMap = {};
+    sameBPLogs.forEach(log => {
+      (log.exercises||[]).forEach(ex => {
+        if(prevMap[ex.name]) return;
+        const hasData = (ex.sets||[]).some(s => s.reps || s.weight);
+        if(!hasData) return;
+        prevMap[ex.name] = { sets: ex.sets, date: log.date };
+      });
+    });
     setPreviousData(prevMap);
   }, [allLogs,session.workoutType,session.date]);
 
@@ -595,7 +599,7 @@ function SessionLogger({ session,onSave,onMoveInactive,inactive,allLogs,customEx
           </div>))}
           <button onClick={() => addSet(exIdx)} style={{ fontSize:12,color:TH.textMuted,background:'none',border:`1px dashed ${TH.borderMed}`,borderRadius:8,padding:'7px 12px',cursor:'pointer',width:'100%',marginTop:4,fontFamily:'inherit',fontWeight:500 }}>+ Add set</button>
           {prev && (<div style={{ marginTop:10,padding:'8px 10px',background:TH.cardAlt,borderRadius:8,border:`1px solid ${TH.border}` }}>
-            <div style={{ fontSize:11,color:TH.textMuted,marginBottom:4 }}>Last session — {fmtDate(prev.date)}</div>
+            <div style={{ fontSize:11,color:TH.textMuted,marginBottom:4 }}>Last logged — {fmtDate(prev.date)}</div>
             <div style={{ display:'flex',flexWrap:'wrap',gap:6 }}>{prev.sets.filter(s=>s.reps||s.weight).map((s,i) => <span key={i} style={{ background:TH.input,border:`1px solid ${TH.border}`,borderRadius:5,padding:'3px 8px',fontSize:12,color:TH.textSec }}>{s.reps} x {s.weight}kg</span>)}</div>
           </div>)}
         </div>);
@@ -735,167 +739,172 @@ function darkChartOpts(extra={}) {
     scales:{x:{ticks:{color:TH.textMuted,font:{size:11}},grid:{color:'rgba(77,212,255,0.04)'}},y:{min:extra.yMin||0,max:extra.yMax||undefined,ticks:{color:TH.textMuted,font:{size:10},...(extra.yTicks||{})},grid:{color:'rgba(77,212,255,0.04)'}}}};
 }
 
-// ─── DEEP WORK TAB ──────────────────────────────────────────────────────────
-function DeepWorkTab({ year,month }) {
-  const [data,setData]=useState([]); const [adjData,setAdjData]=useState([]); const [modal,setModal]=useState(null); const [form,setForm]=useState({minutes:'60',subject:'A'});
-  const [today,setToday]=useState(''); useEffect(()=>{setToday(todayStr());},[]);
-  useEffect(()=>{fetchData();},[year,month]);
-  async function fetchData(){
-    const prevMonth0=month===0?11:month-1; const prevYear=month===0?year-1:year;
-    const nextMonth0=month===11?0:month+1; const nextYear=month===11?year+1:year;
-    const [cur,prev,next]=await Promise.all([
-      fetch(`/api/deepwork?year=${year}&month=${month+1}`).then(r=>r.json()),
-      fetch(`/api/deepwork?year=${prevYear}&month=${prevMonth0+1}`).then(r=>r.json()),
-      fetch(`/api/deepwork?year=${nextYear}&month=${nextMonth0+1}`).then(r=>r.json()),
-    ]);
-    setData(cur); setAdjData([...prev,...next]);
-  }
-  async function save(){const hours=parseFloat((parseInt(form.minutes)/60).toFixed(2));await fetch('/api/deepwork',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:modal,hours,subject:form.subject,replace:false})});setModal(null);fetchData();}
-  async function clearDay(){await fetch('/api/deepwork',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:modal})});setModal(null);fetchData();}
-  const byDate={};data.forEach(d=>{if(!byDate[d.date])byDate[d.date]=[];byDate[d.date].push(d);});
-  const byDateAll={};[...data,...adjData].forEach(d=>{if(!byDateAll[d.date])byDateAll[d.date]=[];byDateAll[d.date].push(d);});
-  function getDayTotals(dateStr,source){const sessions=(source||byDate)[dateStr]||[];const total=sessions.reduce((s,d)=>s+(d.hours||0),0);const subTotals={};sessions.forEach(s=>{subTotals[s.subject]=(subTotals[s.subject]||0)+s.hours;});return{total,sessions,subTotals};}
-  function getHeatColor(total){if(!total)return{bg:HEAT.none,text:HEAT.noneText};if(total>=3)return{bg:HEAT.green2,text:HEAT.green2Text};if(total>=1.5)return{bg:HEAT.green1,text:HEAT.green1Text};return{bg:HEAT.amber,text:HEAT.amberText};}
-  const allSessions=[...data].sort((a,b)=>b.date.localeCompare(a.date));
-  const totalHours=data.reduce((s,d)=>s+(d.hours||0),0); const uniqueDays=Object.keys(byDate).length;
-  const best=Object.values(byDate).reduce((m,sessions)=>{const t=sessions.reduce((s,d)=>s+d.hours,0);return t>m?t:m;},0);
-  const days=getDaysInMonth(year,month); const labels=Array.from({length:days},(_,i)=>i+1);
-  const chartData=labels.map(d=>{const{total}=getDayTotals(toDateStr(year,month,d));return total;});
-  return (<div>
-    <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginBottom:'1.5rem'}}>
-      <StatCard label="Hours" value={`${totalHours.toFixed(1)}h`} sub="this month" />
-      <StatCard label="Days" value={uniqueDays} sub="with deep work" />
-      <StatCard label="Best day" value={`${best.toFixed(1)}h`} sub="this month" /></div>
-    <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:5,marginBottom:'1.5rem'}}>
-      {['M','T','W','T','F','S','S'].map((d,i)=>(<div key={i} style={{textAlign:'center',fontSize:11,color:TH.textMuted,paddingBottom:6,fontWeight:600}}>{d}</div>))}
-      {(()=>{
-        const leadOffset=getMondayOffset(year,month);
-        const prevMonth=month===0?11:month-1; const prevYear=month===0?year-1:year;
-        const prevMonthDays=getDaysInMonth(prevYear,prevMonth);
-        return Array.from({length:leadOffset}).map((_,i)=>{
-          const day=prevMonthDays-leadOffset+i+1;
-          const dateStr=toDateStr(prevYear,prevMonth,day);
-          const{total,subTotals}=getDayTotals(dateStr,byDateAll);const{bg,text}=getHeatColor(total);
-          return(<div key={`e${i}`} style={{aspectRatio:'1',borderRadius:TH.radiusSm,background:bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:text,position:'relative',fontWeight:500}}>
-            {day}{Object.keys(subTotals).length>0&&<span style={{position:'absolute',bottom:2,left:3,fontSize:8,fontWeight:700,color:text,opacity:0.85}}>{Object.keys(subTotals).sort().join('')}</span>}</div>);
-        });
-      })()}
-      {Array.from({length:days},(_,i)=>i+1).map(day=>{
-        const dateStr=toDateStr(year,month,day);const{total,subTotals}=getDayTotals(dateStr);const{bg,text}=getHeatColor(total);const isToday=today&&dateStr===today;
-        return(<div key={day} onClick={()=>{setForm({minutes:'60',subject:'A'});setModal(dateStr);}} style={{aspectRatio:'1',borderRadius:TH.radiusSm,background:bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:text,position:'relative',cursor:'pointer',userSelect:'none',fontWeight:500,boxShadow:isToday?`0 0 0 2px ${TH.cyan}, 0 0 12px rgba(77,212,255,0.35)`:'none'}}>
-          {day}{Object.keys(subTotals).length>0&&<span style={{position:'absolute',bottom:2,left:3,fontSize:8,fontWeight:700,color:text,opacity:0.85}}>{Object.keys(subTotals).sort().join('')}</span>}</div>);
-      })}
-      {(()=>{
-        const leadOffset=getMondayOffset(year,month);
-        const trailOffset=(7-((leadOffset+days)%7))%7;
-        const nextMonth=month===11?0:month+1; const nextYear=month===11?year+1:year;
-        return Array.from({length:trailOffset}).map((_,i)=>{
-          const day=i+1;
-          const dateStr=toDateStr(nextYear,nextMonth,day);
-          const{total,subTotals}=getDayTotals(dateStr,byDateAll);const{bg,text}=getHeatColor(total);
-          return(<div key={`t${i}`} style={{aspectRatio:'1',borderRadius:TH.radiusSm,background:bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:text,position:'relative',fontWeight:500}}>
-            {day}{Object.keys(subTotals).length>0&&<span style={{position:'absolute',bottom:2,left:3,fontSize:8,fontWeight:700,color:text,opacity:0.85}}>{Object.keys(subTotals).sort().join('')}</span>}</div>);
-        });
-      })()}
-      </div>
-    <div style={{display:'flex',flexWrap:'wrap',gap:12,marginBottom:8}}>
-      {[[HEAT.amber,'under 1.5h'],[HEAT.green1,'1.5-3h'],[HEAT.green2,'3h+']].map(([c,l])=>(<div key={l} style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:TH.textSec}}><div style={{width:12,height:12,borderRadius:4,background:c}}/>{l}</div>))}</div>
-    <div style={{display:'flex',flexWrap:'wrap',gap:12,marginBottom:'1.5rem'}}>
-      {Object.entries(DW_SUBJECTS).map(([k,l])=>(<div key={k} style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:TH.textSec}}><span style={{fontWeight:700,color:DW_COLORS[k],fontSize:13}}>{k}</span>{l}</div>))}</div>
-    <div style={{display:'flex',flexDirection:'column',gap:'1.5rem',marginBottom:'1.5rem'}}>
-      {[{label:'Overall',color:TH.text,data:chartData},{label:'A - Ozzy Wizzpop',color:DW_COLORS.A,data:labels.map(d=>{const s=(byDate[toDateStr(year,month,d)]||[]).filter(x=>x.subject==='A');return s.reduce((t,x)=>t+x.hours,0)||null;})},{label:'B - Reading',color:DW_COLORS.B,data:labels.map(d=>{const s=(byDate[toDateStr(year,month,d)]||[]).filter(x=>x.subject==='B');return s.reduce((t,x)=>t+x.hours,0)||null;})},{label:'C - Magic study',color:DW_COLORS.C,data:labels.map(d=>{const s=(byDate[toDateStr(year,month,d)]||[]).filter(x=>x.subject==='C');return s.reduce((t,x)=>t+x.hours,0)||null;})}].map(({label,color,data:d})=>(
-        <div key={label}><div style={{fontSize:12,color:TH.textMuted,marginBottom:6,fontWeight:500}}>{label}</div>
-          <div style={{height:120}}><Line data={{labels,datasets:[{data:d,borderColor:color,backgroundColor:color+'15',borderWidth:2,pointRadius:3,pointBackgroundColor:color,tension:0.35,fill:true,spanGaps:true}]}} options={darkChartOpts({yTicks:{callback:v=>v+'h'}})} /></div></div>))}</div>
-    {allSessions.length>0&&(<div><div style={{fontSize:12,color:TH.textMuted,marginBottom:8,fontWeight:500}}>Session log</div>
-      <div style={{display:'flex',flexDirection:'column',gap:6}}>
-        {allSessions.map((s,i)=>(<div key={i} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 14px',background:TH.card,borderRadius:TH.radiusSm,border:`1px solid ${TH.border}`,position:'relative',overflow:'hidden'}}>
-          <div style={{position:'absolute',top:0,left:0,right:0,height:1,background:`linear-gradient(90deg, transparent, ${TH.borderGlow}, transparent)`}} />
-          <div style={{display:'flex',alignItems:'center',gap:10}}>
-            <span style={{width:26,height:26,borderRadius:7,background:DW_COLORS[s.subject]||'#888',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:11,fontWeight:700,boxShadow:`0 0 8px ${(DW_COLORS[s.subject]||'#888')}40`}}>{s.subject}</span>
-            <div><div style={{fontSize:13,fontWeight:600,color:TH.text}}>{DW_SUBJECTS[s.subject]||s.subject}</div><div style={{fontSize:11,color:TH.textMuted}}>{s.date}</div></div></div>
-          <div style={{fontSize:14,fontWeight:700,fontFamily:TH.heading,color:TH.text}}>{Math.round(s.hours*60)}m</div></div>))}</div></div>)}
-    {modal&&(<Modal title={`Log deep work - ${modal}`} onClose={()=>setModal(null)}>
-      <div style={{display:'flex',flexDirection:'column',gap:12}}>
-        {byDate[modal]&&byDate[modal].length>0&&(<div style={{background:TH.cardAlt,borderRadius:TH.radiusSm,padding:'10px 12px',border:`1px solid ${TH.border}`}}>
-          <div style={{fontSize:12,color:TH.textMuted,marginBottom:6}}>Already logged today:</div>
-          {byDate[modal].map((s,i)=>(<div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:13,marginBottom:4}}><span><strong style={{color:DW_COLORS[s.subject]}}>{s.subject}</strong> <span style={{color:TH.textSec}}>- {DW_SUBJECTS[s.subject]}</span></span><span style={{color:TH.text,fontWeight:600}}>{Math.round(s.hours*60)}m</span></div>))}
-          <div style={{fontSize:12,color:TH.textMuted,marginTop:4,borderTop:`1px solid ${TH.border}`,paddingTop:4}}>Total: {Math.round(byDate[modal].reduce((s,d)=>s+d.hours,0)*60)}m ({byDate[modal].reduce((s,d)=>s+d.hours,0).toFixed(1)}h)</div></div>)}
-        <div><label style={{fontSize:12,color:TH.textSec,display:'block',marginBottom:4,fontWeight:500}}>Add minutes</label>
-          <input type="number" min="1" max="480" value={form.minutes} onChange={e=>setForm(f=>({...f,minutes:e.target.value}))} placeholder="e.g. 45" style={{width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:16,fontFamily:'inherit',boxShadow:TH.glow}} />
-          <div style={{fontSize:12,color:TH.textMuted,marginTop:4}}>= {(parseInt(form.minutes||0)/60).toFixed(1)} hours</div></div>
-        <div><label style={{fontSize:12,color:TH.textSec,display:'block',marginBottom:4,fontWeight:500}}>Subject</label>
-          <div style={{display:'flex',gap:8}}>
-            {Object.entries(DW_SUBJECTS).map(([k,l])=>(<button key={k} onClick={()=>setForm(f=>({...f,subject:k}))} style={{flex:1,padding:'8px 4px',borderRadius:TH.radiusSm,border:`2px solid ${form.subject===k?DW_COLORS[k]:TH.border}`,background:form.subject===k?DW_COLORS[k]+'20':'transparent',fontSize:12,color:form.subject===k?DW_COLORS[k]:TH.textMuted,fontWeight:form.subject===k?600:400,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease',boxShadow:form.subject===k?`0 0 10px ${DW_COLORS[k]}30`:'none'}}><span style={{fontWeight:700,display:'block',fontSize:16}}>{k}</span>{l}</button>))}</div></div>
-        <Btn onClick={save}>Add session</Btn>
-        {byDate[modal]&&byDate[modal].length>0&&<Btn onClick={clearDay} variant="danger">Clear all today's sessions</Btn>}
-      </div></Modal>)}
-  </div>);
-}
+// ─── TASK CATEGORIES ────────────────────────────────────────────────────────
+const TASK_CATEGORIES = {
+  magic: { label:'Magic', color:'#C084FC', textColor:'#2E1065' },
+  balloon: { label:'Balloon Business', color:'#34D399', textColor:'#022C22' },
+};
 
-// ─── SWITCH-OFF TAB ─────────────────────────────────────────────────────────
-function SwitchOffTab({ year,month }) {
-  const [data,setData]=useState([]); const [modal,setModal]=useState(null); const [time,setTime]=useState('19:00');
-  useEffect(()=>{fetchData();},[year,month]);
-  async function fetchData(){
-    const prevMonth0=month===0?11:month-1; const prevYear=month===0?year-1:year;
-    const nextMonth0=month===11?0:month+1; const nextYear=month===11?year+1:year;
-    const [cur,prev,next]=await Promise.all([
-      fetch(`/api/switchoff?year=${year}&month=${month+1}`).then(r=>r.json()),
-      fetch(`/api/switchoff?year=${prevYear}&month=${prevMonth0+1}`).then(r=>r.json()),
-      fetch(`/api/switchoff?year=${nextYear}&month=${nextMonth0+1}`).then(r=>r.json()),
-    ]);
-    setData([...prev,...cur,...next]);
-  }
-  async function save(){await fetch('/api/switchoff',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:modal,time})});setModal(null);fetchData();}
-  async function remove(){await fetch('/api/switchoff',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:modal})});setModal(null);fetchData();}
-  const byDate={};data.forEach(d=>{byDate[d.date]=d;});
-  function timeToMins(t){const[h,m]=t.split(':').map(Number);return h*60+m;}
-  function getHeatColor(dateStr){const entry=byDate[dateStr];if(!entry)return{bg:HEAT.none,text:HEAT.noneText};const mins=timeToMins(entry.time);if(mins<=19*60)return{bg:HEAT.green1,text:HEAT.green1Text};if(mins<=20*60)return{bg:HEAT.green1,text:HEAT.green1Text};if(mins<=21*60)return{bg:HEAT.amber,text:HEAT.amberText};return{bg:HEAT.red,text:HEAT.redText};}
-  const hitTarget=data.filter(d=>timeToMins(d.time)<=19*60).length;
-  const avgMins=data.length?Math.round(data.reduce((s,d)=>s+timeToMins(d.time),0)/data.length):null;
-  const avgStr=avgMins?`${Math.floor(avgMins/60)}:${pad(avgMins%60)}pm`:'--';
-  const days=getDaysInMonth(year,month);const labels=Array.from({length:days},(_,i)=>i+1);
-  const chartData=labels.map(d=>{const e=byDate[toDateStr(year,month,d)];return e?parseFloat((timeToMins(e.time)/60).toFixed(2)):null;});
-  return (<div>
-    <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginBottom:'1.5rem'}}>
-      <StatCard label="Avg switch-off" value={avgStr} sub="this month" />
-      <StatCard label="Days hit target" value={hitTarget} sub={`of ${days} days`} />
-      <StatCard label="Target" value="7:00pm" sub="goal to reach" /></div>
-    <CalendarGrid year={year} month={month}
-      getCellStyle={(day,dateStr)=>{const{bg,text}=getHeatColor(dateStr);return{background:bg,color:text,border:'none',borderRadius:TH.radiusSm,fontWeight:500};}}
-      onDayClick={day=>{const dateStr=toDateStr(year,month,day);const e=byDate[dateStr];setTime(e?e.time:'19:00');setModal(dateStr);}} />
-    <div style={{display:'flex',flexWrap:'wrap',gap:12,marginBottom:'1.5rem'}}>
-      {[[HEAT.green1,'Hit target (7pm)'],[HEAT.green1,'7-8pm'],[HEAT.amber,'8-9pm'],[HEAT.red,'After 9pm']].map(([c,l],i)=>(<div key={i} style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:TH.textSec}}><div style={{width:12,height:12,borderRadius:4,background:c}}/>{l}</div>))}</div>
-    <div style={{fontSize:12,color:TH.textMuted,marginBottom:8,fontWeight:500}}>Switch-off time - trend</div>
-    <div style={{height:180}}>
-      <Line data={{labels,datasets:[{data:chartData,borderColor:TH.pink,backgroundColor:'rgba(236,116,135,0.08)',borderWidth:2,pointRadius:3,tension:0.35,fill:true,spanGaps:true}]}}
-        options={darkChartOpts({yMin:17,yMax:24,yTicks:{callback:v=>`${v}:00`},plugins:{tooltip:{callbacks:{label:(ctx)=>{const h=Math.floor(ctx.parsed.y);const m=Math.round((ctx.parsed.y-h)*60);return `${h}:${pad(m)}pm`;}}}}})} /></div>
-    {modal&&(<Modal title={`Log switch-off - ${fmtDate(modal)}`} onClose={()=>setModal(null)}>
-      <div style={{display:'flex',flexDirection:'column',gap:12}}>
-        <div><label style={{fontSize:12,color:TH.textSec,display:'block',marginBottom:4,fontWeight:500}}>Time you switched off</label>
-          <input type="time" value={time} onChange={e=>setTime(e.target.value)} style={{width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:16,fontFamily:'inherit',boxShadow:TH.glow}} /></div>
-        <Btn onClick={save}>Save</Btn>
-        {byDate[modal]&&<Btn onClick={remove} variant="danger">Remove entry</Btn>}
-      </div></Modal>)}
-  </div>);
-}
+// ─── DAILY TASKS SECTION ─────────────────────────────────────────────────────
+function DailyTasksSection() {
+  const now = new Date();
+  const [year,setYear] = useState(now.getFullYear());
+  const [month,setMonth] = useState(now.getMonth());
+  const [monthData,setMonthData] = useState([]);
+  const [adjData,setAdjData] = useState([]);
+  const [today,setToday] = useState('');
+  const [todayEntry,setTodayEntry] = useState(null);
+  const [taskText,setTaskText] = useState('');
+  const [category,setCategory] = useState('magic');
+  const [savingToday,setSavingToday] = useState(false);
+  const [modal,setModal] = useState(null);
+  const [modalEntry,setModalEntry] = useState(null);
 
-// ─── HABITS SECTION ─────────────────────────────────────────────────────────
-const HABITS_TABS=[{key:'deepwork',label:'Deep Work'},{key:'switchoff',label:'Switch-off'}];
-function HabitsSection() {
-  const now=new Date();const [tab,setTab]=useState('deepwork');const [year,setYear]=useState(now.getFullYear());const [month,setMonth]=useState(now.getMonth());
+  useEffect(() => { setToday(todayStr()); }, []);
+  useEffect(() => { loadMonth(); }, [year,month]);
+  useEffect(() => { loadToday(); }, []);
+
+  async function loadMonth() {
+    const prevMonth0 = month===0?11:month-1; const prevYear = month===0?year-1:year;
+    const nextMonth0 = month===11?0:month+1; const nextYear = month===11?year+1:year;
+    const [cur,prev,next] = await Promise.all([
+      fetch(`/api/dailytasks?year=${year}&month=${month+1}`).then(r=>r.json()),
+      fetch(`/api/dailytasks?year=${prevYear}&month=${prevMonth0+1}`).then(r=>r.json()),
+      fetch(`/api/dailytasks?year=${nextYear}&month=${nextMonth0+1}`).then(r=>r.json()),
+    ]);
+    setMonthData(cur); setAdjData([...prev,...next]);
+  }
+  async function loadToday() {
+    const res = await fetch(`/api/dailytasks?date=${todayStr()}`);
+    const data = await res.json();
+    setTodayEntry(data && data.length ? data[0] : null);
+  }
+
+  async function saveTodayTask() {
+    if(!taskText.trim()) return;
+    setSavingToday(true);
+    await fetch('/api/dailytasks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:todayStr(),category,task:taskText.trim(),done:false})});
+    setTaskText(''); setSavingToday(false);
+    loadToday(); loadMonth();
+  }
+  async function toggleDone() {
+    if(!todayEntry) return;
+    await fetch('/api/dailytasks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:todayEntry.date,category:todayEntry.category,task:todayEntry.task,done:!todayEntry.done})});
+    loadToday(); loadMonth();
+  }
+  async function clearToday() {
+    await fetch('/api/dailytasks',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:todayStr()})});
+    setTodayEntry(null); loadMonth();
+  }
+
+  const byDateAll = {}; [...monthData,...adjData].forEach(e => { byDateAll[e.date] = e; });
+  const byDate = {}; monthData.forEach(e => { byDate[e.date] = e; });
+
   function prevMonth(){if(month===0){setMonth(11);setYear(y=>y-1);}else setMonth(m=>m-1);}
   function nextMonth(){if(month===11){setMonth(0);setYear(y=>y+1);}else setMonth(m=>m+1);}
-  const monthLabel=new Date(year,month).toLocaleString('default',{month:'long',year:'numeric'});
+  const monthLabel = new Date(year,month).toLocaleString('default',{month:'long',year:'numeric'});
+
+  let streak = 0;
+  if(today){
+    let cursor = new Date();
+    const todayKey = todayStr();
+    if(!(byDateAll[todayKey] && byDateAll[todayKey].done)) { cursor.setDate(cursor.getDate()-1); }
+    while(true) {
+      const key = `${cursor.getFullYear()}-${pad(cursor.getMonth()+1)}-${pad(cursor.getDate())}`;
+      const entry = byDateAll[key];
+      if(entry && entry.done) { streak++; cursor.setDate(cursor.getDate()-1); } else break;
+    }
+  }
+
+  const magicCount = monthData.filter(e => e.done && e.category==='magic').length;
+  const balloonCount = monthData.filter(e => e.done && e.category==='balloon').length;
+
+  function openDay(day) {
+    const dateStr = toDateStr(year,month,day);
+    const entry = byDate[dateStr];
+    setModal(dateStr); setModalEntry(entry||null);
+  }
+  async function removeModalEntry() {
+    if(!modal) return;
+    await fetch('/api/dailytasks',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:modal})});
+    setModal(null); setModalEntry(null); loadMonth();
+    if(modal===todayStr()) loadToday();
+  }
+
   return (<div>
-    <div style={{display:'flex',gap:4,marginBottom:'1.5rem',background:TH.card,borderRadius:TH.radiusSm,padding:4,border:`1px solid ${TH.border}`}}>
-      {HABITS_TABS.map(t=>(<button key={t.key} onClick={()=>setTab(t.key)} style={{flex:1,padding:'10px 0',background:tab===t.key?TH.pink:'transparent',border:'none',borderRadius:10,color:tab===t.key?'#fff':TH.textMuted,fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease',boxShadow:tab===t.key?'0 0 12px rgba(236,116,135,0.3)':'none'}}>{t.label}</button>))}</div>
-    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'1.25rem'}}>
-      <button onClick={prevMonth} style={{background:TH.card,border:`1px solid ${TH.border}`,borderRadius:8,padding:'7px 16px',fontSize:16,color:TH.textSec,cursor:'pointer'}}>&#8249;</button>
-      <span style={{fontWeight:700,fontSize:15,fontFamily:TH.heading,color:TH.text}}>{monthLabel}</span>
-      <button onClick={nextMonth} style={{background:TH.card,border:`1px solid ${TH.border}`,borderRadius:8,padding:'7px 16px',fontSize:16,color:TH.textSec,cursor:'pointer'}}>&#8250;</button></div>
-    {tab==='deepwork'&&<DeepWorkTab year={year} month={month} />}
-    {tab==='switchoff'&&<SwitchOffTab year={year} month={month} />}
+    <div style={{ background:TH.card,borderRadius:TH.radiusSm,padding:'16px',marginBottom:'1.5rem',border:`1px solid ${TH.border}`,boxShadow:TH.shadowSm,position:'relative',overflow:'hidden' }}>
+      <div style={{ position:'absolute',top:0,left:0,right:0,height:1,background:`linear-gradient(90deg, transparent, ${TH.borderGlow}, transparent)` }} />
+      <div style={{ fontSize:12,color:TH.textMuted,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:10 }}>Today's task</div>
+      {!todayEntry ? (<div style={{ display:'flex',flexDirection:'column',gap:10 }}>
+        <div style={{ display:'flex',gap:8 }}>
+          {Object.entries(TASK_CATEGORIES).map(([k,c]) => (<button key={k} onClick={() => setCategory(k)}
+            style={{ flex:1,padding:'10px',borderRadius:TH.radiusSm,border:`2px solid ${category===k?c.color:TH.border}`,background:category===k?c.color+'20':'transparent',color:category===k?c.color:TH.textMuted,fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease' }}>{c.label}</button>))}
+        </div>
+        <input type="text" value={taskText} onChange={e => setTaskText(e.target.value)} placeholder="What are you doing today?"
+          onKeyDown={e => { if(e.key==='Enter'&&taskText.trim()) saveTodayTask(); }}
+          style={{ width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:14,fontFamily:'inherit',boxShadow:TH.glow,boxSizing:'border-box' }} />
+        <Btn onClick={saveTodayTask} style={{ opacity:taskText.trim()?1:0.4 }}>{savingToday?'Saving...':'Set task'}</Btn>
+      </div>) : (<div>
+        <div style={{ marginBottom:6 }}>
+          <span style={{ fontSize:11,fontWeight:700,color:TASK_CATEGORIES[todayEntry.category]?.color,textTransform:'uppercase',letterSpacing:'0.04em' }}>{TASK_CATEGORIES[todayEntry.category]?.label}</span>
+        </div>
+        <div style={{ fontSize:16,fontWeight:600,color:TH.text,marginBottom:14 }}>{todayEntry.task}</div>
+        <button onClick={toggleDone}
+          style={{ display:'flex',alignItems:'center',gap:10,width:'100%',padding:'12px 14px',borderRadius:TH.radiusSm,border:`2px solid ${todayEntry.done?'#34D399':TH.border}`,background:todayEntry.done?'rgba(52,211,153,0.1)':TH.input,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease',marginBottom:8 }}>
+          <span style={{ fontSize:22 }}>{todayEntry.done?'✅':'⬜'}</span>
+          <span style={{ fontSize:14,fontWeight:600,color:todayEntry.done?'#34D399':TH.textMuted }}>{todayEntry.done?'Done — nice work!':'Mark as done'}</span>
+        </button>
+        <Btn onClick={clearToday} variant="ghost" style={{ fontSize:12,padding:'4px 6px' }}>Clear today's task</Btn>
+      </div>)}
+    </div>
+
+    <div style={{ display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginBottom:'1.5rem' }}>
+      <StatCard label="Streak" value={streak} sub="days" />
+      <StatCard label="Magic" value={magicCount} sub="this month" />
+      <StatCard label="Balloon Biz" value={balloonCount} sub="this month" />
+    </div>
+
+    <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'1.25rem' }}>
+      <button onClick={prevMonth} style={{ background:TH.card,border:`1px solid ${TH.border}`,borderRadius:8,padding:'7px 16px',fontSize:16,color:TH.textSec,cursor:'pointer' }}>&#8249;</button>
+      <span style={{ fontWeight:700,fontSize:15,fontFamily:TH.heading,color:TH.text }}>{monthLabel}</span>
+      <button onClick={nextMonth} style={{ background:TH.card,border:`1px solid ${TH.border}`,borderRadius:8,padding:'7px 16px',fontSize:16,color:TH.textSec,cursor:'pointer' }}>&#8250;</button>
+    </div>
+    <CalendarGrid year={year} month={month}
+      getCellStyle={(day,dateStr) => {
+        const entry = byDateAll[dateStr];
+        const isPast = today && dateStr < today;
+        if(!entry) { if(isPast) return {background:HEAT.red,color:HEAT.redText,borderRadius:TH.radiusSm,fontWeight:500}; return {border:`1px solid ${TH.border}`,color:TH.textMuted,borderRadius:TH.radiusSm}; }
+        if(entry.done) { const c = TASK_CATEGORIES[entry.category]; return {background:c?.color||TH.cardAlt,color:c?.textColor||TH.text,borderRadius:TH.radiusSm,fontWeight:600,letter:entry.category==='magic'?'M':'B'}; }
+        if(isPast) return {background:HEAT.red,color:HEAT.redText,borderRadius:TH.radiusSm,fontWeight:500};
+        return {border:`1px solid ${TH.border}`,color:TH.textMuted,borderRadius:TH.radiusSm};
+      }}
+      onDayClick={day => openDay(day)} />
+    <div style={{ display:'flex',flexWrap:'wrap',gap:12,marginBottom:'1.5rem' }}>
+      {Object.entries(TASK_CATEGORIES).map(([k,c]) => (<div key={k} style={{ display:'flex',alignItems:'center',gap:6,fontSize:12,color:TH.textSec }}><div style={{ width:12,height:12,borderRadius:4,background:c.color }} />{c.label}</div>))}
+      <div style={{ display:'flex',alignItems:'center',gap:6,fontSize:12,color:TH.textSec }}><div style={{ width:12,height:12,borderRadius:4,background:HEAT.red }} />Missed</div>
+    </div>
+
+    <div style={{ fontSize:12,color:TH.textMuted,marginBottom:8,fontWeight:500 }}>History — {monthLabel}</div>
+    {monthData.length===0 && <div style={{ textAlign:'center',padding:'2rem',color:TH.textMuted,fontSize:14 }}>No tasks logged this month</div>}
+    {[...monthData].sort((a,b) => b.date.localeCompare(a.date)).map(e => {
+      const c = TASK_CATEGORIES[e.category];
+      return (<div key={e.date} style={{ display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 14px',background:TH.card,borderRadius:TH.radiusSm,marginBottom:6,border:`1px solid ${TH.border}` }}>
+        <div style={{ minWidth:0,flex:1 }}>
+          <div style={{ fontSize:12,color:TH.textMuted,marginBottom:2 }}>{fmtDate(e.date)}</div>
+          <div style={{ fontSize:13,color:TH.text,fontWeight:500 }}>{e.task} <span style={{ fontSize:11,color:c?.color,fontWeight:700,marginLeft:6,textTransform:'uppercase' }}>{c?.label}</span></div>
+        </div>
+        <span style={{ fontSize:18,flexShrink:0 }}>{e.done?'✅':'❌'}</span>
+      </div>);
+    })}
+
+    {modal && (<Modal title={fmtDate(modal)} onClose={() => {setModal(null);setModalEntry(null);}}>
+      {modalEntry ? (<div style={{ display:'flex',flexDirection:'column',gap:10 }}>
+        <span style={{ fontSize:11,fontWeight:700,color:TASK_CATEGORIES[modalEntry.category]?.color,textTransform:'uppercase' }}>{TASK_CATEGORIES[modalEntry.category]?.label}</span>
+        <div style={{ fontSize:15,color:TH.text,fontWeight:600 }}>{modalEntry.task}</div>
+        <div style={{ fontSize:13,color:modalEntry.done?'#34D399':HEAT.red }}>{modalEntry.done?'Done':'Not done'}</div>
+        <Btn onClick={removeModalEntry} variant="danger">Remove entry</Btn>
+      </div>) : (<div style={{ color:TH.textMuted,fontSize:13 }}>No task logged for this day</div>)}
+    </Modal>)}
   </div>);
 }
 
@@ -1208,7 +1217,7 @@ export default function App() {
       <div style={{padding:'0 1.25rem'}}>
         {section==='gym'&&<GymSection />}
         {section==='nutrition'&&<NutritionSection />}
-        {section==='habits'&&<HabitsSection />}
+        {section==='tasks'&&<DailyTasksSection />}
       </div></div>
   </>);
 }
