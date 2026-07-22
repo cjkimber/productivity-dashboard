@@ -745,6 +745,161 @@ const TASK_CATEGORIES = {
   balloon: { label:'Balloon Business', color:'#34D399', textColor:'#022C22' },
 };
 
+// ─── BUSINESS LAUNCH ROADMAP — premium redesign for the Balloon Business backlog ──
+// Visual-only components. All data still flows through the same /api/todos and
+// /api/dailytasks endpoints and the same handlers already defined in DailyTasksSection.
+const LAUNCH = {
+  bg:'#0B0F14',
+  card:'#151B23',
+  cardAlt:'#1D2430',
+  border:'rgba(255,255,255,0.08)',
+  accent:'#4F8CFF',
+  accentDark:'#346DFF',
+  success:'#27C76F',
+  warning:'#FFB547',
+  textSec:'rgba(255,255,255,0.72)',
+  textMuted:'rgba(255,255,255,0.45)',
+};
+
+function BrickWall({ total,completed }) {
+  const count = Math.max(total,1);
+  const bricks = Array.from({ length:count });
+  return (<div style={{ display:'grid',gridTemplateColumns:'repeat(10, 1fr)',gap:4 }}>
+    {bricks.map((_,i) => {
+      const done = i < completed;
+      return <div key={i} className={done ? 'lrBrick lrBrickDone' : 'lrBrick'} />;
+    })}
+    <style jsx>{`
+      .lrBrick { aspect-ratio: 2 / 1; border-radius: 3px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08); transition: all 400ms ease; }
+      .lrBrickDone { background: linear-gradient(135deg, ${LAUNCH.accent}, ${LAUNCH.accentDark}); border-color: rgba(79,140,255,0.6); box-shadow: 0 0 8px rgba(79,140,255,0.5); animation: lrBrickPop 400ms ease; }
+      @keyframes lrBrickPop { 0%{ transform:scale(0.8); opacity:0.4; } 60%{ transform:scale(1.08); } 100%{ transform:scale(1); opacity:1; } }
+    `}</style>
+  </div>);
+}
+
+function LaunchHero({ completed,total,nextTask }) {
+  const pct = total ? Math.round((completed/total)*100) : 0;
+  return (<div className="lrHero">
+    <div style={{ display:'flex',alignItems:'center',gap:8,marginBottom:6 }}>
+      <span style={{ fontSize:20 }}>🚀</span>
+      <span style={{ fontSize:11,fontWeight:700,letterSpacing:'0.14em',textTransform:'uppercase',color:LAUNCH.accent }}>Business Launch Roadmap</span>
+    </div>
+    <div style={{ display:'flex',alignItems:'flex-end',gap:14,marginBottom:14 }}>
+      <div style={{ fontSize:40,fontWeight:800,color:'#fff',lineHeight:1,letterSpacing:'-1px' }}>{pct}%</div>
+      <div style={{ paddingBottom:4 }}>
+        <div style={{ fontSize:14,fontWeight:600,color:'#fff' }}>{completed} of {total} milestones</div>
+        <div style={{ fontSize:12,color:LAUNCH.textMuted }}>{Math.max(total-completed,0)} to go</div>
+      </div>
+    </div>
+    <div className="lrTrack"><div className="lrFill" style={{ width:`${pct}%` }} /></div>
+    {nextTask && (<div style={{ marginTop:14,display:'flex',alignItems:'center',gap:8 }}>
+      <span style={{ fontSize:11,color:LAUNCH.textMuted,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em' }}>Next:</span>
+      <span style={{ fontSize:13,color:'#fff',fontWeight:600 }}>{nextTask}</span>
+    </div>)}
+    {total>0 && <div style={{ marginTop:16 }}><BrickWall total={total} completed={completed} /></div>}
+    <style jsx>{`
+      .lrHero { position: relative; background: linear-gradient(160deg, ${LAUNCH.card}, ${LAUNCH.cardAlt}); border: 1px solid ${LAUNCH.border}; border-radius: 20px; padding: 22px; overflow: hidden; box-shadow: 0 12px 40px rgba(0,0,0,0.35); }
+      .lrTrack { height: 14px; background: rgba(255,255,255,0.06); border-radius: 999px; overflow: hidden; }
+      .lrFill { height: 100%; background: linear-gradient(90deg, ${LAUNCH.accent}, ${LAUNCH.accentDark}); border-radius: 999px; box-shadow: 0 0 16px rgba(79,140,255,0.45); transition: width 500ms ease; }
+    `}</style>
+  </div>);
+}
+
+function RoadmapTaskCard({ item,index,manageMode,onUseToday,onToggleDone,onDelete,onMoveUp,onMoveDown,canMoveUp,canMoveDown }) {
+  const done = item.done;
+  return (<div className={done ? 'lrCard lrCardDone' : 'lrCard'}>
+    <div className="lrBadge">{index+1}</div>
+    <div style={{ flex:1,minWidth:0 }}>
+      <div className="lrTitle" style={{ textDecoration:done?'line-through':'none' }}>{item.text}</div>
+    </div>
+    {manageMode ? (<div style={{ display:'flex',gap:6,alignItems:'center',flexShrink:0 }}>
+      <button className="lrIconBtn" onClick={onMoveUp} disabled={!canMoveUp}>▲</button>
+      <button className="lrIconBtn" onClick={onMoveDown} disabled={!canMoveDown}>▼</button>
+      <button className="lrIconBtn" onClick={onToggleDone}>{done?'✓':'○'}</button>
+      <button className="lrIconBtn lrDanger" onClick={onDelete}>×</button>
+    </div>) : done ? (
+      <span className="lrDoneTick">✓</span>
+    ) : (
+      <button className="lrUseBtn" onClick={onUseToday}>Use Today</button>
+    )}
+    <style jsx>{`
+      .lrCard { display: flex; align-items: center; gap: 12px; background: ${LAUNCH.cardAlt}; border: 1px solid ${LAUNCH.border}; border-radius: 16px; padding: 14px 16px; transition: all 250ms ease-out; animation: lrFadeIn 300ms ease-out; }
+      .lrCard:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+      .lrCardDone { border-color: rgba(39,199,111,0.4); background: rgba(39,199,111,0.06); box-shadow: 0 0 16px rgba(39,199,111,0.12); opacity: 0.75; }
+      .lrBadge { width: 26px; height: 26px; border-radius: 8px; background: rgba(79,140,255,0.14); color: ${LAUNCH.accent}; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+      .lrCardDone .lrBadge { background: rgba(39,199,111,0.16); color: ${LAUNCH.success}; }
+      .lrTitle { font-size: 14px; font-weight: 600; color: #fff; }
+      .lrUseBtn { background: linear-gradient(135deg, ${LAUNCH.accent}, ${LAUNCH.accentDark}); color: #fff; border: none; border-radius: 12px; padding: 8px 14px; font-size: 12px; font-weight: 700; cursor: pointer; box-shadow: 0 0 12px rgba(79,140,255,0.3); transition: all 150ms ease; flex-shrink: 0; font-family: inherit; }
+      .lrUseBtn:hover { transform: translateY(-1px); box-shadow: 0 0 18px rgba(79,140,255,0.45); }
+      .lrDoneTick { color: ${LAUNCH.success}; font-size: 18px; font-weight: 700; flex-shrink: 0; }
+      .lrIconBtn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: rgba(255,255,255,0.7); font-size: 11px; padding: 5px 7px; cursor: pointer; font-family: inherit; }
+      .lrIconBtn:disabled { opacity: 0.3; cursor: default; }
+      .lrDanger { color: #FF6B6B; }
+      @keyframes lrFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    `}</style>
+  </div>);
+}
+
+function BalloonRoadmapModal({ todos,onClose,onAdd,onToggleDone,onDelete,onReorder,onUseToday,newTodoText,setNewTodoText,manageMode,setManageMode }) {
+  const completed = todos.filter(t=>t.done).length;
+  const total = todos.length;
+  const nextTask = (todos.find(t=>!t.done)||{}).text;
+  return (<div className="lrOverlay" onClick={onClose}>
+    <div className="lrSheet" onClick={e=>e.stopPropagation()}>
+      <div className="lrHeader">
+        <span style={{ fontSize:16,fontWeight:700,color:'#fff' }}>🎈 Balloon Business Roadmap</span>
+        <button onClick={onClose} className="lrClose">×</button>
+      </div>
+      <div className="lrBody">
+        <LaunchHero completed={completed} total={total} nextTask={nextTask} />
+        <div className="lrStatsRow">
+          <div className="lrStat"><div className="lrStatLabel">Completed</div><div className="lrStatValue">{completed}</div></div>
+          <div className="lrStat"><div className="lrStatLabel">Remaining</div><div className="lrStatValue">{total-completed}</div></div>
+          <div className="lrStat"><div className="lrStatLabel">Readiness</div><div className="lrStatValue">{total?Math.round((completed/total)*100):0}%</div></div>
+        </div>
+        {todos.length===0 && <div style={{ color:LAUNCH.textMuted,fontSize:13,textAlign:'center',padding:'1.5rem 0' }}>No milestones yet — add your first step below</div>}
+        <div style={{ display:'flex',flexDirection:'column',gap:10,marginTop:8 }}>
+          {todos.map((item,idx) => (
+            <RoadmapTaskCard key={item._id} item={item} index={idx} manageMode={manageMode}
+              onUseToday={() => onUseToday(item)}
+              onToggleDone={() => onToggleDone(item)}
+              onDelete={() => onDelete(item._id)}
+              onMoveUp={() => onReorder(idx,-1)}
+              onMoveDown={() => onReorder(idx,1)}
+              canMoveUp={idx>0}
+              canMoveDown={idx<todos.length-1}
+            />
+          ))}
+        </div>
+        <div style={{ display:'flex',gap:8,marginTop:16 }}>
+          <input type="text" value={newTodoText} onChange={e => setNewTodoText(e.target.value)}
+            placeholder="Add a new milestone..."
+            onKeyDown={e => { if(e.key==='Enter'&&newTodoText.trim()) onAdd(); }}
+            className="lrInput" />
+          <button onClick={onAdd} className="lrAddBtn">Add</button>
+        </div>
+        <button onClick={() => setManageMode(m=>!m)} className="lrManageBtn">{manageMode?'Done managing':'Manage milestones'}</button>
+      </div>
+      <style jsx>{`
+        .lrHeader { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .lrClose { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08); color: rgba(255,255,255,0.7); font-size: 18px; border-radius: 8px; padding: 2px 10px; cursor: pointer; }
+        .lrBody { padding: 20px; max-height: 75vh; overflow-y: auto; }
+        .lrStatsRow { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin: 16px 0; }
+        .lrStat { background: ${LAUNCH.card}; border: 1px solid ${LAUNCH.border}; border-radius: 14px; padding: 12px; text-align: center; }
+        .lrStatLabel { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: ${LAUNCH.textMuted}; margin-bottom: 4px; }
+        .lrStatValue { font-size: 22px; font-weight: 800; color: #fff; }
+        .lrInput { flex: 1; padding: 12px 14px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.1); background: ${LAUNCH.card}; color: #fff; font-size: 13px; font-family: inherit; box-sizing: border-box; }
+        .lrAddBtn { background: linear-gradient(135deg, ${LAUNCH.accent}, ${LAUNCH.accentDark}); color: #fff; border: none; border-radius: 14px; padding: 0 18px; font-weight: 700; font-size: 13px; cursor: pointer; box-shadow: 0 0 16px rgba(79,140,255,0.3); font-family: inherit; }
+        .lrManageBtn { width: 100%; margin-top: 12px; background: transparent; border: 1px solid rgba(255,255,255,0.12); color: rgba(255,255,255,0.72); border-radius: 14px; padding: 11px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
+      `}</style>
+    </div>
+    <style jsx>{`
+      .lrOverlay { position: fixed; inset: 0; background: rgba(4,8,20,0.85); backdrop-filter: blur(8px); display: flex; align-items: flex-start; justify-content: center; z-index: 1000; overflow-y: auto; padding: 16px; }
+      .lrSheet { width: 420px; max-width: 100%; margin-top: 1.5rem; margin-bottom: 1.5rem; background: ${LAUNCH.bg}; border: 1px solid ${LAUNCH.border}; border-radius: 20px; box-shadow: 0 18px 60px rgba(0,0,0,0.45); overflow: hidden; }
+    `}</style>
+  </div>);
+}
+
 // ─── DAILY TASKS SECTION ─────────────────────────────────────────────────────
 function DailyTasksSection() {
   const now = new Date();
@@ -924,21 +1079,15 @@ function DailyTasksSection() {
       <StatCard label="Balloon Biz" value={balloonCount} sub="this month" />
     </div>
 
-    {balloonTodos.length>0 && (() => {
-      const doneCount = balloonTodos.filter(t=>t.done).length;
-      const total = balloonTodos.length;
-      const pct = total ? Math.round((doneCount/total)*100) : 0;
-      return (<div style={{ background:TH.card,borderRadius:TH.radiusSm,padding:'14px 16px',marginBottom:'1.5rem',border:`1px solid ${TH.border}`,boxShadow:TH.shadowSm }}>
-        <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8 }}>
-          <span style={{ fontSize:12,color:TH.textMuted,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em' }}>🎈 Balloon Business launch progress</span>
-          <span style={{ fontSize:13,fontWeight:700,color:TASK_CATEGORIES.balloon.color }}>{doneCount}/{total}</span>
-        </div>
-        <div style={{ height:10,background:TH.cardAlt,borderRadius:6,overflow:'hidden' }}>
-          <div style={{ height:'100%',width:`${pct}%`,background:TASK_CATEGORIES.balloon.color,borderRadius:6,transition:'width 300ms ease' }} />
-        </div>
-        <div style={{ fontSize:12,color:TH.textMuted,marginTop:8 }}>{pct===100 ? '🎉 All steps complete — ready to launch!' : `${total-doneCount} step${total-doneCount===1?'':'s'} to go`}</div>
-      </div>);
-    })()}
+    {balloonTodos.length>0 && (
+      <div style={{ marginBottom:'1.5rem' }}>
+        <LaunchHero
+          completed={balloonTodos.filter(t=>t.done).length}
+          total={balloonTodos.length}
+          nextTask={(balloonTodos.find(t=>!t.done)||{}).text}
+        />
+      </div>
+    )}
 
     <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'1.25rem' }}>
       <button onClick={prevMonth} style={{ background:TH.card,border:`1px solid ${TH.border}`,borderRadius:8,padding:'7px 16px',fontSize:16,color:TH.textSec,cursor:'pointer' }}>&#8249;</button>
@@ -982,18 +1131,29 @@ function DailyTasksSection() {
       </div>) : (<div style={{ color:TH.textMuted,fontSize:13 }}>No task logged for this day</div>)}
     </Modal>)}
 
-    {pickerList && (<Modal title={`${TASK_CATEGORIES[pickerList].label} to-dos`} onClose={closePicker}>
+    {pickerList==='balloon' && (
+      <BalloonRoadmapModal
+        todos={balloonTodos}
+        onClose={closePicker}
+        onAdd={() => addTodoItem('balloon')}
+        onToggleDone={toggleTodoDone}
+        onDelete={deleteTodoItem}
+        onReorder={(idx,dir) => reorderTodo('balloon',balloonTodos,idx,dir)}
+        onUseToday={useTodoToday}
+        newTodoText={newTodoText}
+        setNewTodoText={setNewTodoText}
+        manageMode={manageMode}
+        setManageMode={setManageMode}
+      />
+    )}
+
+    {pickerList==='magic' && (<Modal title={`${TASK_CATEGORIES.magic.label} to-dos`} onClose={closePicker}>
       <div style={{ display:'flex',flexDirection:'column',gap:8 }}>
-        {(pickerList==='magic'?magicTodos:balloonTodos).length===0 && <div style={{ color:TH.textMuted,fontSize:13 }}>No items yet — add one below</div>}
-        {(pickerList==='magic'?magicTodos:balloonTodos).map((item,idx,arr) => (
+        {magicTodos.length===0 && <div style={{ color:TH.textMuted,fontSize:13 }}>No items yet — add one below</div>}
+        {magicTodos.map((item) => (
           <div key={item._id} style={{ display:'flex',alignItems:'center',gap:8,padding:'10px 12px',background:TH.cardAlt,borderRadius:10,border:`1px solid ${TH.border}`,opacity:item.done?0.5:1 }}>
-            {pickerList==='balloon' && <span style={{ fontSize:11,color:TH.textMuted,fontWeight:700,width:18,flexShrink:0 }}>{idx+1}</span>}
             <span style={{ fontSize:13,color:TH.text,flex:1,textDecoration:item.done?'line-through':'none' }}>{item.text}</span>
             {manageMode ? (<div style={{ display:'flex',gap:4,flexShrink:0,alignItems:'center' }}>
-              {pickerList==='balloon' && (<>
-                <button onClick={() => reorderTodo(pickerList,arr,idx,-1)} disabled={idx===0} style={{ background:'none',border:`1px solid ${TH.border}`,borderRadius:4,color:idx===0?TH.textMuted:TH.textSec,fontSize:11,padding:'3px 6px',cursor:idx===0?'default':'pointer' }}>▲</button>
-                <button onClick={() => reorderTodo(pickerList,arr,idx,1)} disabled={idx===arr.length-1} style={{ background:'none',border:`1px solid ${TH.border}`,borderRadius:4,color:idx===arr.length-1?TH.textMuted:TH.textSec,fontSize:11,padding:'3px 6px',cursor:idx===arr.length-1?'default':'pointer' }}>▼</button>
-              </>)}
               <button onClick={() => toggleTodoDone(item)} style={{ background:'none',border:`1px solid ${TH.border}`,borderRadius:4,color:item.done?'#34D399':TH.textMuted,fontSize:11,padding:'3px 6px',cursor:'pointer' }}>{item.done?'✓':'○'}</button>
               <button onClick={() => deleteTodoItem(item._id)} style={{ background:'none',border:'none',color:TH.textMuted,fontSize:14,cursor:'pointer',padding:'3px 6px' }}>x</button>
             </div>) : (!item.done && <button onClick={() => useTodoToday(item)} style={{ background:'rgba(77,212,255,0.08)',border:`1px solid ${TH.borderMed}`,color:TH.cyan,fontSize:12,fontWeight:700,cursor:'pointer',padding:'6px 10px',borderRadius:8,fontFamily:'inherit',flexShrink:0 }}>Use today</button>)}
@@ -1001,9 +1161,9 @@ function DailyTasksSection() {
         ))}
         <div style={{ display:'flex',gap:8,marginTop:4 }}>
           <input type="text" value={newTodoText} onChange={e => setNewTodoText(e.target.value)} placeholder="Add new item..."
-            onKeyDown={e => { if(e.key==='Enter'&&newTodoText.trim()) addTodoItem(pickerList); }}
+            onKeyDown={e => { if(e.key==='Enter'&&newTodoText.trim()) addTodoItem('magic'); }}
             style={{ flex:1,padding:'10px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:13,fontFamily:'inherit',boxShadow:TH.glow,boxSizing:'border-box' }} />
-          <Btn onClick={() => addTodoItem(pickerList)} style={{ padding:'10px 14px',fontSize:13 }}>Add</Btn>
+          <Btn onClick={() => addTodoItem('magic')} style={{ padding:'10px 14px',fontSize:13 }}>Add</Btn>
         </div>
         <Btn onClick={() => setManageMode(m => !m)} variant="secondary" style={{ marginTop:4 }}>{manageMode?'Done managing':'Manage list'}</Btn>
       </div>
