@@ -753,84 +753,97 @@ const LAUNCH = {
   card:'#151B23',
   cardAlt:'#1D2430',
   border:'rgba(255,255,255,0.08)',
-  accent:'#4F8CFF',
-  accentDark:'#346DFF',
+  accent:TH.pink,
+  accentDark:'#C9576B',
   success:'#27C76F',
   warning:'#FFB547',
   textSec:'rgba(255,255,255,0.72)',
   textMuted:'rgba(255,255,255,0.45)',
 };
 
+// Simple keyword → icon/colour mapping so each milestone gets a distinct avatar
+// without needing a new field in the todos data model.
+const TASK_ICON_RULES = [
+  { match:/video|film|shoot|reel/i, icon:'🎬', color:'#EC7487' },
+  { match:/flyer|leaflet|print|poster/i, icon:'📄', color:'#9884E8' },
+  { match:/photo|camera|shoot/i, icon:'📸', color:'#4DD4FF' },
+  { match:/review|rating|star|testimonial/i, icon:'👥', color:'#FFB069' },
+  { match:/balloon|stock|order|supplies/i, icon:'🎈', color:'#4DD4FF' },
+  { match:/website|site|online|domain/i, icon:'🌐', color:'#9884E8' },
+  { match:/bank|account|finance|money|£|\$|price/i, icon:'🏦', color:'#4DD4FF' },
+  { match:/register|name|foundation|insur/i, icon:'📋', color:'#34D399' },
+  { match:/social|instagram|facebook|market|seo|google/i, icon:'📣', color:'#FFB069' },
+];
+const TASK_ICON_FALLBACK = ['#EC7487','#9884E8','#4DD4FF','#FFB069','#34D399'];
+function getTaskIcon(text,idx) {
+  const rule = TASK_ICON_RULES.find(r => r.match.test(text||''));
+  if(rule) return rule;
+  return { icon:'🎯', color:TASK_ICON_FALLBACK[idx % TASK_ICON_FALLBACK.length] };
+}
+
 function BrickWall({ total,completed }) {
   const count = Math.max(total,1);
-  const perRow = 6;
-  const rows = [];
-  for (let i=0;i<count;i+=perRow) rows.push(Array.from({ length:Math.min(perRow,count-i) },(_,j)=>i+j));
-  return (<div className="lrBrickWall">
-    {rows.map((row,rIdx) => (
-      <div key={rIdx} className="lrBrickRow" style={{ marginLeft: rIdx%2===1 ? 22 : 0 }}>
-        {row.map(i => {
-          const done = i < completed;
-          return <div key={i} className={done ? 'lrBrick lrBrickDone' : 'lrBrick'} />;
-        })}
-      </div>
-    ))}
+  const dots = Array.from({ length:count });
+  return (<div className="lrStrip">
+    {dots.map((_,i) => {
+      const done = i < completed;
+      return <div key={i} className={done ? 'lrStripDot lrStripDotDone' : 'lrStripDot'} />;
+    })}
     <style>{`
-      .lrBrickWall { display: flex; flex-direction: column; gap: 6px; }
-      .lrBrickRow { display: flex; gap: 6px; }
-      .lrBrick { width: 44px; height: 24px; flex-shrink: 0; border-radius: 6px; background: #2D3440; border: 1px solid rgba(255,255,255,0.08); transition: all 400ms ease; }
-      .lrBrickDone { background: linear-gradient(180deg, #5FA6FF, #3E7DFF); border-color: transparent; box-shadow: 0 0 18px rgba(79,140,255,0.35); animation: lrBrickPop 400ms ease; }
-      @keyframes lrBrickPop { 0%{ transform:scale(0.8); opacity:0.4; } 60%{ transform:scale(1.08); } 100%{ transform:scale(1); opacity:1; } }
+      .lrStrip { display: flex; flex-wrap: wrap; gap: 3px; }
+      .lrStripDot { width: 9px; height: 16px; border-radius: 3px; background: rgba(255,255,255,0.08); flex-shrink: 0; transition: all 400ms ease; }
+      .lrStripDotDone { background: ${TH.pink}; box-shadow: 0 0 6px rgba(236,116,135,0.6); animation: lrDotPop 400ms ease; }
+      @keyframes lrDotPop { 0%{ transform:scaleY(0.4); opacity:0.4; } 60%{ transform:scaleY(1.15); } 100%{ transform:scaleY(1); opacity:1; } }
     `}</style>
   </div>);
 }
 
 function LaunchHero({ completed,total,nextTask }) {
   const pct = total ? Math.round((completed/total)*100) : 0;
-  const remaining = Math.max(total-completed,0);
   const isComplete = total>0 && completed===total;
+  const r = 52; const circumference = 2*Math.PI*r; const dash = (pct/100)*circumference;
   return (<div className="lrHero">
-    <div className="lrHeroTop">
-      <div>
-        <div className="lrHeroTitle">BUSINESS LAUNCH</div>
-        <div className="lrHeroTitleSub">Roadmap</div>
+    <div className="lrHeroHeading">🚀 BUSINESS LAUNCH ROADMAP</div>
+    <div className="lrHeroSub">Every step gets you closer to launch day!</div>
+    <div className="lrHeroMain">
+      <div className="lrRingWrap">
+        <svg viewBox="0 0 120 120" className="lrRing">
+          <circle cx="60" cy="60" r={r} className="lrRingTrack" />
+          <circle cx="60" cy="60" r={r} className="lrRingFill" style={{ strokeDasharray:circumference,strokeDashoffset:circumference-dash }} />
+        </svg>
+        <div className="lrRingLabel">{pct}%</div>
       </div>
-      <span className="lrPill" style={isComplete?{ background:'rgba(39,199,111,0.14)',color:'#3ED98A' }:undefined}>{isComplete?'LAUNCHED':'IN PROGRESS'}</span>
+      <div>
+        <div className="lrHeroCount">{completed} <span className="lrHeroCountOf">of {total}</span></div>
+        <div className="lrHeroCountLabel">tasks completed</div>
+        <div className="lrHeroBadge">🧱 {isComplete?'All done — ready to launch!':'Building something amazing! ❤️'}</div>
+      </div>
     </div>
-    <div className="lrPctBlock">
-      <div className="lrPctNum">{pct}%</div>
-      <div className="lrPctCaption">Launch Readiness</div>
-      <div className="lrPctSub">{total===0?'No milestones yet':`${remaining} milestone${remaining===1?'':'s'} remaining`}</div>
-    </div>
-    <div className="lrTrack"><div className="lrFill" style={{ width:`${pct}%` }} /></div>
-    {nextTask && (<div className="lrNextMission">
-      <div className="lrNextLabel">Next Mission</div>
-      <div className="lrNextTask">{nextTask}</div>
-    </div>)}
     {total>0 && <BrickWall total={total} completed={completed} />}
     <style>{`
-      .lrHero { position: relative; min-height: 340px; background: linear-gradient(180deg, rgba(27,33,44,0.72), rgba(23,29,39,0.72)); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); border: 1px solid rgba(255,255,255,0.06); border-radius: 28px; padding: 36px 30px 30px; box-shadow: 0 14px 40px rgba(0,0,0,0.45); display: flex; flex-direction: column; gap: 28px; transition: transform 300ms ease, box-shadow 300ms ease; }
-      .lrHero:hover { transform: translateY(-3px); box-shadow: 0 24px 60px rgba(0,0,0,0.45); }
-      .lrHeroTop { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: -8px; }
-      .lrHeroTitle { font-size: 13px; font-weight: 800; letter-spacing: 0.12em; color: rgba(255,255,255,0.55); }
-      .lrHeroTitleSub { font-size: 22px; font-weight: 800; color: #fff; letter-spacing: -0.01em; margin-top: 2px; }
-      .lrPill { padding: 8px 16px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; background: rgba(79,140,255,0.12); color: #6FAEFF; white-space: nowrap; }
-      .lrPctBlock { margin-bottom: -8px; }
-      .lrPctNum { font-size: 72px; font-weight: 800; letter-spacing: -4px; line-height: 0.9; color: #fff; }
-      .lrPctCaption { font-size: 14px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255,255,255,0.6); margin-top: 6px; }
-      .lrPctSub { font-size: 16px; opacity: 0.65; color: #fff; margin-top: 4px; }
-      .lrTrack { height: 22px; background: #242A35; border-radius: 999px; overflow: hidden; }
-      .lrFill { height: 100%; background: linear-gradient(90deg, #61A8FF, #437DFF); border-radius: 999px; box-shadow: 0 0 20px rgba(97,168,255,0.45); transition: width 700ms ease; }
-      .lrNextLabel { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.5); }
-      .lrNextTask { font-size: 24px; font-weight: 700; color: #fff; margin-top: 6px; line-height: 1.2; }
+      .lrHero { position: relative; background: linear-gradient(160deg, ${LAUNCH.card}, ${LAUNCH.cardAlt}); border: 1px solid ${LAUNCH.border}; border-radius: 22px; padding: 24px 22px; box-shadow: 0 14px 40px rgba(0,0,0,0.35); display: flex; flex-direction: column; gap: 16px; overflow: hidden; }
+      .lrHeroHeading { font-size: 15px; font-weight: 800; letter-spacing: 0.04em; color: ${TH.pink}; }
+      .lrHeroSub { font-size: 13px; color: rgba(255,255,255,0.55); margin-top: -10px; }
+      .lrHeroMain { display: flex; align-items: center; gap: 20px; }
+      .lrRingWrap { position: relative; width: 108px; height: 108px; flex-shrink: 0; }
+      .lrRing { width: 100%; height: 100%; transform: rotate(-90deg); }
+      .lrRingTrack { fill: none; stroke: rgba(255,255,255,0.08); stroke-width: 11; }
+      .lrRingFill { fill: none; stroke: ${TH.pink}; stroke-width: 11; stroke-linecap: round; transition: stroke-dashoffset 700ms ease; }
+      .lrRingLabel { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 800; color: #fff; }
+      .lrHeroCount { font-size: 22px; font-weight: 800; color: #fff; }
+      .lrHeroCountOf { font-size: 15px; font-weight: 600; color: rgba(255,255,255,0.6); }
+      .lrHeroCountLabel { font-size: 13px; color: rgba(255,255,255,0.55); margin-top: 2px; }
+      .lrHeroBadge { display: inline-block; margin-top: 10px; padding: 6px 12px; border-radius: 999px; background: rgba(236,116,135,0.14); color: ${TH.pink}; font-size: 12px; font-weight: 600; }
     `}</style>
   </div>);
 }
 
 function RoadmapTaskCard({ item,index,manageMode,onUseToday,onToggleDone,onDelete,onMoveUp,onMoveDown,canMoveUp,canMoveDown }) {
   const done = item.done;
+  const { icon,color } = getTaskIcon(item.text,index);
   return (<div className={done ? 'lrCard lrCardDone' : 'lrCard'}>
-    <div className="lrBadge">{index+1}</div>
+    <div className="lrNum">{index+1}</div>
+    <div className="lrAvatar" style={{ background:color+'26',color }}>{icon}</div>
     <div style={{ flex:1,minWidth:0 }}>
       <div className="lrTitle" style={{ textDecoration:done?'line-through':'none' }}>{item.text}</div>
     </div>
@@ -840,20 +853,20 @@ function RoadmapTaskCard({ item,index,manageMode,onUseToday,onToggleDone,onDelet
       <button className="lrIconBtn" onClick={onToggleDone}>{done?'✓':'○'}</button>
       <button className="lrIconBtn lrDanger" onClick={onDelete}>×</button>
     </div>) : done ? (
-      <span className="lrDoneTick">✓</span>
+      <span className="lrDonePill">Done</span>
     ) : (
-      <button className="lrUseBtn" onClick={onUseToday}>Use Today</button>
+      <button className="lrUseBtn" style={{ background:color,boxShadow:`0 0 12px ${color}55` }} onClick={onUseToday}>Use Today</button>
     )}
     <style>{`
-      .lrCard { display: flex; align-items: center; gap: 12px; background: ${LAUNCH.cardAlt}; border: 1px solid ${LAUNCH.border}; border-radius: 16px; padding: 14px 16px; transition: all 250ms ease-out; animation: lrFadeIn 300ms ease-out; }
+      .lrCard { display: flex; align-items: center; gap: 10px; background: ${LAUNCH.cardAlt}; border: 1px solid ${LAUNCH.border}; border-radius: 16px; padding: 12px 14px; transition: all 250ms ease-out; animation: lrFadeIn 300ms ease-out; }
       .lrCard:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
-      .lrCardDone { border-color: rgba(39,199,111,0.4); background: rgba(39,199,111,0.06); box-shadow: 0 0 16px rgba(39,199,111,0.12); opacity: 0.75; }
-      .lrBadge { width: 26px; height: 26px; border-radius: 8px; background: rgba(79,140,255,0.14); color: ${LAUNCH.accent}; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-      .lrCardDone .lrBadge { background: rgba(39,199,111,0.16); color: ${LAUNCH.success}; }
+      .lrCardDone { border-color: rgba(39,199,111,0.35); background: rgba(39,199,111,0.06); opacity: 0.8; }
+      .lrNum { width: 16px; font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.35); flex-shrink: 0; text-align: center; }
+      .lrAvatar { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
       .lrTitle { font-size: 14px; font-weight: 600; color: #fff; }
-      .lrUseBtn { background: linear-gradient(135deg, ${LAUNCH.accent}, ${LAUNCH.accentDark}); color: #fff; border: none; border-radius: 12px; padding: 8px 14px; font-size: 12px; font-weight: 700; cursor: pointer; box-shadow: 0 0 12px rgba(79,140,255,0.3); transition: all 150ms ease; flex-shrink: 0; font-family: inherit; }
-      .lrUseBtn:hover { transform: translateY(-1px); box-shadow: 0 0 18px rgba(79,140,255,0.45); }
-      .lrDoneTick { color: ${LAUNCH.success}; font-size: 18px; font-weight: 700; flex-shrink: 0; }
+      .lrUseBtn { color: #fff; border: none; border-radius: 10px; padding: 7px 12px; font-size: 12px; font-weight: 700; cursor: pointer; transition: all 150ms ease; flex-shrink: 0; font-family: inherit; }
+      .lrUseBtn:hover { transform: translateY(-1px); }
+      .lrDonePill { color: #34D399; border: 1px solid rgba(52,211,153,0.4); background: rgba(52,211,153,0.1); border-radius: 10px; padding: 6px 12px; font-size: 12px; font-weight: 700; flex-shrink: 0; }
       .lrIconBtn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: rgba(255,255,255,0.7); font-size: 11px; padding: 5px 7px; cursor: pointer; font-family: inherit; }
       .lrIconBtn:disabled { opacity: 0.3; cursor: default; }
       .lrDanger { color: #FF6B6B; }
