@@ -769,7 +769,7 @@ function BrickWall({ total,completed }) {
       const done = i < completed;
       return <div key={i} className={done ? 'lrBrick lrBrickDone' : 'lrBrick'} />;
     })}
-    <style jsx>{`
+    <style>{`
       .lrBrick { aspect-ratio: 2 / 1; border-radius: 3px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08); transition: all 400ms ease; }
       .lrBrickDone { background: linear-gradient(135deg, ${LAUNCH.accent}, ${LAUNCH.accentDark}); border-color: rgba(79,140,255,0.6); box-shadow: 0 0 8px rgba(79,140,255,0.5); animation: lrBrickPop 400ms ease; }
       @keyframes lrBrickPop { 0%{ transform:scale(0.8); opacity:0.4; } 60%{ transform:scale(1.08); } 100%{ transform:scale(1); opacity:1; } }
@@ -797,7 +797,7 @@ function LaunchHero({ completed,total,nextTask }) {
       <span style={{ fontSize:13,color:'#fff',fontWeight:600 }}>{nextTask}</span>
     </div>)}
     {total>0 && <div style={{ marginTop:16 }}><BrickWall total={total} completed={completed} /></div>}
-    <style jsx>{`
+    <style>{`
       .lrHero { position: relative; background: linear-gradient(160deg, ${LAUNCH.card}, ${LAUNCH.cardAlt}); border: 1px solid ${LAUNCH.border}; border-radius: 20px; padding: 22px; overflow: hidden; box-shadow: 0 12px 40px rgba(0,0,0,0.35); }
       .lrTrack { height: 14px; background: rgba(255,255,255,0.06); border-radius: 999px; overflow: hidden; }
       .lrFill { height: 100%; background: linear-gradient(90deg, ${LAUNCH.accent}, ${LAUNCH.accentDark}); border-radius: 999px; box-shadow: 0 0 16px rgba(79,140,255,0.45); transition: width 500ms ease; }
@@ -822,7 +822,7 @@ function RoadmapTaskCard({ item,index,manageMode,onUseToday,onToggleDone,onDelet
     ) : (
       <button className="lrUseBtn" onClick={onUseToday}>Use Today</button>
     )}
-    <style jsx>{`
+    <style>{`
       .lrCard { display: flex; align-items: center; gap: 12px; background: ${LAUNCH.cardAlt}; border: 1px solid ${LAUNCH.border}; border-radius: 16px; padding: 14px 16px; transition: all 250ms ease-out; animation: lrFadeIn 300ms ease-out; }
       .lrCard:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
       .lrCardDone { border-color: rgba(39,199,111,0.4); background: rgba(39,199,111,0.06); box-shadow: 0 0 16px rgba(39,199,111,0.12); opacity: 0.75; }
@@ -880,7 +880,7 @@ function BalloonRoadmapModal({ todos,onClose,onAdd,onToggleDone,onDelete,onReord
         </div>
         <button onClick={() => setManageMode(m=>!m)} className="lrManageBtn">{manageMode?'Done managing':'Manage milestones'}</button>
       </div>
-      <style jsx>{`
+      <style>{`
         .lrHeader { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px; border-bottom: 1px solid rgba(255,255,255,0.06); }
         .lrClose { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08); color: rgba(255,255,255,0.7); font-size: 18px; border-radius: 8px; padding: 2px 10px; cursor: pointer; }
         .lrBody { padding: 20px; max-height: 75vh; overflow-y: auto; }
@@ -893,7 +893,7 @@ function BalloonRoadmapModal({ todos,onClose,onAdd,onToggleDone,onDelete,onReord
         .lrManageBtn { width: 100%; margin-top: 12px; background: transparent; border: 1px solid rgba(255,255,255,0.12); color: rgba(255,255,255,0.72); border-radius: 14px; padding: 11px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
       `}</style>
     </div>
-    <style jsx>{`
+    <style>{`
       .lrOverlay { position: fixed; inset: 0; background: rgba(4,8,20,0.85); backdrop-filter: blur(8px); display: flex; align-items: flex-start; justify-content: center; z-index: 1000; overflow-y: auto; padding: 16px; }
       .lrSheet { width: 420px; max-width: 100%; margin-top: 1.5rem; margin-bottom: 1.5rem; background: ${LAUNCH.bg}; border: 1px solid ${LAUNCH.border}; border-radius: 20px; box-shadow: 0 18px 60px rgba(0,0,0,0.45); overflow: hidden; }
     `}</style>
