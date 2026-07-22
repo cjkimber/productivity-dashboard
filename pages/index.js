@@ -763,15 +763,23 @@ const LAUNCH = {
 
 function BrickWall({ total,completed }) {
   const count = Math.max(total,1);
-  const bricks = Array.from({ length:count });
-  return (<div style={{ display:'grid',gridTemplateColumns:'repeat(10, 1fr)',gap:4 }}>
-    {bricks.map((_,i) => {
-      const done = i < completed;
-      return <div key={i} className={done ? 'lrBrick lrBrickDone' : 'lrBrick'} />;
-    })}
+  const perRow = 6;
+  const rows = [];
+  for (let i=0;i<count;i+=perRow) rows.push(Array.from({ length:Math.min(perRow,count-i) },(_,j)=>i+j));
+  return (<div className="lrBrickWall">
+    {rows.map((row,rIdx) => (
+      <div key={rIdx} className="lrBrickRow" style={{ marginLeft: rIdx%2===1 ? 22 : 0 }}>
+        {row.map(i => {
+          const done = i < completed;
+          return <div key={i} className={done ? 'lrBrick lrBrickDone' : 'lrBrick'} />;
+        })}
+      </div>
+    ))}
     <style>{`
-      .lrBrick { aspect-ratio: 2 / 1; border-radius: 3px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08); transition: all 400ms ease; }
-      .lrBrickDone { background: linear-gradient(135deg, ${LAUNCH.accent}, ${LAUNCH.accentDark}); border-color: rgba(79,140,255,0.6); box-shadow: 0 0 8px rgba(79,140,255,0.5); animation: lrBrickPop 400ms ease; }
+      .lrBrickWall { display: flex; flex-direction: column; gap: 6px; }
+      .lrBrickRow { display: flex; gap: 6px; }
+      .lrBrick { width: 44px; height: 24px; flex-shrink: 0; border-radius: 6px; background: #2D3440; border: 1px solid rgba(255,255,255,0.08); transition: all 400ms ease; }
+      .lrBrickDone { background: linear-gradient(180deg, #5FA6FF, #3E7DFF); border-color: transparent; box-shadow: 0 0 18px rgba(79,140,255,0.35); animation: lrBrickPop 400ms ease; }
       @keyframes lrBrickPop { 0%{ transform:scale(0.8); opacity:0.4; } 60%{ transform:scale(1.08); } 100%{ transform:scale(1); opacity:1; } }
     `}</style>
   </div>);
@@ -779,28 +787,42 @@ function BrickWall({ total,completed }) {
 
 function LaunchHero({ completed,total,nextTask }) {
   const pct = total ? Math.round((completed/total)*100) : 0;
+  const remaining = Math.max(total-completed,0);
+  const isComplete = total>0 && completed===total;
   return (<div className="lrHero">
-    <div style={{ display:'flex',alignItems:'center',gap:8,marginBottom:6 }}>
-      <span style={{ fontSize:20 }}>🚀</span>
-      <span style={{ fontSize:11,fontWeight:700,letterSpacing:'0.14em',textTransform:'uppercase',color:LAUNCH.accent }}>Business Launch Roadmap</span>
-    </div>
-    <div style={{ display:'flex',alignItems:'flex-end',gap:14,marginBottom:14 }}>
-      <div style={{ fontSize:40,fontWeight:800,color:'#fff',lineHeight:1,letterSpacing:'-1px' }}>{pct}%</div>
-      <div style={{ paddingBottom:4 }}>
-        <div style={{ fontSize:14,fontWeight:600,color:'#fff' }}>{completed} of {total} milestones</div>
-        <div style={{ fontSize:12,color:LAUNCH.textMuted }}>{Math.max(total-completed,0)} to go</div>
+    <div className="lrHeroTop">
+      <div>
+        <div className="lrHeroTitle">BUSINESS LAUNCH</div>
+        <div className="lrHeroTitleSub">Roadmap</div>
       </div>
+      <span className="lrPill" style={isComplete?{ background:'rgba(39,199,111,0.14)',color:'#3ED98A' }:undefined}>{isComplete?'LAUNCHED':'IN PROGRESS'}</span>
+    </div>
+    <div className="lrPctBlock">
+      <div className="lrPctNum">{pct}%</div>
+      <div className="lrPctCaption">Launch Readiness</div>
+      <div className="lrPctSub">{total===0?'No milestones yet':`${remaining} milestone${remaining===1?'':'s'} remaining`}</div>
     </div>
     <div className="lrTrack"><div className="lrFill" style={{ width:`${pct}%` }} /></div>
-    {nextTask && (<div style={{ marginTop:14,display:'flex',alignItems:'center',gap:8 }}>
-      <span style={{ fontSize:11,color:LAUNCH.textMuted,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em' }}>Next:</span>
-      <span style={{ fontSize:13,color:'#fff',fontWeight:600 }}>{nextTask}</span>
+    {nextTask && (<div className="lrNextMission">
+      <div className="lrNextLabel">Next Mission</div>
+      <div className="lrNextTask">{nextTask}</div>
     </div>)}
-    {total>0 && <div style={{ marginTop:16 }}><BrickWall total={total} completed={completed} /></div>}
+    {total>0 && <BrickWall total={total} completed={completed} />}
     <style>{`
-      .lrHero { position: relative; background: linear-gradient(160deg, ${LAUNCH.card}, ${LAUNCH.cardAlt}); border: 1px solid ${LAUNCH.border}; border-radius: 20px; padding: 22px; overflow: hidden; box-shadow: 0 12px 40px rgba(0,0,0,0.35); }
-      .lrTrack { height: 14px; background: rgba(255,255,255,0.06); border-radius: 999px; overflow: hidden; }
-      .lrFill { height: 100%; background: linear-gradient(90deg, ${LAUNCH.accent}, ${LAUNCH.accentDark}); border-radius: 999px; box-shadow: 0 0 16px rgba(79,140,255,0.45); transition: width 500ms ease; }
+      .lrHero { position: relative; min-height: 340px; background: linear-gradient(180deg, rgba(27,33,44,0.72), rgba(23,29,39,0.72)); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); border: 1px solid rgba(255,255,255,0.06); border-radius: 28px; padding: 36px 30px 30px; box-shadow: 0 14px 40px rgba(0,0,0,0.45); display: flex; flex-direction: column; gap: 28px; transition: transform 300ms ease, box-shadow 300ms ease; }
+      .lrHero:hover { transform: translateY(-3px); box-shadow: 0 24px 60px rgba(0,0,0,0.45); }
+      .lrHeroTop { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: -8px; }
+      .lrHeroTitle { font-size: 13px; font-weight: 800; letter-spacing: 0.12em; color: rgba(255,255,255,0.55); }
+      .lrHeroTitleSub { font-size: 22px; font-weight: 800; color: #fff; letter-spacing: -0.01em; margin-top: 2px; }
+      .lrPill { padding: 8px 16px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; background: rgba(79,140,255,0.12); color: #6FAEFF; white-space: nowrap; }
+      .lrPctBlock { margin-bottom: -8px; }
+      .lrPctNum { font-size: 72px; font-weight: 800; letter-spacing: -4px; line-height: 0.9; color: #fff; }
+      .lrPctCaption { font-size: 14px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255,255,255,0.6); margin-top: 6px; }
+      .lrPctSub { font-size: 16px; opacity: 0.65; color: #fff; margin-top: 4px; }
+      .lrTrack { height: 22px; background: #242A35; border-radius: 999px; overflow: hidden; }
+      .lrFill { height: 100%; background: linear-gradient(90deg, #61A8FF, #437DFF); border-radius: 999px; box-shadow: 0 0 20px rgba(97,168,255,0.45); transition: width 700ms ease; }
+      .lrNextLabel { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.5); }
+      .lrNextTask { font-size: 24px; font-weight: 700; color: #fff; margin-top: 6px; line-height: 1.2; }
     `}</style>
   </div>);
 }
