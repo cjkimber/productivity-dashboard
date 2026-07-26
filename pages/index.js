@@ -771,9 +771,16 @@ function RowingTab() {
   const [importMsg,setImportMsg] = useState('');
   const [importing,setImporting] = useState(false);
   const [form,setForm] = useState({ date:todayStr(), category:'30 min row', customDesc:'', time:'', distance:'', strokeRate:'', avgHeartRate:'', dragFactor:'', comments:'' });
+  const [chartExpanded,setChartExpanded] = useState(false);
 
   useEffect(() => { fetchSessions(); }, []);
   async function fetchSessions() { const res = await fetch('/api/rowing'); setSessions(await res.json()); }
+
+  async function removeSession(id) {
+    if(!id) return;
+    await fetch('/api/rowing', { method:'DELETE', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id }) });
+    fetchSessions();
+  }
 
   async function runImport() {
     setImporting(true); setImportMsg('');
@@ -825,14 +832,20 @@ function RowingTab() {
         <StatCard label="Latest" value={catMeta.type==='time'?`${Math.round(latestScore)}m`:fmtMMSS(latestScore)} sub={catMeta.type==='time'?'metres rowed':'finish time'} />
         <StatCard label="Personal best" value={catMeta.type==='time'?`${Math.round(bestScore)}m`:fmtMMSS(bestScore)} sub={catMeta.type==='time'?'metres rowed':'finish time'} />
       </div>
-      <div style={{fontSize:12,color:TH.textMuted,marginBottom:8,fontWeight:500}}>{catMeta.label} trend {catMeta.type==='distance' && <span style={{opacity:0.7}}>(lower = faster)</span>}</div>
-      <div style={{height:180}}><Line data={{labels:scored.map(s=>fmtRowDate(s.date)),datasets:[{data:scored.map(s=>Math.round(s.score)),borderColor:TH.cyan,backgroundColor:'rgba(77,212,255,0.08)',borderWidth:2,pointRadius:3,pointBackgroundColor:TH.cyan,tension:0.35,fill:true,spanGaps:true}]}} options={darkChartOpts({yTicks:{callback:v=>catMeta.type==='time'?`${v}m`:fmtMMSS(v)}})} /></div>
+      <div style={{fontSize:12,color:TH.textMuted,marginBottom:8,fontWeight:500,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <span>{catMeta.label} trend {catMeta.type==='distance' && <span style={{opacity:0.7}}>(lower = faster)</span>}</span>
+        <span style={{color:TH.cyan,fontSize:11,cursor:'pointer'}} onClick={()=>setChartExpanded(true)}>⤢ Expand</span>
+      </div>
+      <div style={{height:180,cursor:'pointer'}} onClick={()=>setChartExpanded(true)}><Line data={{labels:scored.map(s=>fmtRowDate(s.date)),datasets:[{data:scored.map(s=>Math.round(s.score)),borderColor:TH.cyan,backgroundColor:'rgba(77,212,255,0.08)',borderWidth:2,pointRadius:3,pointBackgroundColor:TH.cyan,tension:0.35,fill:true,spanGaps:true}]}} options={darkChartOpts({yTicks:{callback:v=>catMeta.type==='time'?`${v}m`:fmtMMSS(v)}})} /></div>
     </div>)}
     {catMeta.type!=='other' && scored.length===1 && (<div style={{textAlign:'center',padding:'0.5rem 0 1rem',color:TH.textMuted,fontSize:12}}>Log one more {catMeta.label} row to see the trend</div>)}
     {catMeta.type!=='other' && scored.length===0 && (<div style={{textAlign:'center',padding:'1.5rem 0',color:TH.textMuted,fontSize:13}}>No {catMeta.label} rows logged yet</div>)}
 
     {listDesc.map(s=>(<div key={s._id||s.logId} style={{padding:'14px 16px',background:TH.card,borderRadius:TH.radiusSm,marginBottom:8,boxShadow:TH.shadowSm,border:`1px solid ${TH.border}`}}>
-      <div style={{fontSize:12,color:TH.textMuted,marginBottom:6}}>{fmtRowDate(s.date)}</div>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+        <div style={{fontSize:12,color:TH.textMuted}}>{fmtRowDate(s.date)}</div>
+        <button onClick={()=>removeSession(s._id)} style={{background:'none',border:'none',color:TH.textMuted,fontSize:12,cursor:'pointer',fontFamily:'inherit',padding:0}}>Delete</button>
+      </div>
       <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:s.comments?6:0}}>
         {s.workDistance!=null && <span style={{background:TH.cardAlt,border:`1px solid ${TH.border}`,borderRadius:6,padding:'4px 10px',fontSize:13,color:TH.textSec}}>{Math.round(s.workDistance)}m</span>}
         {s.workTimeSeconds!=null && <span style={{background:TH.cardAlt,border:`1px solid ${TH.border}`,borderRadius:6,padding:'4px 10px',fontSize:13,color:TH.textSec}}>{fmtMMSS(s.workTimeSeconds)}</span>}
@@ -873,6 +886,14 @@ function RowingTab() {
         <Btn onClick={submitAdd}>Save session</Btn>
       </div>
     </Modal>)}
+
+    {chartExpanded && (<div style={{position:'fixed',inset:0,background:'rgba(4,8,20,0.95)',zIndex:1100,display:'flex',flexDirection:'column',padding:'1.25rem'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+        <span style={{fontWeight:700,fontSize:16,fontFamily:TH.heading,color:TH.text}}>{catMeta.label} trend {catMeta.type==='distance' && <span style={{opacity:0.7,fontWeight:400,fontSize:13}}>(lower = faster)</span>}</span>
+        <button onClick={()=>setChartExpanded(false)} style={{background:'rgba(77,212,255,0.08)',border:`1px solid ${TH.border}`,fontSize:18,color:TH.textSec,padding:'4px 12px',cursor:'pointer',borderRadius:8}}>×</button>
+      </div>
+      <div style={{flex:1,minHeight:0}}><Line data={{labels:scored.map(s=>fmtRowDate(s.date)),datasets:[{data:scored.map(s=>Math.round(s.score)),borderColor:TH.cyan,backgroundColor:'rgba(77,212,255,0.08)',borderWidth:2,pointRadius:4,pointHoverRadius:6,pointBackgroundColor:TH.cyan,tension:0.35,fill:true,spanGaps:true}]}} options={darkChartOpts({yTicks:{callback:v=>catMeta.type==='time'?`${v}m`:fmtMMSS(v)}})} /></div>
+    </div>)}
   </div>);
 }
 
