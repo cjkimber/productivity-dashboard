@@ -67,6 +67,46 @@ function toDateStr(y,m,d) { return `${y}-${pad(m+1)}-${pad(d)}`; }
 function todayStr() { const n=new Date(); return `${n.getFullYear()}-${pad(n.getMonth()+1)}-${pad(n.getDate())}`; }
 function fmtDate(str) { if(!str) return ''; const [y,m,d]=str.split('-'); return new Date(y,m-1,d).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}); }
 
+// ─── ROWING ─────────────────────────────────────────────────────────────────
+const ROWING_CATEGORIES = [
+  { key:'10 min row', label:'10 min', type:'time' },
+  { key:'15 min row', label:'15 min', type:'time' },
+  { key:'20 min row', label:'20 min', type:'time' },
+  { key:'30 min row', label:'30 min', type:'time' },
+  { key:'40 min row', label:'40 min', type:'time' },
+  { key:'60 min row', label:'60 min', type:'time' },
+  { key:'1k row', label:'1k', type:'distance' },
+  { key:'2k row', label:'2k', type:'distance' },
+  { key:'3k row', label:'3k', type:'distance' },
+  { key:'4k row', label:'4k', type:'distance' },
+  { key:'5k row', label:'5k', type:'distance' },
+  { key:'6k row', label:'6k', type:'distance' },
+  { key:'8k row', label:'8k', type:'distance' },
+  { key:'9k row', label:'9k', type:'distance' },
+  { key:'10k row', label:'10k', type:'distance' },
+  { key:'half marathon row', label:'Half marathon', type:'distance' },
+  { key:'other', label:'Other', type:'other' },
+];
+function parseTimeToSeconds(str) {
+  if(!str) return null;
+  const parts = str.split(':').map(p=>parseFloat(p));
+  if (parts.some(p=>isNaN(p))) return null;
+  if (parts.length===2) return parts[0]*60+parts[1];
+  if (parts.length===3) return parts[0]*3600+parts[1]*60+parts[2];
+  return null;
+}
+function fmtMMSS(totalSeconds) {
+  if (totalSeconds==null || isNaN(totalSeconds)) return '–';
+  const s = Math.round(totalSeconds);
+  const h = Math.floor(s/3600); const m = Math.floor((s%3600)/60); const sec = s%60;
+  return h>0 ? `${h}:${pad(m)}:${pad(sec)}` : `${m}:${pad(sec)}`;
+}
+function fmtPace(workTimeSeconds, workDistance) {
+  if (!workTimeSeconds || !workDistance) return null;
+  return fmtMMSS((workTimeSeconds/workDistance)*500);
+}
+function fmtRowDate(str) { if(!str) return ''; const [datePart]=str.split(' '); const [y,m,d]=datePart.split('-'); return new Date(y,m-1,d).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}); }
+
 // ─── SHARED COMPONENTS ──────────────────────────────────────────────────────
 function Modal({ title,onClose,children }) {
   return (<div style={{ position:'fixed',inset:0,background:'rgba(4,8,20,0.85)',backdropFilter:'blur(8px)',display:'flex',alignItems:'flex-start',justifyContent:'center',zIndex:1000,overflowY:'auto',padding:'1rem' }}>
@@ -735,8 +775,121 @@ function WeightTab({ year,month }) {
   </div>);
 }
 
+// ─── ROWING TAB ─────────────────────────────────────────────────────────────
+function RowingTab() {
+  const [sessions,setSessions] = useState([]);
+  const [selectedCat,setSelectedCat] = useState('30 min row');
+  const [showAdd,setShowAdd] = useState(false);
+  const [importMsg,setImportMsg] = useState('');
+  const [importing,setImporting] = useState(false);
+  const [form,setForm] = useState({ date:todayStr(), category:'30 min row', customDesc:'', time:'', distance:'', strokeRate:'', avgHeartRate:'', dragFactor:'', comments:'' });
+
+  useEffect(() => { fetchSessions(); }, []);
+  async function fetchSessions() { const res = await fetch('/api/rowing'); setSessions(await res.json()); }
+
+  async function runImport() {
+    setImporting(true); setImportMsg('');
+    try {
+      const res = await fetch('/api/rowing-import', { method:'POST' });
+      const data = await res.json();
+      setImportMsg(`${data.inserted} new session${data.inserted===1?'':'s'} imported (${data.alreadyPresent} already there)`);
+      fetchSessions();
+    } catch(e) { setImportMsg('Import failed — try again'); }
+    setImporting(false);
+  }
+
+  const catMeta = ROWING_CATEGORIES.find(c=>c.key===selectedCat) || ROWING_CATEGORIES[0];
+  const inCat = sessions.filter(s=>s.category===selectedCat).sort((a,b)=>a.date.localeCompare(b.date));
+  const scored = inCat.filter(s => catMeta.type==='time' ? s.workDistance!=null : s.workTimeSeconds!=null)
+    .map(s => ({ ...s, score: catMeta.type==='time' ? s.workDistance : s.workTimeSeconds }));
+  const bestScore = scored.length ? (catMeta.type==='time' ? Math.max(...scored.map(s=>s.score)) : Math.min(...scored.map(s=>s.score))) : null;
+  const latestScore = scored.length ? scored[scored.length-1].score : null;
+  const listDesc = [...inCat].sort((a,b)=>b.date.localeCompare(a.date));
+
+  async function submitAdd() {
+    const seconds = parseTimeToSeconds(form.time);
+    const category = form.category;
+    const description = category==='other' ? (form.customDesc || 'Row') : category;
+    await fetch('/api/rowing', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
+      date: form.date, category, description,
+      workTimeSeconds: seconds, workDistance: form.distance,
+      strokeRate: form.strokeRate, avgHeartRate: form.avgHeartRate, dragFactor: form.dragFactor,
+      comments: form.comments,
+    })});
+    setShowAdd(false);
+    setForm({ date:todayStr(), category:'30 min row', customDesc:'', time:'', distance:'', strokeRate:'', avgHeartRate:'', dragFactor:'', comments:'' });
+    fetchSessions();
+  }
+
+  return (<div>
+    <div style={{display:'flex',gap:8,marginBottom:'1rem'}}>
+      <Btn onClick={()=>setShowAdd(true)} style={{flex:1}}>+ Add row</Btn>
+      <Btn variant="secondary" onClick={runImport} style={{flex:1}}>{importing?'Importing…':'Import history'}</Btn>
+    </div>
+    {importMsg && <div style={{fontSize:12,color:TH.cyan,textAlign:'center',marginBottom:'1rem'}}>{importMsg}</div>}
+
+    <div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:'1.25rem'}}>
+      {ROWING_CATEGORIES.map(c=>(<button key={c.key} onClick={()=>setSelectedCat(c.key)} style={{padding:'8px 12px',borderRadius:8,border:`2px solid ${selectedCat===c.key?TH.cyan:TH.border}`,background:selectedCat===c.key?'rgba(77,212,255,0.08)':'transparent',color:selectedCat===c.key?TH.cyan:TH.textMuted,fontSize:13,fontWeight:selectedCat===c.key?600:400,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease'}}>{c.label}</button>))}
+    </div>
+
+    {catMeta.type!=='other' && scored.length>=2 && (<div style={{marginBottom:'1.5rem'}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:10,marginBottom:12}}>
+        <StatCard label="Latest" value={catMeta.type==='time'?`${Math.round(latestScore)}m`:fmtMMSS(latestScore)} sub={catMeta.type==='time'?'metres rowed':'finish time'} />
+        <StatCard label="Personal best" value={catMeta.type==='time'?`${Math.round(bestScore)}m`:fmtMMSS(bestScore)} sub={catMeta.type==='time'?'metres rowed':'finish time'} />
+      </div>
+      <div style={{fontSize:12,color:TH.textMuted,marginBottom:8,fontWeight:500}}>{catMeta.label} trend {catMeta.type==='distance' && <span style={{opacity:0.7}}>(lower = faster)</span>}</div>
+      <div style={{height:180}}><Line data={{labels:scored.map(s=>fmtRowDate(s.date)),datasets:[{data:scored.map(s=>Math.round(s.score)),borderColor:TH.cyan,backgroundColor:'rgba(77,212,255,0.08)',borderWidth:2,pointRadius:3,pointBackgroundColor:TH.cyan,tension:0.35,fill:true,spanGaps:true}]}} options={darkChartOpts({yTicks:{callback:v=>catMeta.type==='time'?`${v}m`:fmtMMSS(v)}})} /></div>
+    </div>)}
+    {catMeta.type!=='other' && scored.length===1 && (<div style={{textAlign:'center',padding:'0.5rem 0 1rem',color:TH.textMuted,fontSize:12}}>Log one more {catMeta.label} row to see the trend</div>)}
+    {catMeta.type!=='other' && scored.length===0 && (<div style={{textAlign:'center',padding:'1.5rem 0',color:TH.textMuted,fontSize:13}}>No {catMeta.label} rows logged yet</div>)}
+
+    {listDesc.map(s=>(<div key={s._id||s.logId} style={{padding:'14px 16px',background:TH.card,borderRadius:TH.radiusSm,marginBottom:8,boxShadow:TH.shadowSm,border:`1px solid ${TH.border}`}}>
+      <div style={{fontSize:12,color:TH.textMuted,marginBottom:6}}>{fmtRowDate(s.date)}</div>
+      <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:s.comments?6:0}}>
+        {s.workDistance!=null && <span style={{background:TH.cardAlt,border:`1px solid ${TH.border}`,borderRadius:6,padding:'4px 10px',fontSize:13,color:TH.textSec}}>{Math.round(s.workDistance)}m</span>}
+        {s.workTimeSeconds!=null && <span style={{background:TH.cardAlt,border:`1px solid ${TH.border}`,borderRadius:6,padding:'4px 10px',fontSize:13,color:TH.textSec}}>{fmtMMSS(s.workTimeSeconds)}</span>}
+        {fmtPace(s.workTimeSeconds,s.workDistance) && <span style={{background:TH.cardAlt,border:`1px solid ${TH.border}`,borderRadius:6,padding:'4px 10px',fontSize:13,color:TH.textSec}}>{fmtPace(s.workTimeSeconds,s.workDistance)}/500m</span>}
+        {s.strokeRate!=null && <span style={{background:TH.cardAlt,border:`1px solid ${TH.border}`,borderRadius:6,padding:'4px 10px',fontSize:13,color:TH.textSec}}>{s.strokeRate} s/m</span>}
+        {s.avgHeartRate!=null && <span style={{background:TH.cardAlt,border:`1px solid ${TH.border}`,borderRadius:6,padding:'4px 10px',fontSize:13,color:TH.textSec}}>{s.avgHeartRate} bpm</span>}
+      </div>
+      {s.comments && <div style={{fontSize:12,color:TH.textMuted,fontStyle:'italic'}}>{s.comments}</div>}
+    </div>))}
+    {listDesc.length===0 && catMeta.type==='other' && <div style={{textAlign:'center',padding:'2.5rem',color:TH.textMuted,fontSize:14}}>No data yet</div>}
+
+    {showAdd && (<Modal title="Add rowing session" onClose={()=>setShowAdd(false)}>
+      <div style={{display:'flex',flexDirection:'column',gap:12}}>
+        <div><label style={{fontSize:12,color:TH.textSec,display:'block',marginBottom:4,fontWeight:500}}>Date</label>
+          <input type="date" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} style={{...inputStyle,textAlign:'left'}} /></div>
+        <div><label style={{fontSize:12,color:TH.textSec,display:'block',marginBottom:4,fontWeight:500}}>Session type</label>
+          <select value={form.category} onChange={e=>setForm(f=>({...f,category:e.target.value}))} style={{width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:14,fontFamily:'inherit',boxShadow:TH.glow}}>
+            {ROWING_CATEGORIES.map(c=><option key={c.key} value={c.key}>{c.label}</option>)}
+          </select></div>
+        {form.category==='other' && (<div><label style={{fontSize:12,color:TH.textSec,display:'block',marginBottom:4,fontWeight:500}}>Description</label>
+          <input type="text" value={form.customDesc} onChange={e=>setForm(f=>({...f,customDesc:e.target.value}))} placeholder="e.g. interval session" style={{...inputStyle,textAlign:'left'}} /></div>)}
+        <div style={{display:'flex',gap:10}}>
+          <div style={{flex:1}}><label style={{fontSize:12,color:TH.textSec,display:'block',marginBottom:4,fontWeight:500}}>Time (mm:ss)</label>
+            <input type="text" value={form.time} onChange={e=>setForm(f=>({...f,time:e.target.value}))} placeholder="30:00" style={inputStyle} /></div>
+          <div style={{flex:1}}><label style={{fontSize:12,color:TH.textSec,display:'block',marginBottom:4,fontWeight:500}}>Distance (m)</label>
+            <input type="number" value={form.distance} onChange={e=>setForm(f=>({...f,distance:e.target.value}))} placeholder="7000" style={inputStyle} /></div>
+        </div>
+        <div style={{display:'flex',gap:10}}>
+          <div style={{flex:1}}><label style={{fontSize:12,color:TH.textSec,display:'block',marginBottom:4,fontWeight:500}}>Stroke rate</label>
+            <input type="number" value={form.strokeRate} onChange={e=>setForm(f=>({...f,strokeRate:e.target.value}))} placeholder="optional" style={inputStyle} /></div>
+          <div style={{flex:1}}><label style={{fontSize:12,color:TH.textSec,display:'block',marginBottom:4,fontWeight:500}}>Avg heart rate</label>
+            <input type="number" value={form.avgHeartRate} onChange={e=>setForm(f=>({...f,avgHeartRate:e.target.value}))} placeholder="optional" style={inputStyle} /></div>
+        </div>
+        <div><label style={{fontSize:12,color:TH.textSec,display:'block',marginBottom:4,fontWeight:500}}>Drag factor</label>
+          <input type="number" value={form.dragFactor} onChange={e=>setForm(f=>({...f,dragFactor:e.target.value}))} placeholder="optional" style={inputStyle} /></div>
+        <div><label style={{fontSize:12,color:TH.textSec,display:'block',marginBottom:4,fontWeight:500}}>Comments</label>
+          <input type="text" value={form.comments} onChange={e=>setForm(f=>({...f,comments:e.target.value}))} placeholder="optional" style={{...inputStyle,textAlign:'left'}} /></div>
+        <Btn onClick={submitAdd}>Save session</Btn>
+      </div>
+    </Modal>)}
+  </div>);
+}
+
 // ─── GYM SECTION ────────────────────────────────────────────────────────────
-const GYM_TABS=[{key:'calendar',label:'Calendar'},{key:'log',label:'Log'},{key:'history',label:'History'},{key:'weight',label:'Weight'}];
+const GYM_TABS=[{key:'calendar',label:'Calendar'},{key:'log',label:'Log'},{key:'history',label:'History'},{key:'weight',label:'Weight'},{key:'rowing',label:'Rowing'}];
 function GymSection() {
   const now=new Date(); const [tab,setTab]=useState('calendar'); const [year,setYear]=useState(now.getFullYear()); const [month,setMonth]=useState(now.getMonth());
   const [logs,setLogs]=useState([]);
@@ -758,6 +911,7 @@ function GymSection() {
     {tab==='log'&&<GymLog onSessionSaved={fetchLogs} />}
     {tab==='history'&&<ExerciseHistory />}
     {tab==='weight'&&<WeightTab year={year} month={month} />}
+    {tab==='rowing'&&<RowingTab />}
   </div>);
 }
 
