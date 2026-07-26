@@ -69,23 +69,11 @@ function fmtDate(str) { if(!str) return ''; const [y,m,d]=str.split('-'); return
 
 // ─── ROWING ─────────────────────────────────────────────────────────────────
 const ROWING_CATEGORIES = [
-  { key:'10 min row', label:'10 min', type:'time' },
-  { key:'15 min row', label:'15 min', type:'time' },
-  { key:'20 min row', label:'20 min', type:'time' },
   { key:'30 min row', label:'30 min', type:'time' },
-  { key:'40 min row', label:'40 min', type:'time' },
-  { key:'60 min row', label:'60 min', type:'time' },
-  { key:'1k row', label:'1k', type:'distance' },
   { key:'2k row', label:'2k', type:'distance' },
-  { key:'3k row', label:'3k', type:'distance' },
-  { key:'4k row', label:'4k', type:'distance' },
   { key:'5k row', label:'5k', type:'distance' },
   { key:'6k row', label:'6k', type:'distance' },
-  { key:'8k row', label:'8k', type:'distance' },
-  { key:'9k row', label:'9k', type:'distance' },
   { key:'10k row', label:'10k', type:'distance' },
-  { key:'half marathon row', label:'Half marathon', type:'distance' },
-  { key:'other', label:'Other', type:'other' },
 ];
 function parseTimeToSeconds(str) {
   if(!str) return null;
