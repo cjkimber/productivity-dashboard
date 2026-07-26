@@ -632,12 +632,23 @@ function SessionLogger({ session,onSave,onMoveInactive,inactive,allLogs,customEx
 }
 
 // ─── EXERCISE HISTORY ───────────────────────────────────────────────────────
+function shortDate(str) { if(!str) return ''; const [y,m,d]=str.split('-'); return new Date(y,m-1,d).toLocaleDateString('en-GB',{day:'numeric',month:'short'}); }
 function ExerciseHistory() {
   const [logs,setLogs] = useState([]); const [filterType,setFilterType] = useState('exercise');
   const [selectedBP,setSelectedBP] = useState('L'); const [selectedEx,setSelectedEx] = useState('');
   useEffect(() => { fetch('/api/exercise-log').then(r=>r.json()).then(data => { setLogs(data.filter(d => !d.noData).sort((a,b) => b.date.localeCompare(a.date))); }); }, []);
   const allExercises = [...new Set(logs.flatMap(l => (l.exercises||[]).map(e => e.name)))].sort();
   const filtered = filterType==='bodypart' ? logs.filter(l => l.workoutType===selectedBP) : logs.filter(l => (l.exercises||[]).some(e => e.name===selectedEx));
+  const volumeSeries = (filterType==='exercise' && selectedEx) ? [...logs]
+    .filter(l => (l.exercises||[]).some(e => e.name===selectedEx))
+    .sort((a,b) => a.date.localeCompare(b.date))
+    .map(l => {
+      const ex = (l.exercises||[]).find(e => e.name===selectedEx);
+      const volume = (ex.sets||[]).reduce((sum,s) => sum + ((parseFloat(s.reps)||0) * (parseFloat(s.weight)||0)), 0);
+      return { date: l.date, volume };
+    }) : [];
+  const latestVolume = volumeSeries.length ? volumeSeries[volumeSeries.length-1].volume : null;
+  const bestVolume = volumeSeries.length ? Math.max(...volumeSeries.map(v=>v.volume)) : null;
   function renderRow(log) {
     const rowCardStyle = {padding:'14px 16px',background:TH.card,borderRadius:TH.radiusSm,marginBottom:8,boxShadow:TH.shadowSm,border:`1px solid ${TH.border}`,position:'relative',overflow:'hidden'};
     const isRowingType = log.workoutType==='R'||log.workoutType==='KBR';
@@ -652,6 +663,15 @@ function ExerciseHistory() {
     {filterType==='bodypart' && (<div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:'1rem'}}>
       {WORKOUT_TYPES.map(w=>(<button key={w.key} onClick={()=>setSelectedBP(w.key)} style={{padding:'8px 12px',borderRadius:8,border:`2px solid ${selectedBP===w.key?(w.isSplit?'#B0A0F0':w.color):TH.border}`,background:selectedBP===w.key?(w.isSplit?'rgba(152,132,232,0.12)':w.color+'20'):'transparent',color:selectedBP===w.key?(w.isSplit?'#B0A0F0':w.color):TH.textMuted,fontSize:13,fontWeight:selectedBP===w.key?600:400,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease'}}>{w.key} - {w.label}</button>))}</div>)}
     {filterType==='exercise' && (<div style={{marginBottom:'1rem'}}><select value={selectedEx} onChange={e=>setSelectedEx(e.target.value)} style={{width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:14,fontFamily:'inherit',boxShadow:TH.glow}}><option value="">Select an exercise...</option>{allExercises.map(ex=><option key={ex} value={ex}>{ex}</option>)}</select></div>)}
+    {volumeSeries.length>=2 && (<div style={{marginBottom:'1.5rem'}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:10,marginBottom:12}}>
+        <StatCard label="Latest volume" value={`${Math.round(latestVolume)}`} sub="kg total" />
+        <StatCard label="Personal best" value={`${Math.round(bestVolume)}`} sub="kg total" />
+      </div>
+      <div style={{fontSize:12,color:TH.textMuted,marginBottom:8,fontWeight:500}}>Volume trend — {selectedEx}</div>
+      <div style={{height:180}}><Line data={{labels:volumeSeries.map(v=>shortDate(v.date)),datasets:[{data:volumeSeries.map(v=>Math.round(v.volume)),borderColor:TH.cyan,backgroundColor:'rgba(77,212,255,0.08)',borderWidth:2,pointRadius:4,pointBackgroundColor:TH.cyan,tension:0.35,fill:true,spanGaps:true}]}} options={darkChartOpts({yTicks:{callback:v=>`${v}kg`}})} /></div>
+    </div>)}
+    {filterType==='exercise' && selectedEx && volumeSeries.length===1 && (<div style={{textAlign:'center',padding:'0.5rem 0 1rem',color:TH.textMuted,fontSize:12}}>Log one more session to see the volume trend</div>)}
     {filtered.length===0 && <div style={{textAlign:'center',padding:'2.5rem',color:TH.textMuted,fontSize:14}}>No data yet</div>}
     {filtered.map(log=>renderRow(log))}
   </div>);
