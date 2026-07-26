@@ -644,11 +644,18 @@ function ExerciseHistory() {
     .sort((a,b) => a.date.localeCompare(b.date))
     .map(l => {
       const ex = (l.exercises||[]).find(e => e.name===selectedEx);
-      const volume = (ex.sets||[]).reduce((sum,s) => sum + ((parseFloat(s.reps)||0) * (parseFloat(s.weight)||0)), 0);
-      return { date: l.date, volume };
-    }) : [];
+      const doneSets = (ex.sets||[]).filter(s => s.reps || s.weight);
+      const volume = doneSets.reduce((sum,s) => sum + ((parseFloat(s.reps)||0) * (parseFloat(s.weight)||0)), 0);
+      return { date: l.date, volume, setCount: doneSets.length };
+    })
+    .filter(v => v.setCount > 0 && v.setCount < 4) : [];
   const latestVolume = volumeSeries.length ? volumeSeries[volumeSeries.length-1].volume : null;
   const bestVolume = volumeSeries.length ? Math.max(...volumeSeries.map(v=>v.volume)) : null;
+  const allSessionsForEx = (filterType==='exercise' && selectedEx) ? logs.filter(l => (l.exercises||[]).some(e => e.name===selectedEx)).map(l => {
+    const ex = (l.exercises||[]).find(e => e.name===selectedEx);
+    return (ex.sets||[]).filter(s => s.reps || s.weight).length;
+  }) : [];
+  const excludedHighSetCount = allSessionsForEx.filter(c => c>=4).length;
   function renderRow(log) {
     const rowCardStyle = {padding:'14px 16px',background:TH.card,borderRadius:TH.radiusSm,marginBottom:8,boxShadow:TH.shadowSm,border:`1px solid ${TH.border}`,position:'relative',overflow:'hidden'};
     const isRowingType = log.workoutType==='R'||log.workoutType==='KBR';
@@ -670,6 +677,7 @@ function ExerciseHistory() {
       </div>
       <div style={{fontSize:12,color:TH.textMuted,marginBottom:8,fontWeight:500}}>Volume trend — {selectedEx}</div>
       <div style={{height:180}}><Line data={{labels:volumeSeries.map(v=>shortDate(v.date)),datasets:[{data:volumeSeries.map(v=>Math.round(v.volume)),borderColor:TH.cyan,backgroundColor:'rgba(77,212,255,0.08)',borderWidth:2,pointRadius:4,pointBackgroundColor:TH.cyan,tension:0.35,fill:true,spanGaps:true}]}} options={darkChartOpts({yTicks:{callback:v=>`${v}kg`}})} /></div>
+      {excludedHighSetCount>0 && (<div style={{fontSize:11,color:TH.textMuted,marginTop:6,textAlign:'center'}}>{excludedHighSetCount} session{excludedHighSetCount>1?'s':''} with 4+ sets excluded for a fair comparison</div>)}
     </div>)}
     {filterType==='exercise' && selectedEx && volumeSeries.length===1 && (<div style={{textAlign:'center',padding:'0.5rem 0 1rem',color:TH.textMuted,fontSize:12}}>Log one more session to see the volume trend</div>)}
     {filtered.length===0 && <div style={{textAlign:'center',padding:'2.5rem',color:TH.textMuted,fontSize:14}}>No data yet</div>}
