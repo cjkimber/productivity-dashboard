@@ -156,7 +156,9 @@ function CalendarGrid({ year,month,getCellStyle,onDayClick }) {
       {isSplit && (<svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position:'absolute',inset:0,width:'100%',height:'100%' }}>
         <polygon points="0,0 100,0 0,100" fill={s.splitBg[0]} /><polygon points="100,0 100,100 0,100" fill={s.splitBg[1]} /></svg>)}
       {s.overlayEmoji ? (
-        <span style={{ position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'3.6em',zIndex:2,lineHeight:1 }}>{s.overlayEmoji}</span>
+        <svg viewBox="0 0 100 100" style={{ position:'absolute',inset:0,width:'100%',height:'100%',zIndex:2 }}>
+          <text x="50" y="52" textAnchor="middle" dominantBaseline="central" fontSize="88">{s.overlayEmoji}</text>
+        </svg>
       ) : (
         <>
           <span style={{ position:'relative',zIndex:1,textShadow:isSplit?'0 0 3px rgba(0,0,0,0.35)':'none' }}>{day}</span>
@@ -394,17 +396,9 @@ function GymLog({ onSessionSaved }) {
   const [showInactive,setShowInactive] = useState(false); const [inactiveBodyPart,setInactiveBodyPart] = useState(null);
   useEffect(() => { loadAll(); }, []);
   async function loadAll() {
-    // Fetch the last 3 months plus next month so past-dated workouts still show up here
-    const now = new Date();
-    const months = [];
-    for (let back = 2; back >= -1; back--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - back, 1);
-      months.push({ y: d.getFullYear(), m: d.getMonth() + 1 });
-    }
-    const workoutReqs = months.map(({y,m}) => fetch(`/api/workouts?year=${y}&month=${m}`).then(r=>r.json()));
-    const [wArrays,lRes,dRes,iRes,oRes,cRes] = await Promise.all([Promise.all(workoutReqs),fetch('/api/exercise-log'),fetch('/api/exercise-draft'),fetch('/api/inactive-exercises'),fetch('/api/exercise-order'),fetch('/api/custom-exercises')]);
-    const [l,d,i,o,c] = await Promise.all([lRes.json(),dRes.json(),iRes.json(),oRes.json(),cRes.json()]);
-    const w = wArrays.flat();
+    // No month filter — /api/workouts returns every entry, so workouts on ANY past date appear here
+    const [wRes,lRes,dRes,iRes,oRes,cRes] = await Promise.all([fetch('/api/workouts'),fetch('/api/exercise-log'),fetch('/api/exercise-draft'),fetch('/api/inactive-exercises'),fetch('/api/exercise-order'),fetch('/api/custom-exercises')]);
+    const [w,l,d,i,o,c] = await Promise.all([wRes.json(),lRes.json(),dRes.json(),iRes.json(),oRes.json(),cRes.json()]);
     setWorkouts(w); setLogged(l); setDrafts(d);
     const iMap = {}; i.forEach(x => { if(!iMap[x.bodyPart]) iMap[x.bodyPart]=[]; iMap[x.bodyPart].push(x); }); setInactive(iMap);
     const oMap = {}; o.forEach(x => { oMap[x.bodyPart] = x.exercises; }); setExerciseOrder(oMap);
