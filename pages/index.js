@@ -156,7 +156,7 @@ function CalendarGrid({ year,month,getCellStyle,onDayClick }) {
       {isSplit && (<svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position:'absolute',inset:0,width:'100%',height:'100%' }}>
         <polygon points="0,0 100,0 0,100" fill={s.splitBg[0]} /><polygon points="100,0 100,100 0,100" fill={s.splitBg[1]} /></svg>)}
       {s.overlayEmoji ? (
-        <span style={{ position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.6em',zIndex:2,lineHeight:1 }}>{s.overlayEmoji}</span>
+        <span style={{ position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'3.6em',zIndex:2,lineHeight:1 }}>{s.overlayEmoji}</span>
       ) : (
         <>
           <span style={{ position:'relative',zIndex:1,textShadow:isSplit?'0 0 3px rgba(0,0,0,0.35)':'none' }}>{day}</span>
