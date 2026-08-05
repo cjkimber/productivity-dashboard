@@ -151,8 +151,8 @@ function CalendarGrid({ year,month,getCellStyle,onDayClick }) {
   function renderCell(key,day,dateStr,clickable) {
     const s = getCellStyle(day,dateStr) || {}; const isSplit = !!s.splitBg;
     const isToday = today && dateStr === today;
-    return (<div key={key} onClick={clickable?() => onDayClick(day):undefined}
-      style={{ aspectRatio:'1',borderRadius:s.borderRadius||TH.radiusSm,border:s.border||'none',background:isSplit?'transparent':(s.background||TH.cardAlt),display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,color:s.color||TH.textMuted,fontWeight:s.fontWeight||500,cursor:clickable?'pointer':'default',position:'relative',transition:'transform 150ms ease',overflow:'hidden',boxShadow:isToday?`0 0 0 2px ${TH.cyan}, 0 0 12px rgba(77,212,255,0.35)`:'none' }}>
+    return (<div key={key} onClick={() => onDayClick(dateStr)}
+      style={{ aspectRatio:'1',borderRadius:s.borderRadius||TH.radiusSm,border:s.border||'none',background:isSplit?'transparent':(s.background||TH.cardAlt),display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,color:s.color||TH.textMuted,fontWeight:s.fontWeight||500,cursor:'pointer',position:'relative',transition:'transform 150ms ease',overflow:'hidden',opacity:clickable?1:0.55,boxShadow:isToday?`0 0 0 2px ${TH.cyan}, 0 0 12px rgba(77,212,255,0.35)`:'none' }}>
       {isSplit && (<svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position:'absolute',inset:0,width:'100%',height:'100%' }}>
         <polygon points="0,0 100,0 0,100" fill={s.splitBg[0]} /><polygon points="100,0 100,100 0,100" fill={s.splitBg[1]} /></svg>)}
       {s.overlayEmoji ? (
@@ -246,8 +246,7 @@ function GymCalendar({ year,month,externalLogs }) {
     await fetch('/api/workouts',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:detailModal})});
     setDetailModal(null); setEditSession(null); setEditing(false); refreshData();
   }
-  function openDay(day) {
-    const dateStr = toDateStr(year,month,day);
+  function openDay(dateStr) {
     const entry = byDate[dateStr]; const log = logByDate[dateStr];
     if (entry && log && !log.noData) { setEditSession(JSON.parse(JSON.stringify(log))); setDetailModal(dateStr); setMoveMode(false); setMoveDate(''); }
     else { setForm(entry ? {type:entry.type} : {type:'L'}); setModal(dateStr); setMoveMode(false); setMoveDate(''); }
@@ -270,7 +269,7 @@ function GymCalendar({ year,month,externalLogs }) {
         if (wt?.isSplit) return {splitBg:[wt.color,wt.color2],color:'#FFFFFF',borderRadius:TH.radiusSm,fontWeight:600,letter:entry.type,overlayEmoji};
         return {background:wt?.color||'#888',color:wt?.textColor||'#fff',borderRadius:TH.radiusSm,fontWeight:600,letter:entry.type,overlayEmoji};
       }}
-      onDayClick={day => openDay(day)}
+      onDayClick={dateStr => openDay(dateStr)}
     />
     <div style={{ display:'flex',flexWrap:'wrap',gap:12,marginBottom:'1.5rem' }}>
       {WORKOUT_TYPES.map(w => (<div key={w.key} style={{ display:'flex',alignItems:'center',gap:6,fontSize:12,color:TH.textSec }}>
@@ -728,7 +727,7 @@ function WeightTab({ year,month }) {
   const change=monthSorted.length>=2?(monthSorted[monthSorted.length-1].weight-monthSorted[0].weight).toFixed(1):null;
   const days=getDaysInMonth(year,month); const labels=Array.from({length:days},(_,i)=>i+1);
   const chartData=labels.map(d=>{const dateStr=toDateStr(year,month,d);return weightByDate[dateStr]!==undefined?weightByDate[dateStr]:null;});
-  function openModal(day){const dateStr=toDateStr(year,month,day);const existing=weightByDate[dateStr];setInput(existing!==undefined?String(existing):'');setModal(dateStr);}
+  function openModal(dateStr){const existing=weightByDate[dateStr];setInput(existing!==undefined?String(existing):'');setModal(dateStr);}
   async function save(){if(!input||isNaN(parseFloat(input)))return;await fetch('/api/weight',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:modal,weight:parseFloat(input)})});setModal(null);setInput('');fetchData();}
   async function remove(){await fetch('/api/weight',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:modal})});setModal(null);setInput('');fetchData();}
   return (<div>
@@ -739,7 +738,7 @@ function WeightTab({ year,month }) {
       <StatCard label="Highest" value={`${highest}`} sub="kg" /></div>)}
     <CalendarGrid year={year} month={month}
       getCellStyle={(day,dateStr)=>{const hasEntry=weightByDate[dateStr]!==undefined;if(!hasEntry)return{border:`1px solid ${TH.border}`,color:TH.textMuted,borderRadius:TH.radiusSm};const direction=directionByDate[dateStr];let bg=TH.cardAlt;let color=TH.textSec;if(direction==='down'){bg=HEAT.green1;color=HEAT.green1Text;}else if(direction==='up'){bg=HEAT.red;color=HEAT.redText;}else{bg=TH.cardAlt;color=TH.textSec;}return{background:bg,color,borderRadius:TH.radiusSm,fontWeight:600,bottomLabel:`${weightByDate[dateStr]}`};}}
-      onDayClick={day=>openModal(day)} />
+      onDayClick={dateStr=>openModal(dateStr)} />
     <div style={{display:'flex',flexWrap:'wrap',gap:12,marginBottom:'1.5rem'}}>
       <div style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:TH.textSec}}><div style={{width:12,height:12,borderRadius:4,background:TH.cardAlt,border:`1px solid ${TH.border}`}}/>First / same</div>
       <div style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:TH.textSec}}><div style={{width:12,height:12,borderRadius:4,background:HEAT.green1}}/>Down</div>
@@ -1246,9 +1245,8 @@ function DailyTasksSection() {
   const magicCount = monthData.filter(e => e.done && e.category==='magic').length;
   const balloonCount = monthData.filter(e => e.done && e.category==='balloon').length;
 
-  function openDay(day) {
-    const dateStr = toDateStr(year,month,day);
-    const entry = byDate[dateStr];
+  function openDay(dateStr) {
+    const entry = byDateAll[dateStr];
     setModal(dateStr); setModalEntry(entry||null);
   }
   async function removeModalEntry() {
@@ -1330,7 +1328,7 @@ function DailyTasksSection() {
         if(isPast) return {background:HEAT.red,color:HEAT.redText,borderRadius:TH.radiusSm,fontWeight:500};
         return {border:`1px solid ${TH.border}`,color:TH.textMuted,borderRadius:TH.radiusSm};
       }}
-      onDayClick={day => openDay(day)} />
+      onDayClick={dateStr => openDay(dateStr)} />
     <div style={{ display:'flex',flexWrap:'wrap',gap:12,marginBottom:'1.5rem' }}>
       {Object.entries(TASK_CATEGORIES).map(([k,c]) => (<div key={k} style={{ display:'flex',alignItems:'center',gap:6,fontSize:12,color:TH.textSec }}><div style={{ width:12,height:12,borderRadius:4,background:c.color }} />{c.label}</div>))}
       <div style={{ display:'flex',alignItems:'center',gap:6,fontSize:12,color:TH.textSec }}><div style={{ width:12,height:12,borderRadius:4,background:HEAT.red }} />Missed</div>
@@ -1654,7 +1652,7 @@ function NutritionCalendarTab() {
     </div>
     <CalendarGrid year={year} month={month}
       getCellStyle={(day,dateStr)=>{ const entries=byDate[dateStr]||[]; if(entries.length===0) return {border:`1px solid ${TH.border}`,color:TH.textMuted,borderRadius:TH.radiusSm}; return {background:TH.cardAlt,color:TH.cyan,border:`1px solid ${TH.borderMed}`,borderRadius:TH.radiusSm,fontWeight:600,bottomLabel:`${dayTotal(dateStr)}`}; }}
-      onDayClick={day=>openDayDetail(toDateStr(year,month,day))} />
+      onDayClick={dateStr=>openDayDetail(dateStr)} />
     {detailDay && (<div style={{ background:TH.card,borderRadius:TH.radiusSm,padding:'14px',border:`1px solid ${TH.border}`,marginBottom:'1rem',position:'relative',overflow:'hidden' }}>
       <div style={{ position:'absolute',top:0,left:0,right:0,height:1,background:`linear-gradient(90deg, transparent, ${TH.borderGlow}, transparent)` }} />
       <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10 }}>
