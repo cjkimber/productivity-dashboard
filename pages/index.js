@@ -394,9 +394,17 @@ function GymLog({ onSessionSaved }) {
   const [showInactive,setShowInactive] = useState(false); const [inactiveBodyPart,setInactiveBodyPart] = useState(null);
   useEffect(() => { loadAll(); }, []);
   async function loadAll() {
-    const now = new Date(); const y=now.getFullYear(),m=now.getMonth()+1;
-    const [wRes,lRes,dRes,iRes,oRes,cRes] = await Promise.all([fetch(`/api/workouts?year=${y}&month=${m}`),fetch('/api/exercise-log'),fetch('/api/exercise-draft'),fetch('/api/inactive-exercises'),fetch('/api/exercise-order'),fetch('/api/custom-exercises')]);
-    const [w,l,d,i,o,c] = await Promise.all([wRes.json(),lRes.json(),dRes.json(),iRes.json(),oRes.json(),cRes.json()]);
+    // Fetch the last 3 months plus next month so past-dated workouts still show up here
+    const now = new Date();
+    const months = [];
+    for (let back = 2; back >= -1; back--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - back, 1);
+      months.push({ y: d.getFullYear(), m: d.getMonth() + 1 });
+    }
+    const workoutReqs = months.map(({y,m}) => fetch(`/api/workouts?year=${y}&month=${m}`).then(r=>r.json()));
+    const [wArrays,lRes,dRes,iRes,oRes,cRes] = await Promise.all([Promise.all(workoutReqs),fetch('/api/exercise-log'),fetch('/api/exercise-draft'),fetch('/api/inactive-exercises'),fetch('/api/exercise-order'),fetch('/api/custom-exercises')]);
+    const [l,d,i,o,c] = await Promise.all([lRes.json(),dRes.json(),iRes.json(),oRes.json(),cRes.json()]);
+    const w = wArrays.flat();
     setWorkouts(w); setLogged(l); setDrafts(d);
     const iMap = {}; i.forEach(x => { if(!iMap[x.bodyPart]) iMap[x.bodyPart]=[]; iMap[x.bodyPart].push(x); }); setInactive(iMap);
     const oMap = {}; o.forEach(x => { oMap[x.bodyPart] = x.exercises; }); setExerciseOrder(oMap);
