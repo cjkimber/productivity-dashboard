@@ -45,6 +45,12 @@ const WORKOUT_TYPES = [
   { key:'INJ',label:'Injured',color:'#3A3F4B',textColor:'#FFFFFF',emoji:'🤕' },
 ];
 
+// A day can hold at most one 'primary' (weight-training) session and one
+// 'secondary' (cardio) session. Slot is always derived from type, mirroring
+// the server-side logic in /api/workouts — never trust a stored slot alone.
+const CARDIO_KEYS = ['R','KB','XT'];
+function slotForType(type) { return CARDIO_KEYS.includes(type) ? 'secondary' : 'primary'; }
+
 const DEFAULT_EXERCISES = {
   L:['Squats','Smith Squats','Leg Extensions','Single Leg KB Squats','KB Lunges','Lying Ham Curl','Seated Leg Curl'],
   B:['Lying EZ Rows','Wide Grip Pulldowns','Seated Cable Row','Close Grip Pulldowns','Dbell Rows','Fixed Pulldowns','Assisted Pull Ups','Dbell Curls','Standing EZ Curls','EZ Preacher Curls','Preacher Dbell Curls','Cable Curls','Single Cable Curls','21s'],
@@ -194,7 +200,10 @@ function GymCalendar({ year,month,externalLogs }) {
   const [data,setData] = useState([]);
   const [logs,setLogs] = useState([]);
   const [modal,setModal] = useState(null);
+  const [modalSlot,setModalSlot] = useState(null); // null = free choice (fresh day); 'primary'|'secondary' = restricted picker
+  const [summaryModal,setSummaryModal] = useState(null); // dateStr — shown when the day already has ≥1 session
   const [detailModal,setDetailModal] = useState(null);
+  const [detailSlot,setDetailSlot] = useState('primary');
   const [form,setForm] = useState({ type:'L' });
   const [editSession,setEditSession] = useState(null);
   const [editing,setEditing] = useState(false);
@@ -203,8 +212,11 @@ function GymCalendar({ year,month,externalLogs }) {
 
   useEffect(() => { refreshData(); }, [year,month]);
 
-  const byDate = {}; data.forEach(d => { byDate[d.date] = d; });
-  const logByDate = {}; (externalLogs||logs).forEach(l => { logByDate[l.date] = l; });
+  // byDate[date] = { primary: entry|undefined, secondary: entry|undefined }
+  const byDate = {};
+  data.forEach(d => { const slot = d.slot||slotForType(d.type); if(!byDate[d.date]) byDate[d.date]={}; byDate[d.date][slot]=d; });
+  const logByDate = {};
+  (externalLogs||logs).forEach(l => { const slot = l.sessionSlot||'primary'; if(!logByDate[l.date]) logByDate[l.date]={}; logByDate[l.date][slot]=l; });
 
   function refreshData() {
     const prevMonth0 = month===0?11:month-1; const prevYear = month===0?year-1:year;
@@ -219,21 +231,22 @@ function GymCalendar({ year,month,externalLogs }) {
 
   async function save() {
     await fetch('/api/workouts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:modal,type:form.type})});
-    setModal(null); refreshData();
+    setModal(null); setModalSlot(null); setSummaryModal(null); refreshData();
   }
   async function remove() {
-    await fetch('/api/workouts',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:modal})});
-    setModal(null); refreshData();
+    const slot = modalSlot || slotForType(form.type);
+    await fetch('/api/workouts',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:modal,slot})});
+    setModal(null); setModalSlot(null); setSummaryModal(null); refreshData();
   }
 
-  async function moveWorkout(oldDate, newDate) {
-    const entry = byDate[oldDate]; const log = logByDate[oldDate];
+  async function moveWorkout(oldDate, newDate, slot) {
+    const entry = byDate[oldDate]?.[slot]; const log = logByDate[oldDate]?.[slot];
     if (!entry) return;
     await fetch('/api/workouts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:newDate,type:entry.type})});
-    if (log && !log.noData) { const newLog = {...log, date:newDate}; delete newLog._id; await fetch('/api/exercise-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(newLog)}); }
-    if (log && log.noData) { await fetch('/api/exercise-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:newDate,workoutType:entry.type,noData:true,exercises:[]})}); }
-    await fetch('/api/workouts',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:oldDate})});
-    setModal(null); setDetailModal(null); setEditSession(null); setEditing(false); setMoveMode(false); setMoveDate(''); refreshData();
+    if (log && !log.noData) { const newLog = {...log, date:newDate, sessionSlot:slot}; delete newLog._id; await fetch('/api/exercise-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(newLog)}); }
+    if (log && log.noData) { await fetch('/api/exercise-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:newDate,workoutType:entry.type,sessionSlot:slot,noData:true,exercises:[]})}); }
+    await fetch('/api/workouts',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:oldDate,slot})});
+    setModal(null); setModalSlot(null); setSummaryModal(null); setDetailModal(null); setEditSession(null); setEditing(false); setMoveMode(false); setMoveDate(''); refreshData();
   }
 
   async function saveEditedSession() {
@@ -244,55 +257,124 @@ function GymCalendar({ year,month,externalLogs }) {
   }
   async function removeSession() {
     if (!detailModal) return;
-    await fetch('/api/workouts',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:detailModal})});
+    await fetch('/api/workouts',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:detailModal,slot:detailSlot})});
     setDetailModal(null); setEditSession(null); setEditing(false); refreshData();
   }
   function openDay(dateStr) {
-    const entry = byDate[dateStr]; const log = logByDate[dateStr];
-    if (entry && log && !log.noData) { setEditSession(JSON.parse(JSON.stringify(log))); setDetailModal(dateStr); setMoveMode(false); setMoveDate(''); }
-    else { setForm(entry ? {type:entry.type} : {type:'L'}); setModal(dateStr); setMoveMode(false); setMoveDate(''); }
+    const entries = byDate[dateStr] || {};
+    if (!entries.primary && !entries.secondary) {
+      setForm({type:'L'}); setModalSlot(null); setModal(dateStr); setMoveMode(false); setMoveDate('');
+      return;
+    }
+    setSummaryModal(dateStr);
+  }
+  function openTypePicker(dateStr, slot, defaultType) {
+    setForm({type:defaultType}); setModalSlot(slot); setModal(dateStr); setSummaryModal(null); setMoveMode(false); setMoveDate('');
+  }
+  function openDetailForSlot(dateStr, slot) {
+    const log = logByDate[dateStr]?.[slot];
+    if (!log) return;
+    setEditSession(JSON.parse(JSON.stringify(log))); setDetailSlot(slot); setDetailModal(dateStr);
+    setSummaryModal(null); setMoveMode(false); setMoveDate('');
   }
   function updateEditSet(exIdx,setIdx,field,value) { setEditSession(prev => ({...prev,exercises:prev.exercises.map((ex,i) => i!==exIdx?ex:{...ex,sets:ex.sets.map((s,j) => j!==setIdx?s:{...s,[field]:value})})})); }
   function addEditSet(exIdx) { setEditSession(prev => ({...prev,exercises:prev.exercises.map((ex,i) => i!==exIdx?ex:{...ex,sets:[...ex.sets,{weight:'',reps:''}]})})); }
   function startEditing() { setEditSession(prev => ({...prev,exercises:(prev.exercises||[]).map(ex => ({...ex,sets:(!ex.sets||ex.sets.length<3)?[...(ex.sets||[]),...Array.from({length:3-(ex.sets||[]).length},()=>({weight:'',reps:''}))]:ex.sets}))})); setEditing(true); }
-  function closeModal() { setModal(null); setMoveMode(false); setMoveDate(''); }
+  function closeModal() { setModal(null); setModalSlot(null); setMoveMode(false); setMoveDate(''); }
+  function closeSummaryModal() { setSummaryModal(null); }
   function closeDetailModal() { setDetailModal(null); setEditSession(null); setEditing(false); setMoveMode(false); setMoveDate(''); }
+
+  const GYM_LABEL_KEYS = ['L','B','C','D','INJ'];
 
   return (<div>
     <CalendarGrid year={year} month={month}
       getCellStyle={(day,dateStr) => {
-        const entry = byDate[dateStr];
-        const log = logByDate[dateStr];
-        if (!entry) return {border:`1px solid ${TH.border}`,color:TH.textMuted,borderRadius:TH.radiusSm};
+        const entries = byDate[dateStr] || {};
+        const primary = entries.primary; const secondary = entries.secondary;
+        if (!primary && !secondary) return {border:`1px solid ${TH.border}`,color:TH.textMuted,borderRadius:TH.radiusSm};
+        const dayLogs = logByDate[dateStr] || {};
+        const isAM = !!(dayLogs.primary?.am || dayLogs.secondary?.am);
+        if (primary && secondary) {
+          const wtP = WORKOUT_TYPES.find(w => w.key===primary.type);
+          const wtS = WORKOUT_TYPES.find(w => w.key===secondary.type);
+          return {splitBg:[wtP?.color||'#888',wtS?.color||'#888'],color:'#FFFFFF',borderRadius:TH.radiusSm,fontWeight:600,letter:`${primary.type}/${secondary.type}`,overlayEmoji:isAM?'🏅':null};
+        }
+        const entry = primary||secondary;
         const wt = WORKOUT_TYPES.find(w => w.key===entry.type);
-        const isAM = !!(log && log.am);
         const overlayEmoji = wt?.emoji || (isAM ? '🏅' : null);
-        if (wt?.isSplit) return {splitBg:[wt.color,wt.color2],color:'#FFFFFF',borderRadius:TH.radiusSm,fontWeight:600,letter:entry.type,overlayEmoji};
         return {background:wt?.color||'#888',color:wt?.textColor||'#fff',borderRadius:TH.radiusSm,fontWeight:600,letter:entry.type,overlayEmoji};
       }}
       onDayClick={dateStr => openDay(dateStr)}
     />
     <div style={{ display:'flex',flexWrap:'wrap',gap:12,marginBottom:'1.5rem' }}>
       {WORKOUT_TYPES.map(w => (<div key={w.key} style={{ display:'flex',alignItems:'center',gap:6,fontSize:12,color:TH.textSec }}>
-        {w.isSplit ? <SplitIcon size={12} radius={4} /> : w.emoji ? <span style={{ fontSize:14,lineHeight:1 }}>{w.emoji}</span> : <div style={{ width:12,height:12,borderRadius:4,background:w.color }} />}
+        {w.emoji ? <span style={{ fontSize:14,lineHeight:1 }}>{w.emoji}</span> : <div style={{ width:12,height:12,borderRadius:4,background:w.color }} />}
         <span style={{ fontWeight:700,color:TH.text }}>{w.key}</span> {w.label}</div>))}
       <div style={{ display:'flex',alignItems:'center',gap:6,fontSize:12,color:TH.textSec }}><span>🏅</span> AM session</div>
     </div>
-    {modal && (<Modal title={`Log workout — ${fmtDate(modal)}`} onClose={closeModal}>
+
+    {/* Day summary — shown when a day already has one or both sessions */}
+    {summaryModal && (<Modal title={`${fmtDate(summaryModal)}`} onClose={closeSummaryModal}>
+      <div style={{ display:'flex',flexDirection:'column',gap:14 }}>
+        {['primary','secondary'].map(slot => {
+          const entry = byDate[summaryModal]?.[slot];
+          const log = logByDate[summaryModal]?.[slot];
+          const otherEntry = byDate[summaryModal]?.[slot==='primary'?'secondary':'primary'];
+          if (!entry) {
+            const canAdd = slot==='secondary' ? (otherEntry && otherEntry.type!=='INJ') : (otherEntry && CARDIO_KEYS.includes(otherEntry.type));
+            if (!canAdd) return null;
+            return (<button key={slot} onClick={() => openTypePicker(summaryModal, slot, slot==='primary'?'L':'R')}
+              style={{ fontSize:13,color:TH.cyan,background:'rgba(77,212,255,0.06)',border:`1px dashed ${TH.borderMed}`,borderRadius:TH.radiusSm,padding:'12px',cursor:'pointer',fontFamily:'inherit',fontWeight:600 }}>
+              + Add {slot==='primary'?'weights':'cardio'} session
+            </button>);
+          }
+          const wt = WORKOUT_TYPES.find(w => w.key===entry.type);
+          const isRowingType = entry.type==='R'; const isXTType = entry.type==='XT';
+          return (<div key={slot} style={{ background:TH.card,border:`1px solid ${TH.border}`,borderRadius:TH.radiusSm,padding:'12px' }}>
+            <div style={{ display:'flex',alignItems:'center',gap:10,marginBottom:8 }}>
+              <span style={{ background:wt?.color,color:wt?.textColor,borderRadius:8,fontSize:12,fontWeight:700,padding:'5px 12px' }}>{wt?.emoji||entry.type}</span>
+              <span style={{ fontWeight:700,fontSize:14,color:TH.text }}>{wt?.label}</span>
+              {log?.am && <span style={{ fontSize:15 }}>🏅</span>}
+            </div>
+            {!log && (<>
+              <div style={{ fontSize:13,color:TH.textMuted,marginBottom:10 }}>Pending — record it in the Log tab</div>
+              <div style={{ display:'flex',gap:8 }}>
+                <Btn onClick={() => openTypePicker(summaryModal, slot, entry.type)} variant="secondary" style={{ flex:1,padding:'8px',fontSize:13 }}>Change type</Btn>
+                <Btn onClick={async () => { await fetch('/api/workouts',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:summaryModal,slot})}); setSummaryModal(null); refreshData(); }} variant="danger" style={{ flex:1,padding:'8px',fontSize:13 }}>Remove</Btn>
+              </div>
+            </>)}
+            {log && log.noData && (<>
+              <div style={{ fontSize:13,color:TH.textMuted,marginBottom:10 }}>Marked as no data</div>
+              <Btn onClick={async () => { await fetch('/api/workouts',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:summaryModal,slot})}); setSummaryModal(null); refreshData(); }} variant="danger" style={{ padding:'8px',fontSize:13 }}>Remove entry</Btn>
+            </>)}
+            {log && !log.noData && (<>
+              {isRowingType && <div style={{ fontSize:13,color:TH.textSec,marginBottom:8 }}>{log.am ? 'AM session' : 'Session logged'}</div>}
+              {isXTType && <div style={{ fontSize:13,color:TH.textSec,marginBottom:8 }}>{log.xtDuration?`${log.xtDuration} min`:'Session logged'}{log.xtCalories?` • ${log.xtCalories} kcal`:''}</div>}
+              {!isRowingType && !isXTType && (log.exercises||[]).filter(ex => (ex.sets||[]).some(s=>s.reps||s.weight)).length>0 && (
+                <div style={{ fontSize:12,color:TH.textMuted,marginBottom:8 }}>{(log.exercises||[]).filter(ex => (ex.sets||[]).some(s=>s.reps||s.weight)).length} exercise(s) logged</div>
+              )}
+              <Btn onClick={() => openDetailForSlot(summaryModal, slot)} style={{ padding:'8px',fontSize:13 }}>View / edit session</Btn>
+            </>)}
+          </div>);
+        })}
+      </div>
+    </Modal>)}
+
+    {modal && (<Modal title={`${modalSlot==='secondary'?'Add cardio session':modalSlot==='primary'?'Add weights session':'Log workout'} — ${fmtDate(modal)}`} onClose={closeModal}>
       <div style={{ display:'flex',flexDirection:'column',gap:12 }}>
         {!moveMode ? (<>
           <div>
             <label style={{ fontSize:12,color:TH.textSec,display:'block',marginBottom:8,fontWeight:500 }}>Workout type</label>
             <div style={{ display:'flex',flexDirection:'column',gap:8 }}>
-              {WORKOUT_TYPES.map(w => (<button key={w.key} onClick={() => setForm(f => ({...f,type:w.key}))}
-                style={{ display:'flex',alignItems:'center',gap:10,padding:'11px 14px',borderRadius:TH.radiusSm,border:`2px solid ${form.type===w.key?(w.isSplit?'#B0A0F0':w.color):TH.border}`,background:form.type===w.key?(w.isSplit?'rgba(152,132,232,0.12)':w.color+'20'):TH.cardAlt,textAlign:'left',cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease',boxShadow:form.type===w.key?`0 0 12px ${w.color}30`:'none' }}>
-                {w.isSplit ? <SplitIcon size={30} radius={8} /> : <span style={{ width:30,height:30,borderRadius:8,background:w.color,display:'flex',alignItems:'center',justifyContent:'center',color:w.textColor,fontSize:w.emoji?16:12,fontWeight:700,flexShrink:0 }}>{w.emoji||w.key}</span>}
+              {WORKOUT_TYPES.filter(w => !modalSlot || (modalSlot==='primary' ? GYM_LABEL_KEYS.includes(w.key) : CARDIO_KEYS.includes(w.key))).map(w => (<button key={w.key} onClick={() => setForm(f => ({...f,type:w.key}))}
+                style={{ display:'flex',alignItems:'center',gap:10,padding:'11px 14px',borderRadius:TH.radiusSm,border:`2px solid ${form.type===w.key?w.color:TH.border}`,background:form.type===w.key?w.color+'20':TH.cardAlt,textAlign:'left',cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease',boxShadow:form.type===w.key?`0 0 12px ${w.color}30`:'none' }}>
+                <span style={{ width:30,height:30,borderRadius:8,background:w.color,display:'flex',alignItems:'center',justifyContent:'center',color:w.textColor,fontSize:w.emoji?16:12,fontWeight:700,flexShrink:0 }}>{w.emoji||w.key}</span>
                 <span style={{ fontSize:14,color:form.type===w.key?TH.text:TH.textSec,fontWeight:form.type===w.key?600:400 }}>{w.label}</span>
               </button>))}
             </div>
           </div>
           <Btn onClick={save}>Save</Btn>
-          {byDate[modal] && (<>
+          {modalSlot && byDate[modal]?.[modalSlot] && (<>
             <Btn onClick={() => {setMoveMode(true);setMoveDate(modal);}} variant="secondary">Move to different date</Btn>
             <Btn onClick={remove} variant="danger">Remove entry</Btn>
           </>)}
@@ -302,10 +384,10 @@ function GymCalendar({ year,month,externalLogs }) {
             <input type="date" value={moveDate} onChange={e => setMoveDate(e.target.value)} style={{ width:'100%',padding:'11px 12px',borderRadius:TH.radiusSm,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:16,fontFamily:'inherit',boxShadow:TH.glow }} />
             {moveDate && moveDate!==modal && (<div style={{ fontSize:12,color:TH.textSec,marginTop:8 }}>
               Moving from {fmtDate(modal)} to {fmtDate(moveDate)}
-              {logByDate[modal] && !logByDate[modal].noData && <div style={{ color:TH.cyan,marginTop:4 }}>Session data will also be moved</div>}
+              {logByDate[modal]?.[modalSlot||slotForType(form.type)] && !logByDate[modal][modalSlot||slotForType(form.type)].noData && <div style={{ color:TH.cyan,marginTop:4 }}>Session data will also be moved</div>}
             </div>)}
           </div>
-          <Btn onClick={() => {if(moveDate&&moveDate!==modal)moveWorkout(modal,moveDate);}} style={{ opacity:moveDate&&moveDate!==modal?1:0.4 }}>Confirm move</Btn>
+          <Btn onClick={() => {if(moveDate&&moveDate!==modal)moveWorkout(modal,moveDate,modalSlot||slotForType(form.type));}} style={{ opacity:moveDate&&moveDate!==modal?1:0.4 }}>Confirm move</Btn>
           <Btn onClick={() => setMoveMode(false)} variant="secondary">Cancel</Btn>
         </>)}
       </div>
@@ -317,7 +399,7 @@ function GymCalendar({ year,month,externalLogs }) {
         const isXTType = editSession.workoutType==='XT';
         return (<div style={{ display:'flex',flexDirection:'column',gap:10 }}>
           <div style={{ display:'flex',alignItems:'center',gap:10,marginBottom:2 }}>
-            {wt?.isSplit ? <SplitIcon size={30} radius={8} /> : <span style={{ background:wt?.color,color:wt?.textColor,borderRadius:8,fontSize:12,fontWeight:700,padding:'5px 12px' }}>{wt?.emoji||editSession.workoutType}</span>}
+            <span style={{ background:wt?.color,color:wt?.textColor,borderRadius:8,fontSize:12,fontWeight:700,padding:'5px 12px' }}>{wt?.emoji||editSession.workoutType}</span>
             <span style={{ fontWeight:700,fontSize:15,fontFamily:TH.heading,color:TH.text }}>{wt?.label}</span>
             {editSession.am && <span style={{ fontSize:16 }}>🏅</span>}
           </div>
@@ -346,7 +428,7 @@ function GymCalendar({ year,month,externalLogs }) {
                 <div style={{ color:TH.cyan,marginTop:4 }}>Session data will also be moved</div>
               </div>)}
             </div>
-            <Btn onClick={() => {if(moveDate&&moveDate!==detailModal)moveWorkout(detailModal,moveDate);}} style={{ opacity:moveDate&&moveDate!==detailModal?1:0.4 }}>Confirm move</Btn>
+            <Btn onClick={() => {if(moveDate&&moveDate!==detailModal)moveWorkout(detailModal,moveDate,detailSlot);}} style={{ opacity:moveDate&&moveDate!==detailModal?1:0.4 }}>Confirm move</Btn>
             <Btn onClick={() => setMoveMode(false)} variant="secondary">Cancel</Btn>
           </>) : (<>
             {isRowingType && (
@@ -414,15 +496,17 @@ function GymLog({ onSessionSaved }) {
     const oMap = {}; o.forEach(x => { oMap[x.bodyPart] = x.exercises; }); setExerciseOrder(oMap);
     const cMap = {}; c.forEach(x => { if(!cMap[x.bodyPart]) cMap[x.bodyPart]=[]; cMap[x.bodyPart].push(x); }); setCustomExercises(cMap);
   }
-  const loggedDates = new Set(logged.map(l => l.date));
-  const pending = workouts.filter(w => !loggedDates.has(w.date) && w.type!=='INJ').sort((a,b) => b.date.localeCompare(a.date));
+  const loggedKeys = new Set(logged.map(l => `${l.date}|${l.sessionSlot||'primary'}`));
+  const pending = workouts.filter(w => w.type!=='INJ' && !loggedKeys.has(`${w.date}|${w.slot||slotForType(w.type)}`)).sort((a,b) => b.date.localeCompare(a.date));
 
   async function markNoData(workout) {
-    await fetch('/api/exercise-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:workout.date,workoutType:workout.type,noData:true,exercises:[]})});
+    const slot = workout.slot||slotForType(workout.type);
+    await fetch('/api/exercise-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:workout.date,workoutType:workout.type,sessionSlot:slot,noData:true,exercises:[]})});
     loadAll();
   }
   function openSession(workout) {
-    const draft = drafts.find(d => d.date===workout.date);
+    const slot = workout.slot||slotForType(workout.type);
+    const draft = drafts.find(d => d.date===workout.date && (d.sessionSlot||'primary')===slot);
     if (draft) { setSession(draft); return; }
     const wt = WORKOUT_TYPES.find(w => w.key===workout.type);
     const inactiveList = inactive[workout.type]||[]; const inactiveNames = inactiveList.map(i => i.exercise);
@@ -431,12 +515,12 @@ function GymLog({ onSessionSaved }) {
     const allExercises = [...defaultList, ...customList.filter(e => !defaultList.includes(e))];
     let orderedList; if(savedOrder){const extras=allExercises.filter(ex=>!savedOrder.includes(ex));orderedList=[...savedOrder,...extras];}else{orderedList=allExercises;}
     const activeExercises = orderedList.filter(ex => !inactiveNames.includes(ex));
-    setSession({date:workout.date,workoutType:workout.type,workoutLabel:wt?.label||workout.type,am:false,exercises:activeExercises.map(name=>({name,sets:[{weight:'',reps:''},{weight:'',reps:''},{weight:'',reps:''}]}))});
+    setSession({date:workout.date,workoutType:workout.type,workoutLabel:wt?.label||workout.type,sessionSlot:slot,am:false,exercises:activeExercises.map(name=>({name,sets:[{weight:'',reps:''},{weight:'',reps:''},{weight:'',reps:''}]}))});
   }
   async function saveSession(sessionData,complete) {
     if(complete){
       await fetch('/api/exercise-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...sessionData,noData:false})});
-      await fetch('/api/exercise-draft',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:sessionData.date})});
+      await fetch('/api/exercise-draft',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:sessionData.date,sessionSlot:sessionData.sessionSlot||'primary'})});
       setSession(null); loadAll(); if(onSessionSaved) onSessionSaved();
     } else { await fetch('/api/exercise-draft',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(sessionData)}); setSession(null); loadAll(); }
   }
@@ -451,8 +535,9 @@ function GymLog({ onSessionSaved }) {
     {pending.length===0 && <div style={{ textAlign:'center',padding:'2.5rem',color:TH.textMuted,fontSize:14 }}>No workouts waiting to be logged</div>}
     {pending.map(w => {
       const wt = WORKOUT_TYPES.find(x => x.key===w.type);
-      const draft = drafts.find(d => d.date===w.date);
-      return (<div key={w.date} style={{ display:'flex',alignItems:'center',justifyContent:'space-between',padding:'14px 16px',background:TH.card,borderRadius:TH.radiusSm,marginBottom:8,boxShadow:TH.shadowSm,border:`1px solid ${TH.border}`,position:'relative',overflow:'hidden' }}>
+      const slot = w.slot||slotForType(w.type);
+      const draft = drafts.find(d => d.date===w.date && (d.sessionSlot||'primary')===slot);
+      return (<div key={`${w.date}-${slot}`} style={{ display:'flex',alignItems:'center',justifyContent:'space-between',padding:'14px 16px',background:TH.card,borderRadius:TH.radiusSm,marginBottom:8,boxShadow:TH.shadowSm,border:`1px solid ${TH.border}`,position:'relative',overflow:'hidden' }}>
         <div style={{ position:'absolute',top:0,left:0,right:0,height:1,background:`linear-gradient(90deg, transparent, ${TH.borderGlow}, transparent)` }} />
         <div><div style={{ fontSize:13,fontWeight:600,color:TH.text }}>{fmtDate(w.date)}</div>
           <div style={{ display:'flex',alignItems:'center',gap:6,marginTop:4 }}>
@@ -521,7 +606,7 @@ function SessionLogger({ session,onSave,onMoveInactive,inactive,allLogs,customEx
   useEffect(() => {
     if(isFirstRender.current){isFirstRender.current=false;return;}
     const timer = setTimeout(() => {
-      const draftData = {date:session.date,workoutType:session.workoutType,workoutLabel:session.workoutLabel,am,exercises:isCardioType?[]:exercises,rowingType:isRowingType?rowingType:null,rowingValue:isRowingType?rowingValue:null,xtDuration:isXTType?xtDuration:null,xtCalories:isXTType?xtCalories:null,sessionNotes};
+      const draftData = {date:session.date,workoutType:session.workoutType,workoutLabel:session.workoutLabel,sessionSlot:session.sessionSlot||'primary',am,exercises:isCardioType?[]:exercises,rowingType:isRowingType?rowingType:null,rowingValue:isRowingType?rowingValue:null,xtDuration:isXTType?xtDuration:null,xtCalories:isXTType?xtCalories:null,sessionNotes};
       fetch('/api/exercise-draft',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(draftData)});
     }, 1500);
     return () => clearTimeout(timer);
@@ -570,7 +655,7 @@ function SessionLogger({ session,onSave,onMoveInactive,inactive,allLogs,customEx
     if(onCustomExerciseAdded) onCustomExerciseAdded();
   }
 
-  function getSessionData() { return {date:session.date,workoutType:session.workoutType,workoutLabel:session.workoutLabel,am,exercises:isCardioType?[]:exercises,rowingType:isRowingType?rowingType:null,rowingValue:isRowingType?rowingValue:null,xtDuration:isXTType?xtDuration:null,xtCalories:isXTType?xtCalories:null,sessionNotes}; }
+  function getSessionData() { return {date:session.date,workoutType:session.workoutType,workoutLabel:session.workoutLabel,sessionSlot:session.sessionSlot||'primary',am,exercises:isCardioType?[]:exercises,rowingType:isRowingType?rowingType:null,rowingValue:isRowingType?rowingValue:null,xtDuration:isXTType?xtDuration:null,xtCalories:isXTType?xtCalories:null,sessionNotes}; }
   const inactiveList = inactive[session.workoutType]||[];
 
   return (<div>
