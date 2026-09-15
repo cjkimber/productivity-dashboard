@@ -529,7 +529,38 @@ function GymLog({ onSessionSaved }) {
   async function deleteInactive(id) { await fetch('/api/inactive-exercises',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,permanent:true})}); loadAll(); }
   async function deleteCustomExercise(customId) { await fetch('/api/custom-exercises',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:customId})}); loadAll(); }
 
-  if(session){return <SessionLogger session={session} onSave={saveSession} onMoveInactive={moveToInactive} inactive={inactive} allLogs={logged} customExercises={customExercises} onCustomExerciseAdded={loadAll} />;}
+  // Rename an inactive exercise. If it's one of Chris's own custom exercises, the
+  // custom_exercises doc is renamed alongside it so everything stays in sync.
+  // If it's a hardcoded default (e.g. "Squats"), the ORIGINAL default name is
+  // re-blocked under a fresh inactive record (so the old default doesn't silently
+  // reappear) and the new name is registered as a custom exercise going forward.
+  async function renameInactive(item,newName) {
+    const trimmed = (newName||'').trim();
+    if(!trimmed || trimmed===item.exercise) return;
+    const bodyPart = item.bodyPart;
+    const isCustom = (customExercises[bodyPart]||[]).some(c => c.exercise===item.exercise);
+    if (isCustom) {
+      const customDoc = (customExercises[bodyPart]||[]).find(c => c.exercise===item.exercise);
+      await fetch('/api/custom-exercises',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:customDoc._id,exercise:trimmed})});
+      await fetch('/api/inactive-exercises',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:item._id,exercise:trimmed})});
+    } else {
+      await fetch('/api/inactive-exercises',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:item._id,exercise:trimmed})});
+      await fetch('/api/custom-exercises',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bodyPart,exercise:trimmed})});
+      await fetch('/api/inactive-exercises',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bodyPart,exercise:item.exercise})});
+    }
+    loadAll();
+  }
+  // Permanently delete an inactive exercise. Only offered for custom exercises —
+  // deleting a hardcoded default's inactive record would just make the default
+  // reappear (that's what "Add back" is for).
+  async function deleteInactiveExercise(item) {
+    const bodyPart = item.bodyPart;
+    const customDoc = (customExercises[bodyPart]||[]).find(c => c.exercise===item.exercise);
+    await deleteInactive(item._id);
+    if (customDoc) await deleteCustomExercise(customDoc._id);
+  }
+
+  if(session){return <SessionLogger session={session} onSave={saveSession} onMoveInactive={moveToInactive} onRenameInactive={renameInactive} onDeleteInactive={deleteInactiveExercise} inactive={inactive} allLogs={logged} customExercises={customExercises} onCustomExerciseAdded={loadAll} />;}
   return (<div>
     <div style={{ fontSize:12,color:TH.textMuted,marginBottom:'1rem',fontWeight:500 }}>Workouts waiting to be logged</div>
     {pending.length===0 && <div style={{ textAlign:'center',padding:'2.5rem',color:TH.textMuted,fontSize:14 }}>No workouts waiting to be logged</div>}
@@ -569,10 +600,12 @@ function GymLog({ onSessionSaved }) {
 }
 
 // ─── SESSION LOGGER ──────────────────────────────────────────────────────────
-function SessionLogger({ session,onSave,onMoveInactive,inactive,allLogs,customExercises,onCustomExerciseAdded }) {
+function SessionLogger({ session,onSave,onMoveInactive,onRenameInactive,onDeleteInactive,inactive,allLogs,customExercises,onCustomExerciseAdded }) {
   const [exercises,setExercises] = useState(session.exercises||[]);
   const [am,setAm] = useState(session.am||false);
   const [showInactive,setShowInactive] = useState(false);
+  const [renamingId,setRenamingId] = useState(null);
+  const [renameValue,setRenameValue] = useState('');
   const [previousData,setPreviousData] = useState({});
   const [showAddExercise,setShowAddExercise] = useState(false);
   const [newExerciseName,setNewExerciseName] = useState('');
@@ -637,6 +670,22 @@ function SessionLogger({ session,onSave,onMoveInactive,inactive,allLogs,customEx
       return updated; });
   }
 
+  function startRename(item) { setRenamingId(item._id); setRenameValue(item.exercise); }
+  function cancelRename() { setRenamingId(null); setRenameValue(''); }
+  async function confirmRename(item) {
+    const trimmed = renameValue.trim();
+    if(!trimmed || trimmed===item.exercise) { cancelRename(); return; }
+    await onRenameInactive(item,trimmed);
+    cancelRename();
+  }
+  function addBackFromInactive(item) {
+    fetch('/api/inactive-exercises',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:item._id})})
+      .then(() => { setExercises(prev => [...prev,{name:item.exercise,sets:[{weight:'',reps:''},{weight:'',reps:''},{weight:'',reps:''}]}]); setShowInactive(false); if(onCustomExerciseAdded) onCustomExerciseAdded(); });
+  }
+  async function deleteInactiveItem(item) {
+    await onDeleteInactive(item);
+  }
+
   async function addCustomExercise() {
     const name = newExerciseName.trim();
     if(!name) return;
@@ -699,11 +748,31 @@ function SessionLogger({ session,onSave,onMoveInactive,inactive,allLogs,customEx
         {showInactive?'Hide':'View'} INACTIVE exercises ({inactiveList.length})</button>)}
       {showInactive && (<div style={{ background:TH.card,border:`1px solid ${TH.border}`,borderRadius:TH.radiusSm,padding:'12px',marginBottom:'1rem' }}>
         <div style={{ fontSize:12,color:TH.textMuted,marginBottom:8,fontWeight:500 }}>Inactive exercises</div>
-        {inactiveList.map(ex => (<div key={ex._id} style={{ display:'flex',justifyContent:'space-between',alignItems:'center',padding:'6px 0',borderBottom:`1px solid ${TH.border}` }}>
-          <span style={{ fontSize:13,color:TH.text }}>{ex.exercise}</span>
-          <button onClick={() => {fetch('/api/inactive-exercises',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:ex._id})}).then(()=>{setExercises(prev=>[...prev,{name:ex.exercise,sets:[{weight:'',reps:''},{weight:'',reps:''},{weight:'',reps:''}]}]);setShowInactive(false);});}}
-            style={{ fontSize:12,color:TH.cyan,background:'none',border:`1px solid ${TH.cyan}`,borderRadius:6,padding:'4px 10px',cursor:'pointer',fontFamily:'inherit' }}>Add back</button>
-        </div>))}</div>)}
+        {inactiveList.map(item => {
+          const isCustom = (customExercises[session.workoutType]||[]).some(c => c.exercise===item.exercise);
+          const isRenaming = renamingId===item._id;
+          return (<div key={item._id} style={{ padding:'7px 0',borderBottom:`1px solid ${TH.border}` }}>
+            {isRenaming ? (
+              <div style={{ display:'flex',gap:6,alignItems:'center' }}>
+                <input type="text" value={renameValue} onChange={e => setRenameValue(e.target.value)}
+                  onKeyDown={e => { if(e.key==='Enter') confirmRename(item); if(e.key==='Escape') cancelRename(); }}
+                  autoFocus
+                  style={{ flex:1,padding:'7px 9px',borderRadius:8,border:`1px solid ${TH.borderMed}`,background:TH.input,color:TH.text,fontSize:13,fontFamily:'inherit',boxSizing:'border-box' }} />
+                <button onClick={() => confirmRename(item)} style={{ fontSize:12,color:TH.cyan,background:'none',border:`1px solid ${TH.cyan}`,borderRadius:6,padding:'6px 10px',cursor:'pointer',fontFamily:'inherit' }}>Save</button>
+                <button onClick={cancelRename} style={{ fontSize:12,color:TH.textMuted,background:'none',border:`1px solid ${TH.border}`,borderRadius:6,padding:'6px 10px',cursor:'pointer',fontFamily:'inherit' }}>Cancel</button>
+              </div>
+            ) : (
+              <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',gap:8 }}>
+                <span style={{ fontSize:13,color:TH.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',minWidth:0 }}>{item.exercise}</span>
+                <div style={{ display:'flex',gap:6,flexShrink:0 }}>
+                  <button onClick={() => startRename(item)} style={{ fontSize:11,color:TH.textMuted,background:'none',border:`1px solid ${TH.border}`,borderRadius:6,padding:'4px 8px',cursor:'pointer',fontFamily:'inherit' }}>Rename</button>
+                  <button onClick={() => addBackFromInactive(item)} style={{ fontSize:12,color:TH.cyan,background:'none',border:`1px solid ${TH.cyan}`,borderRadius:6,padding:'4px 10px',cursor:'pointer',fontFamily:'inherit' }}>Add back</button>
+                  {isCustom && <button onClick={() => deleteInactiveItem(item)} style={{ fontSize:11,color:'#EF4444',background:'none',border:'1px solid rgba(239,68,68,0.4)',borderRadius:6,padding:'4px 8px',cursor:'pointer',fontFamily:'inherit' }}>Delete</button>}
+                </div>
+              </div>
+            )}
+          </div>);
+        })}</div>)}
       {exercises.length===0 && (<div style={{ textAlign:'center',padding:'2rem',color:TH.textMuted,fontSize:14 }}>No exercises added yet</div>)}
       {exercises.map((ex,exIdx) => {
         const prev = previousData[ex.name];
