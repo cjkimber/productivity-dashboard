@@ -550,14 +550,24 @@ function GymLog({ onSessionSaved }) {
     }
     loadAll();
   }
-  // Permanently delete an inactive exercise. Only offered for custom exercises —
-  // deleting a hardcoded default's inactive record would just make the default
-  // reappear (that's what "Add back" is for).
+  // Permanently delete an inactive exercise.
+  // - Custom exercise (one Chris added himself): fully erased from both
+  //   collections — nothing left behind.
+  // - Hardcoded default (lives in DEFAULT_EXERCISES in code, not the database):
+  //   there's no database row to erase, so instead its inactive record is
+  //   flagged "deleted". It stays permanently blocked (so it can never silently
+  //   reappear) but drops out of the Inactive exercises list — there's no
+  //   "Add back" for it afterwards, matching the "No Data" no-undo rule.
   async function deleteInactiveExercise(item) {
     const bodyPart = item.bodyPart;
     const customDoc = (customExercises[bodyPart]||[]).find(c => c.exercise===item.exercise);
-    await deleteInactive(item._id);
-    if (customDoc) await deleteCustomExercise(customDoc._id);
+    if (customDoc) {
+      await deleteInactive(item._id);
+      await deleteCustomExercise(customDoc._id);
+    } else {
+      await fetch('/api/inactive-exercises',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:item._id,deleted:true})});
+      loadAll();
+    }
   }
 
   if(session){return <SessionLogger session={session} onSave={saveSession} onMoveInactive={moveToInactive} onRenameInactive={renameInactive} onDeleteInactive={deleteInactiveExercise} inactive={inactive} allLogs={logged} customExercises={customExercises} onCustomExerciseAdded={loadAll} />;}
@@ -705,7 +715,9 @@ function SessionLogger({ session,onSave,onMoveInactive,onRenameInactive,onDelete
   }
 
   function getSessionData() { return {date:session.date,workoutType:session.workoutType,workoutLabel:session.workoutLabel,sessionSlot:session.sessionSlot||'primary',am,exercises:isCardioType?[]:exercises,rowingType:isRowingType?rowingType:null,rowingValue:isRowingType?rowingValue:null,xtDuration:isXTType?xtDuration:null,xtCalories:isXTType?xtCalories:null,sessionNotes}; }
-  const inactiveList = inactive[session.workoutType]||[];
+  // Permanently-deleted default exercises stay in the database (so the block
+  // holds) but are filtered out of what Chris actually sees here.
+  const inactiveList = (inactive[session.workoutType]||[]).filter(item => !item.deleted);
 
   return (<div>
     <div style={{ display:'flex',alignItems:'center',gap:10,marginBottom:'1.25rem' }}>
@@ -767,7 +779,7 @@ function SessionLogger({ session,onSave,onMoveInactive,onRenameInactive,onDelete
                 <div style={{ display:'flex',gap:6,flexShrink:0 }}>
                   <button onClick={() => startRename(item)} style={{ fontSize:11,color:TH.textMuted,background:'none',border:`1px solid ${TH.border}`,borderRadius:6,padding:'4px 8px',cursor:'pointer',fontFamily:'inherit' }}>Rename</button>
                   <button onClick={() => addBackFromInactive(item)} style={{ fontSize:12,color:TH.cyan,background:'none',border:`1px solid ${TH.cyan}`,borderRadius:6,padding:'4px 10px',cursor:'pointer',fontFamily:'inherit' }}>Add back</button>
-                  {isCustom && <button onClick={() => deleteInactiveItem(item)} style={{ fontSize:11,color:'#EF4444',background:'none',border:'1px solid rgba(239,68,68,0.4)',borderRadius:6,padding:'4px 8px',cursor:'pointer',fontFamily:'inherit' }}>Delete</button>}
+                  <button onClick={() => deleteInactiveItem(item)} title={isCustom?'':'Default exercise — this permanently hides it, with no way to add it back'} style={{ fontSize:11,color:'#EF4444',background:'none',border:'1px solid rgba(239,68,68,0.4)',borderRadius:6,padding:'4px 8px',cursor:'pointer',fontFamily:'inherit' }}>Delete</button>
                 </div>
               </div>
             )}
