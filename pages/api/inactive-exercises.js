@@ -21,9 +21,15 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'PATCH') {
-    const { id, exercise } = req.body;
-    if (!id || !exercise) return res.status(400).json({ error: 'Missing fields' });
-    await collection.updateOne({ _id: new ObjectId(id) }, { $set: { exercise } });
+    // Supports two independent updates: renaming (exercise) and permanently
+    // hiding a hardcoded default (deleted). Either or both can be sent.
+    const { id, exercise, deleted } = req.body;
+    if (!id) return res.status(400).json({ error: 'Missing id' });
+    const update = {};
+    if (exercise !== undefined) update.exercise = exercise;
+    if (deleted !== undefined) update.deleted = deleted;
+    if (Object.keys(update).length === 0) return res.status(400).json({ error: 'Nothing to update' });
+    await collection.updateOne({ _id: new ObjectId(id) }, { $set: update });
     return res.status(200).json({ updated: true });
   }
 
