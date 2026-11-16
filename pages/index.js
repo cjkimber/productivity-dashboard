@@ -947,7 +947,7 @@ function WeightTab({ year,month }) {
   </div>);
 }
 
-// ─── ROWING TAB ─────────────────────────────────────────────────────────────
+// ─── ROWING TAB (retired from UI Nov 2026 — kept so it can be re-enabled) ────
 function RowingTab() {
   const [sessions,setSessions] = useState([]);
   const [selectedCat,setSelectedCat] = useState('30 min row');
@@ -1088,8 +1088,74 @@ function RowingTab() {
   </div>);
 }
 
+// ─── CROSS TRAINER TAB ──────────────────────────────────────────────────────
+const XT_COLOR = '#4ADE80';
+const XT_DURATIONS = [{key:20,label:'20 min'},{key:30,label:'30 min'}];
+function CrossTrainerTab({ logs }) {
+  const [duration,setDuration] = useState(30);
+  const [chartExpanded,setChartExpanded] = useState(false);
+  const xtSessions = (logs||[])
+    .filter(l => l.workoutType==='XT' && !l.noData && l.xtCalories!=null && l.xtCalories!=='' && !isNaN(parseFloat(l.xtCalories)))
+    .map(l => ({ ...l, cals: parseFloat(l.xtCalories), mins: parseFloat(l.xtDuration) }));
+  const inDur = xtSessions.filter(s => s.mins===duration).sort((a,b)=>a.date.localeCompare(b.date));
+  const latest = inDur.length ? inDur[inDur.length-1].cals : null;
+  const best = inDur.length ? Math.max(...inDur.map(s=>s.cals)) : null;
+  const avg = inDur.length ? Math.round(inDur.reduce((t,s)=>t+s.cals,0)/inDur.length) : null;
+  const yMin = inDur.length>=2 ? Math.max(0, Math.floor((Math.min(...inDur.map(s=>s.cals))*0.85)/10)*10) : 0;
+  const listDesc = [...xtSessions].sort((a,b)=>b.date.localeCompare(a.date));
+  const durLabel = `${duration} min`;
+  const chartData = { labels: inDur.map(s=>fmtRowDate(s.date)), datasets: [
+    { data: inDur.map(s=>Math.round(s.cals)), borderColor: XT_COLOR, backgroundColor: 'rgba(74,222,128,0.10)', borderWidth: 2, pointRadius: 4, pointHoverRadius: 6, pointBackgroundColor: XT_COLOR, tension: 0.35, fill: true, spanGaps: true },
+    { data: inDur.map(()=>Math.round(latest)), borderColor: 'rgba(244,246,250,0.4)', borderWidth: 1, borderDash: [6,4], pointRadius: 0, fill: false, tension: 0 },
+  ]};
+  const chartOpts = darkChartOpts({ yMin, yTicks: { callback: v => `${v}` }, tooltipLabel: v => `${v} kcal` });
+
+  return (<div>
+    <div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:'1.25rem'}}>
+      {XT_DURATIONS.map(d=>(<button key={d.key} onClick={()=>setDuration(d.key)} style={{padding:'8px 14px',borderRadius:8,border:`2px solid ${duration===d.key?XT_COLOR:TH.border}`,background:duration===d.key?'rgba(74,222,128,0.08)':'transparent',color:duration===d.key?XT_COLOR:TH.textMuted,fontSize:13,fontWeight:duration===d.key?600:400,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease'}}>{d.label}</button>))}
+    </div>
+
+    {inDur.length>=1 && (<div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginBottom:12}}>
+      <StatCard label="Latest" value={Math.round(latest)} sub="kcal" />
+      <StatCard label="Best" value={Math.round(best)} sub="kcal" />
+      <StatCard label="Average" value={avg} sub={`kcal • ${inDur.length} session${inDur.length===1?'':'s'}`} />
+    </div>)}
+
+    {inDur.length>=2 && (<div style={{marginBottom:'1.5rem'}}>
+      <div style={{fontSize:12,color:TH.textMuted,marginBottom:8,fontWeight:500,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <span>Calories burned — {durLabel} sessions</span>
+        <span style={{color:XT_COLOR,fontSize:11,cursor:'pointer'}} onClick={()=>setChartExpanded(true)}>⤢ Expand</span>
+      </div>
+      <div style={{height:200,cursor:'pointer'}} onClick={()=>setChartExpanded(true)}><Line data={chartData} options={chartOpts} /></div>
+    </div>)}
+    {inDur.length===1 && (<div style={{textAlign:'center',padding:'0.5rem 0 1rem',color:TH.textMuted,fontSize:12}}>Log one more {durLabel} session to see the trend</div>)}
+    {inDur.length===0 && (<div style={{textAlign:'center',padding:'1.5rem 0',color:TH.textMuted,fontSize:13}}>No {durLabel} cross trainer sessions logged yet</div>)}
+
+    {listDesc.length>0 && (<div style={{fontSize:12,color:TH.textMuted,margin:'0.5rem 0 8px',fontWeight:500}}>All cross trainer sessions</div>)}
+    {listDesc.map(s=>(<div key={s._id||`${s.date}-${s.sessionSlot}`} style={{padding:'12px 16px',background:TH.card,borderRadius:TH.radiusSm,marginBottom:8,boxShadow:TH.shadowSm,border:`1px solid ${TH.border}`,display:'flex',justifyContent:'space-between',alignItems:'center',gap:10}}>
+      <div style={{fontSize:13,color:TH.textSec}}>{fmtRowDate(s.date)}{s.am && <span style={{marginLeft:6}}>🏅</span>}</div>
+      <div style={{display:'flex',gap:6}}>
+        {!isNaN(s.mins) && <span style={{background:TH.cardAlt,border:`1px solid ${TH.border}`,borderRadius:6,padding:'4px 10px',fontSize:13,color:TH.textSec}}>{s.mins} min</span>}
+        <span style={{background:'rgba(74,222,128,0.10)',border:`1px solid ${XT_COLOR}55`,borderRadius:6,padding:'4px 10px',fontSize:13,color:XT_COLOR,fontWeight:600}}>{Math.round(s.cals)} kcal</span>
+      </div>
+    </div>))}
+    {listDesc.length===0 && <div style={{textAlign:'center',padding:'1rem',color:TH.textMuted,fontSize:12}}>Log an X Trainer session from the Calendar to start tracking calories</div>}
+
+    {chartExpanded && (<div style={{position:'fixed',inset:0,background:'rgba(4,8,20,0.95)',zIndex:1100,display:'flex',flexDirection:'column',padding:'1.25rem'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+        <span style={{fontWeight:700,fontSize:16,fontFamily:TH.heading,color:TH.text}}>Calories burned — {durLabel} sessions</span>
+        <button onClick={()=>setChartExpanded(false)} style={{background:'rgba(74,222,128,0.08)',border:`1px solid ${TH.border}`,fontSize:18,color:TH.textSec,padding:'4px 12px',cursor:'pointer',borderRadius:8}}>×</button>
+      </div>
+      <div style={{flex:1,minHeight:0}}><Line data={chartData} options={chartOpts} /></div>
+    </div>)}
+  </div>);
+}
+
 // ─── GYM SECTION ────────────────────────────────────────────────────────────
-const GYM_TABS=[{key:'calendar',label:'Calendar'},{key:'log',label:'Log'},{key:'history',label:'History'},{key:'weight',label:'Weight'},{key:'rowing',label:'Rowing'}];
+// Rowing tab retired (Nov 2026) — RowingTab component, /api/rowing and /api/rowing-import are kept
+// and all rowing data stays in MongoDB. To bring it back, add {key:'rowing',label:'Rowing'} to GYM_TABS
+// and the matching render line in GymSection.
+const GYM_TABS=[{key:'calendar',label:'Calendar'},{key:'log',label:'Log'},{key:'history',label:'History'},{key:'weight',label:'Weight'},{key:'xtrainer',label:'X Trainer'}];
 function GymSection() {
   const now=new Date(); const [tab,setTab]=useState('calendar'); const [year,setYear]=useState(now.getFullYear()); const [month,setMonth]=useState(now.getMonth());
   const [logs,setLogs]=useState([]);
@@ -1111,7 +1177,7 @@ function GymSection() {
     {tab==='log'&&<GymLog onSessionSaved={fetchLogs} />}
     {tab==='history'&&<ExerciseHistory />}
     {tab==='weight'&&<WeightTab year={year} month={month} />}
-    {tab==='rowing'&&<RowingTab />}
+    {tab==='xtrainer'&&<CrossTrainerTab logs={logs} />}
   </div>);
 }
 
