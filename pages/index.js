@@ -1104,9 +1104,11 @@ function CrossTrainerTab({ logs }) {
   const yMin = inDur.length>=2 ? Math.max(0, Math.floor((Math.min(...inDur.map(s=>s.cals))*0.85)/10)*10) : 0;
   const listDesc = [...xtSessions].sort((a,b)=>b.date.localeCompare(a.date));
   const durLabel = `${duration} min`;
+  // Running average: each point is the mean of every session of this length up to and including that date.
+  const runningAvg = inDur.map((_,i) => Math.round(inDur.slice(0,i+1).reduce((t,s)=>t+s.cals,0)/(i+1)));
   const chartData = { labels: inDur.map(s=>fmtRowDate(s.date)), datasets: [
     { data: inDur.map(s=>Math.round(s.cals)), borderColor: XT_COLOR, backgroundColor: 'rgba(74,222,128,0.10)', borderWidth: 2, pointRadius: 4, pointHoverRadius: 6, pointBackgroundColor: XT_COLOR, tension: 0.35, fill: true, spanGaps: true },
-    { data: inDur.map(()=>Math.round(latest)), borderColor: 'rgba(244,246,250,0.4)', borderWidth: 1, borderDash: [6,4], pointRadius: 0, fill: false, tension: 0 },
+    { data: runningAvg, borderColor: TH.pink, backgroundColor: 'transparent', borderWidth: 2, borderDash: [6,4], pointRadius: 0, pointHoverRadius: 4, pointBackgroundColor: TH.pink, fill: false, tension: 0.35 },
   ]};
   const chartOpts = darkChartOpts({ yMin, yTicks: { callback: v => `${v}` }, tooltipLabel: v => `${v} kcal` });
 
@@ -1125,6 +1127,10 @@ function CrossTrainerTab({ logs }) {
       <div style={{fontSize:12,color:TH.textMuted,marginBottom:8,fontWeight:500,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
         <span>Calories burned — {durLabel} sessions</span>
         <span style={{color:XT_COLOR,fontSize:11,cursor:'pointer'}} onClick={()=>setChartExpanded(true)}>⤢ Expand</span>
+      </div>
+      <div style={{display:'flex',gap:14,fontSize:11,color:TH.textSec,marginBottom:8}}>
+        <span style={{display:'flex',alignItems:'center',gap:6}}><span style={{width:14,height:3,borderRadius:2,background:XT_COLOR}} />Calories</span>
+        <span style={{display:'flex',alignItems:'center',gap:6}}><span style={{width:14,height:0,borderTop:`2px dashed ${TH.pink}`}} />Running average</span>
       </div>
       <div style={{height:200,cursor:'pointer'}} onClick={()=>setChartExpanded(true)}><Line data={chartData} options={chartOpts} /></div>
     </div>)}
@@ -1145,6 +1151,10 @@ function CrossTrainerTab({ logs }) {
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
         <span style={{fontWeight:700,fontSize:16,fontFamily:TH.heading,color:TH.text}}>Calories burned — {durLabel} sessions</span>
         <button onClick={()=>setChartExpanded(false)} style={{background:'rgba(74,222,128,0.08)',border:`1px solid ${TH.border}`,fontSize:18,color:TH.textSec,padding:'4px 12px',cursor:'pointer',borderRadius:8}}>×</button>
+      </div>
+      <div style={{display:'flex',gap:14,fontSize:11,color:TH.textSec,marginBottom:8}}>
+        <span style={{display:'flex',alignItems:'center',gap:6}}><span style={{width:14,height:3,borderRadius:2,background:XT_COLOR}} />Calories</span>
+        <span style={{display:'flex',alignItems:'center',gap:6}}><span style={{width:14,height:0,borderTop:`2px dashed ${TH.pink}`}} />Running average</span>
       </div>
       <div style={{flex:1,minHeight:0}}><Line data={chartData} options={chartOpts} /></div>
     </div>)}
