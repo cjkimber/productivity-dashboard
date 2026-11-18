@@ -1092,6 +1092,15 @@ function RowingTab() {
 const XT_COLOR = '#4ADE80';
 const XT_DURATIONS = [{key:20,label:'20 min'},{key:30,label:'30 min'}];
 const XT_SPLITS = [1,2,5];
+// Checkpoint box sizes, smallest → largest. 3 per row while the numbers fit, then 2 per row.
+const XT_CP_SIZES = [
+  { cols:3, num:15, lbl:11, pad:'8px 6px',   gap:6 },
+  { cols:3, num:21, lbl:12, pad:'10px 6px',  gap:7 },
+  { cols:3, num:28, lbl:13, pad:'12px 6px',  gap:8 },
+  { cols:3, num:36, lbl:15, pad:'14px 4px',  gap:8 },
+  { cols:2, num:48, lbl:17, pad:'16px 6px',  gap:10 },
+  { cols:2, num:62, lbl:20, pad:'18px 6px',  gap:10 },
+];
 
 // Pace calculator: how many calories per minute (or per N minutes) to match/beat a target.
 function XTPaceCalculator({ bestByDur, initialDuration, onClose }) {
@@ -1100,6 +1109,11 @@ function XTPaceCalculator({ bestByDur, initialDuration, onClose }) {
   const [mode,setMode] = useState('beat');
   const [split,setSplit] = useState(1);
   const [customSplit,setCustomSplit] = useState('');
+  // Checkpoint box size level — remembered on this device so it stays big on the machine.
+  const [cpSize,setCpSize] = useState(0);
+  useEffect(() => { try { const v=parseInt(localStorage.getItem('xtCpSize'),10); if(!isNaN(v)) setCpSize(Math.max(0,Math.min(XT_CP_SIZES.length-1,v))); } catch(e) {} }, []);
+  function changeCpSize(delta) { setCpSize(prev => { const n=Math.max(0,Math.min(XT_CP_SIZES.length-1,prev+delta)); try { localStorage.setItem('xtCpSize',String(n)); } catch(e) {} return n; }); }
+  const cp = XT_CP_SIZES[cpSize];
   const pb = bestByDur[dur]!=null ? Math.round(bestByDur[dur]) : null;
 
   function changeDur(d) { setDur(d); setTarget(bestByDur[d]!=null ? String(Math.round(bestByDur[d])) : ''); }
@@ -1172,11 +1186,16 @@ function XTPaceCalculator({ bestByDur, initialDuration, onClose }) {
             {diffFromPb===0 && <span> • equals PB</span>}
           </div>
         </div>
-        <div style={label}>Checkpoints — be at or above</div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:6}}>
-          {checkpoints.map(c=>(<div key={c.t} style={{background:c.t===dur?'rgba(74,222,128,0.10)':TH.cardAlt,border:`1px solid ${c.t===dur?XT_COLOR+'55':TH.border}`,borderRadius:8,padding:'8px 6px',textAlign:'center'}}>
-            <div style={{fontSize:11,color:TH.textMuted}}>{fmtMins(c.t)} min</div>
-            <div style={{fontSize:15,fontWeight:600,color:c.t===dur?XT_COLOR:TH.text}}>{c.cals}</div>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+          <span style={{fontSize:12,color:TH.textMuted,fontWeight:500}}>Checkpoints — be at or above</span>
+          <div style={{display:'flex',gap:6}}>
+            {[{d:-1,s:'−',dis:cpSize===0},{d:1,s:'+',dis:cpSize===XT_CP_SIZES.length-1}].map(b=>(<button key={b.s} onClick={()=>changeCpSize(b.d)} disabled={b.dis} aria-label={b.d>0?'Bigger boxes':'Smaller boxes'} style={{width:40,height:36,borderRadius:8,border:`1px solid ${b.dis?TH.border:XT_COLOR+'55'}`,background:b.dis?'transparent':'rgba(74,222,128,0.10)',color:b.dis?TH.textMuted:XT_COLOR,fontSize:20,fontWeight:700,lineHeight:1,cursor:b.dis?'default':'pointer',fontFamily:'inherit',opacity:b.dis?0.5:1}}>{b.s}</button>))}
+          </div>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:`repeat(${cp.cols},1fr)`,gap:cp.gap}}>
+          {checkpoints.map(c=>(<div key={c.t} style={{background:c.t===dur?'rgba(74,222,128,0.10)':TH.cardAlt,border:`1px solid ${c.t===dur?XT_COLOR+'55':TH.border}`,borderRadius:cp.cols===2?12:8,padding:cp.pad,textAlign:'center',minWidth:0}}>
+            <div style={{fontSize:cp.lbl,color:TH.textMuted}}>{fmtMins(c.t)} min</div>
+            <div style={{fontSize:cp.num,fontWeight:700,lineHeight:1.15,color:c.t===dur?XT_COLOR:TH.text}}>{c.cals}</div>
           </div>))}
         </div>
       </>) : (<div style={{textAlign:'center',padding:'1rem',color:TH.textMuted,fontSize:13}}>{!hasTarget ? 'Enter a target to see your pace' : `Enter a custom split between 1 and ${dur} minutes`}</div>)}
