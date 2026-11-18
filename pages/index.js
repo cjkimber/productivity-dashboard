@@ -1091,9 +1091,103 @@ function RowingTab() {
 // ─── CROSS TRAINER TAB ──────────────────────────────────────────────────────
 const XT_COLOR = '#4ADE80';
 const XT_DURATIONS = [{key:20,label:'20 min'},{key:30,label:'30 min'}];
+const XT_SPLITS = [1,2,5];
+
+// Pace calculator: how many calories per minute (or per N minutes) to match/beat a target.
+function XTPaceCalculator({ bestByDur, initialDuration, onClose }) {
+  const [dur,setDur] = useState(initialDuration);
+  const [target,setTarget] = useState(bestByDur[initialDuration]!=null ? String(Math.round(bestByDur[initialDuration])) : '');
+  const [mode,setMode] = useState('beat');
+  const [split,setSplit] = useState(1);
+  const [customSplit,setCustomSplit] = useState('');
+  const pb = bestByDur[dur]!=null ? Math.round(bestByDur[dur]) : null;
+
+  function changeDur(d) { setDur(d); setTarget(bestByDur[d]!=null ? String(Math.round(bestByDur[d])) : ''); }
+  function applyPreset(mult) { if(pb!=null) setTarget(String(Math.round(pb*mult))); }
+
+  const targetNum = parseFloat(target);
+  const hasTarget = !isNaN(targetNum) && targetNum>0;
+  const goal = hasTarget ? (mode==='beat' ? Math.floor(targetNum)+1 : targetNum) : null;
+  const customNum = parseFloat(customSplit);
+  const isCustom = split==='custom';
+  const splitMins = isCustom ? ((!isNaN(customNum) && customNum>0 && customNum<=dur) ? customNum : null) : split;
+  const perMin = goal!=null ? goal/dur : null;
+  const perSplit = (perMin!=null && splitMins!=null) ? perMin*splitMins : null;
+  const fmt1 = v => (Math.round(v*10)/10).toFixed(1);
+  const fmtMins = m => Number.isInteger(m) ? `${m}` : fmt1(m);
+
+  // Checkpoints: cumulative calories needed at each split, rounded UP so you never fall just short.
+  const checkpoints = [];
+  if(goal!=null && splitMins!=null) {
+    for(let t=splitMins; t<dur-1e-9; t+=splitMins) checkpoints.push({ t:Math.round(t*100)/100, cals:Math.ceil(goal*t/dur) });
+    checkpoints.push({ t:dur, cals:Math.ceil(goal) });
+  }
+  const diffFromPb = (pb!=null && goal!=null) ? Math.round(goal-pb) : null;
+
+  const chip = (active) => ({ padding:'8px 12px',borderRadius:8,border:`2px solid ${active?XT_COLOR:TH.border}`,background:active?'rgba(74,222,128,0.08)':'transparent',color:active?XT_COLOR:TH.textMuted,fontSize:13,fontWeight:active?600:400,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease',flex:'1 1 0',minWidth:0 });
+  const label = { fontSize:12,color:TH.textMuted,fontWeight:500,marginBottom:8 };
+
+  return (<div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(4,8,20,0.75)',zIndex:1100,display:'flex',alignItems:'flex-end',justifyContent:'center'}}>
+    <div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:520,maxHeight:'88vh',overflowY:'auto',background:TH.card,borderTop:`1px solid ${TH.borderMed}`,borderLeft:`1px solid ${TH.border}`,borderRight:`1px solid ${TH.border}`,borderRadius:`${TH.radius}px ${TH.radius}px 0 0`,boxShadow:TH.shadow,padding:'1.1rem 1.1rem 1.5rem',boxSizing:'border-box'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+        <span style={{fontWeight:700,fontSize:16,fontFamily:TH.heading,color:TH.text}}>Pace calculator</span>
+        <button onClick={onClose} style={{background:'rgba(74,222,128,0.08)',border:`1px solid ${TH.border}`,fontSize:18,color:TH.textSec,padding:'4px 12px',cursor:'pointer',borderRadius:8}}>×</button>
+      </div>
+
+      <div style={label}>Workout length</div>
+      <div style={{display:'flex',gap:8,marginBottom:16}}>
+        {XT_DURATIONS.map(d=>(<button key={d.key} onClick={()=>changeDur(d.key)} style={chip(dur===d.key)}>{d.label}</button>))}
+      </div>
+
+      <div style={{...label,display:'flex',justifyContent:'space-between'}}>
+        <span>Target calories</span>
+        <span style={{color:TH.textSec}}>{pb!=null ? `PB: ${pb} kcal` : `No ${dur} min PB yet`}</span>
+      </div>
+      <input type="number" inputMode="numeric" value={target} onChange={e=>setTarget(e.target.value)} placeholder="e.g. 300" style={{...inputStyle,fontSize:20,fontWeight:600,padding:'12px',marginBottom:8}} />
+      {pb!=null && (<div style={{display:'flex',gap:6,marginBottom:16}}>
+        {[{l:'90%',m:0.9},{l:'95%',m:0.95},{l:'PB',m:1},{l:'PB+5%',m:1.05}].map(p=>{ const active=hasTarget && Math.round(targetNum)===Math.round(pb*p.m); return (<button key={p.l} onClick={()=>applyPreset(p.m)} style={{...chip(active),padding:'6px 4px',fontSize:12}}>{p.l}</button>); })}
+      </div>)}
+      {pb==null && <div style={{marginBottom:16}} />}
+
+      <div style={label}>Goal</div>
+      <div style={{display:'flex',gap:8,marginBottom:16}}>
+        <button onClick={()=>setMode('beat')} style={chip(mode==='beat')}>To beat</button>
+        <button onClick={()=>setMode('match')} style={chip(mode==='match')}>To match</button>
+      </div>
+
+      <div style={label}>Show calories every</div>
+      <div style={{display:'flex',gap:8,marginBottom:isCustom?8:18}}>
+        {XT_SPLITS.map(s=>(<button key={s} onClick={()=>setSplit(s)} style={chip(split===s)}>{s} min</button>))}
+        <button onClick={()=>setSplit('custom')} style={chip(isCustom)}>Custom</button>
+      </div>
+      {isCustom && (<input type="number" inputMode="decimal" value={customSplit} onChange={e=>setCustomSplit(e.target.value)} placeholder={`Minutes (1–${dur})`} style={{...inputStyle,marginBottom:18}} />)}
+
+      {perSplit!=null ? (<>
+        <div style={{textAlign:'center',padding:'1rem',borderRadius:TH.radiusSm,background:'rgba(74,222,128,0.08)',border:`1px solid ${XT_COLOR}55`,marginBottom:14}}>
+          <div style={{fontSize:40,fontWeight:700,fontFamily:TH.heading,color:XT_COLOR,lineHeight:1.1}}>{fmt1(perSplit)}</div>
+          <div style={{fontSize:13,color:TH.textSec,marginTop:4}}>kcal {splitMins===1?'per minute':`every ${fmtMins(splitMins)} min`}</div>
+          <div style={{fontSize:12,color:TH.textMuted,marginTop:8}}>
+            {mode==='beat'?'Aim for':'Hit'} {Math.ceil(goal)} kcal in {dur} min
+            {diffFromPb!=null && diffFromPb!==0 && <span> • {diffFromPb>0?'+':''}{diffFromPb} vs PB</span>}
+            {diffFromPb===0 && <span> • equals PB</span>}
+          </div>
+        </div>
+        <div style={label}>Checkpoints — be at or above</div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:6}}>
+          {checkpoints.map(c=>(<div key={c.t} style={{background:c.t===dur?'rgba(74,222,128,0.10)':TH.cardAlt,border:`1px solid ${c.t===dur?XT_COLOR+'55':TH.border}`,borderRadius:8,padding:'8px 6px',textAlign:'center'}}>
+            <div style={{fontSize:11,color:TH.textMuted}}>{fmtMins(c.t)} min</div>
+            <div style={{fontSize:15,fontWeight:600,color:c.t===dur?XT_COLOR:TH.text}}>{c.cals}</div>
+          </div>))}
+        </div>
+      </>) : (<div style={{textAlign:'center',padding:'1rem',color:TH.textMuted,fontSize:13}}>{!hasTarget ? 'Enter a target to see your pace' : `Enter a custom split between 1 and ${dur} minutes`}</div>)}
+    </div>
+  </div>);
+}
+
 function CrossTrainerTab({ logs }) {
   const [duration,setDuration] = useState(30);
   const [chartExpanded,setChartExpanded] = useState(false);
+  const [calcOpen,setCalcOpen] = useState(false);
   const xtSessions = (logs||[])
     .filter(l => l.workoutType==='XT' && !l.noData && l.xtCalories!=null && l.xtCalories!=='' && !isNaN(parseFloat(l.xtCalories)))
     .map(l => ({ ...l, cals: parseFloat(l.xtCalories), mins: parseFloat(l.xtDuration) }));
@@ -1104,6 +1198,8 @@ function CrossTrainerTab({ logs }) {
   const yMin = inDur.length>=2 ? Math.max(0, Math.floor((Math.min(...inDur.map(s=>s.cals))*0.85)/10)*10) : 0;
   const listDesc = [...xtSessions].sort((a,b)=>b.date.localeCompare(a.date));
   const durLabel = `${duration} min`;
+  const bestByDur = {};
+  XT_DURATIONS.forEach(d => { const s = xtSessions.filter(x => x.mins===d.key); bestByDur[d.key] = s.length ? Math.max(...s.map(x=>x.cals)) : null; });
   // Running average: each point is the mean of every session of this length up to and including that date.
   const runningAvg = inDur.map((_,i) => Math.round(inDur.slice(0,i+1).reduce((t,s)=>t+s.cals,0)/(i+1)));
   const chartData = { labels: inDur.map(s=>fmtRowDate(s.date)), datasets: [
@@ -1113,8 +1209,9 @@ function CrossTrainerTab({ logs }) {
   const chartOpts = darkChartOpts({ yMin, yTicks: { callback: v => `${v}` }, tooltipLabel: v => `${v} kcal` });
 
   return (<div>
-    <div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:'1.25rem'}}>
+    <div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:'1.25rem',alignItems:'center'}}>
       {XT_DURATIONS.map(d=>(<button key={d.key} onClick={()=>setDuration(d.key)} style={{padding:'8px 14px',borderRadius:8,border:`2px solid ${duration===d.key?XT_COLOR:TH.border}`,background:duration===d.key?'rgba(74,222,128,0.08)':'transparent',color:duration===d.key?XT_COLOR:TH.textMuted,fontSize:13,fontWeight:duration===d.key?600:400,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease'}}>{d.label}</button>))}
+      <button onClick={()=>setCalcOpen(true)} style={{marginLeft:'auto',padding:'8px 14px',borderRadius:8,border:`1px solid ${XT_COLOR}55`,background:'rgba(74,222,128,0.10)',color:XT_COLOR,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:6}}>🧮 Pace calculator</button>
     </div>
 
     {inDur.length>=1 && (<div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginBottom:12}}>
@@ -1158,6 +1255,8 @@ function CrossTrainerTab({ logs }) {
       </div>
       <div style={{flex:1,minHeight:0}}><Line data={chartData} options={chartOpts} /></div>
     </div>)}
+
+    {calcOpen && <XTPaceCalculator bestByDur={bestByDur} initialDuration={duration} onClose={()=>setCalcOpen(false)} />}
   </div>);
 }
 
