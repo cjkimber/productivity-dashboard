@@ -1092,6 +1092,7 @@ function RowingTab() {
 const XT_COLOR = '#4ADE80';
 const XT_DURATIONS = [{key:20,label:'20 min'},{key:30,label:'30 min'}];
 const XT_SPLITS = [1,2,5];
+const XT_START_FROM = [0,5,10,15]; // seconds on the machine clock when you tap Start
 // Checkpoint box sizes, smallest → largest. 3 per row while the numbers fit, then 2 per row.
 const XT_CP_SIZES = [
   { cols:3, num:15, lbl:11, pad:'8px 6px',   gap:6 },
@@ -1109,10 +1110,26 @@ function XTPaceCalculator({ bestByDur, initialDuration, onClose }) {
   const [mode,setMode] = useState('beat');
   const [split,setSplit] = useState(1);
   const [customSplit,setCustomSplit] = useState('');
+  // View: 'timer' or 'checkpoints' — remembered on this device.
+  const [view,setView] = useState('timer');
   // Checkpoint box size level — remembered on this device so it stays big on the machine.
   const [cpSize,setCpSize] = useState(0);
-  useEffect(() => { try { const v=parseInt(localStorage.getItem('xtCpSize'),10); if(!isNaN(v)) setCpSize(Math.max(0,Math.min(XT_CP_SIZES.length-1,v))); } catch(e) {} }, []);
+  // Timer state. Elapsed time is worked out from timestamps, so it stays accurate even if the phone lags.
+  const [startFrom,setStartFrom] = useState(10);
+  const [started,setStarted] = useState(false);
+  const [baseElapsed,setBaseElapsed] = useState(0);
+  const [startedAt,setStartedAt] = useState(null);
+  const [nowMs,setNowMs] = useState(0);
+  const running = startedAt!=null;
+
+  useEffect(() => { try {
+    const v=parseInt(localStorage.getItem('xtCpSize'),10); if(!isNaN(v)) setCpSize(Math.max(0,Math.min(XT_CP_SIZES.length-1,v)));
+    const vw=localStorage.getItem('xtCalcView'); if(vw==='timer'||vw==='checkpoints') setView(vw);
+    const sf=parseInt(localStorage.getItem('xtStartFrom'),10); if(XT_START_FROM.includes(sf)) setStartFrom(sf);
+  } catch(e) {} }, []);
   function changeCpSize(delta) { setCpSize(prev => { const n=Math.max(0,Math.min(XT_CP_SIZES.length-1,prev+delta)); try { localStorage.setItem('xtCpSize',String(n)); } catch(e) {} return n; }); }
+  function changeView(v) { setView(v); try { localStorage.setItem('xtCalcView',v); } catch(e) {} }
+  function changeStartFrom(s) { setStartFrom(s); try { localStorage.setItem('xtStartFrom',String(s)); } catch(e) {} }
   const cp = XT_CP_SIZES[cpSize];
   const pb = bestByDur[dur]!=null ? Math.round(bestByDur[dur]) : null;
 
@@ -1129,6 +1146,7 @@ function XTPaceCalculator({ bestByDur, initialDuration, onClose }) {
   const perSplit = (perMin!=null && splitMins!=null) ? perMin*splitMins : null;
   const fmt1 = v => (Math.round(v*10)/10).toFixed(1);
   const fmtMins = m => Number.isInteger(m) ? `${m}` : fmt1(m);
+  const fmtClock = s => { const t=Math.max(0,Math.floor(s+1e-6)); return `${Math.floor(t/60)}:${String(t%60).padStart(2,'0')}`; };
 
   // Checkpoints: cumulative calories needed at each split, rounded UP so you never fall just short.
   const checkpoints = [];
@@ -1138,67 +1156,156 @@ function XTPaceCalculator({ bestByDur, initialDuration, onClose }) {
   }
   const diffFromPb = (pb!=null && goal!=null) ? Math.round(goal-pb) : null;
 
+  // ── Timer ──
+  const totalSecs = dur*60;
+  const rawElapsed = started ? baseElapsed + (running ? (nowMs-startedAt)/1000 : 0) : startFrom;
+  const elapsed = Math.max(0,Math.min(totalSecs,rawElapsed));
+  const finished = started && elapsed>=totalSecs;
+  const targetNowExact = goal!=null ? goal*elapsed/totalSecs : null;
+  const targetNow = targetNowExact!=null ? Math.max(0,Math.ceil(targetNowExact-1e-9)) : null;
+  // The shown number goes up by 1 the moment the exact target passes it.
+  const nextCal = targetNow!=null ? targetNow+1 : null;
+  const secsToNext = (goal!=null && !finished && targetNow<Math.ceil(goal)) ? Math.max(1,Math.ceil(targetNow*totalSecs/goal - elapsed - 1e-9)) : null;
+
+  useEffect(() => {
+    if(!running) return;
+    setNowMs(Date.now());
+    const id = setInterval(() => setNowMs(Date.now()), 200);
+    return () => clearInterval(id);
+  }, [running]);
+  // Stop automatically at the end of the workout.
+  useEffect(() => { if(running && rawElapsed>=totalSecs) { setBaseElapsed(totalSecs); setStartedAt(null); } }, [running,rawElapsed,totalSecs]);
+  // Keep the phone screen awake while the timer runs.
+  useEffect(() => {
+    if(!running) return;
+    let lock = null; let cancelled = false;
+    async function req() { try { if(typeof navigator!=='undefined' && navigator.wakeLock) { const l = await navigator.wakeLock.request('screen'); if(cancelled) { l.release().catch(()=>{}); } else { lock = l; } } } catch(e) {} }
+    function onVis() { if(document.visibilityState==='visible') req(); }
+    req();
+    document.addEventListener('visibilitychange',onVis);
+    return () => { cancelled = true; document.removeEventListener('visibilitychange',onVis); if(lock) { try { lock.release().catch(()=>{}); } catch(e) {} } };
+  }, [running]);
+
+  function timerStart() { const now=Date.now(); setBaseElapsed(startFrom); setStartedAt(now); setNowMs(now); setStarted(true); }
+  function timerPause() { setBaseElapsed(elapsed); setStartedAt(null); }
+  function timerResume() { const now=Date.now(); setStartedAt(now); setNowMs(now); }
+  function timerReset() { setStarted(false); setStartedAt(null); setBaseElapsed(0); }
+  function nudge(d) { setBaseElapsed(b => { const cur = b + (running ? (Date.now()-startedAt)/1000 : 0); const next = Math.max(0,Math.min(totalSecs,cur+d)); return b + (next-cur); }); }
+
+  const timerLocked = view==='timer' && started; // hide settings while a timer is on the go
+  function handleClose() {
+    if(timerLocked && !finished) { if(!window.confirm('Stop the timer and close the calculator?')) return; }
+    onClose();
+  }
+
   const chip = (active) => ({ padding:'8px 12px',borderRadius:8,border:`2px solid ${active?XT_COLOR:TH.border}`,background:active?'rgba(74,222,128,0.08)':'transparent',color:active?XT_COLOR:TH.textMuted,fontSize:13,fontWeight:active?600:400,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease',flex:'1 1 0',minWidth:0 });
   const label = { fontSize:12,color:TH.textMuted,fontWeight:500,marginBottom:8 };
+  const bigBtn = (primary) => ({ flex:'1 1 0',padding:'16px 10px',borderRadius:12,border:`1px solid ${primary?XT_COLOR:TH.borderMed}`,background:primary?XT_COLOR:'transparent',color:primary?'#0A3320':TH.textSec,fontSize:17,fontWeight:700,cursor:'pointer',fontFamily:'inherit' });
+  const nudgeBtn = { flex:'1 1 0',padding:'12px 4px',borderRadius:10,border:`1px solid ${TH.borderMed}`,background:TH.cardAlt,color:TH.text,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minWidth:0 };
 
-  return (<div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(4,8,20,0.75)',zIndex:1100,display:'flex',alignItems:'flex-end',justifyContent:'center'}}>
-    <div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:520,maxHeight:'88vh',overflowY:'auto',background:TH.card,borderTop:`1px solid ${TH.borderMed}`,borderLeft:`1px solid ${TH.border}`,borderRight:`1px solid ${TH.border}`,borderRadius:`${TH.radius}px ${TH.radius}px 0 0`,boxShadow:TH.shadow,padding:'1.1rem 1.1rem 1.5rem',boxSizing:'border-box'}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+  return (<div onClick={() => { if(!timerLocked) onClose(); }} style={{position:'fixed',inset:0,background:'rgba(4,8,20,0.75)',zIndex:1100,display:'flex',alignItems:'flex-end',justifyContent:'center'}}>
+    <div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:520,maxHeight:'92vh',overflowY:'auto',background:TH.card,borderTop:`1px solid ${TH.borderMed}`,borderLeft:`1px solid ${TH.border}`,borderRight:`1px solid ${TH.border}`,borderRadius:`${TH.radius}px ${TH.radius}px 0 0`,boxShadow:TH.shadow,padding:'1.1rem 1.1rem 1.5rem',boxSizing:'border-box'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
         <span style={{fontWeight:700,fontSize:16,fontFamily:TH.heading,color:TH.text}}>Pace calculator</span>
-        <button onClick={onClose} style={{background:'rgba(74,222,128,0.08)',border:`1px solid ${TH.border}`,fontSize:18,color:TH.textSec,padding:'4px 12px',cursor:'pointer',borderRadius:8}}>×</button>
+        <button onClick={handleClose} style={{background:'rgba(74,222,128,0.08)',border:`1px solid ${TH.border}`,fontSize:18,color:TH.textSec,padding:'4px 12px',cursor:'pointer',borderRadius:8}}>×</button>
       </div>
 
-      <div style={label}>Workout length</div>
-      <div style={{display:'flex',gap:8,marginBottom:16}}>
-        {XT_DURATIONS.map(d=>(<button key={d.key} onClick={()=>changeDur(d.key)} style={chip(dur===d.key)}>{d.label}</button>))}
+      {/* Switch between the live timer and the checkpoint boxes */}
+      <div style={{display:'flex',gap:4,padding:4,borderRadius:10,background:TH.cardAlt,border:`1px solid ${TH.border}`,marginBottom:16}}>
+        {[{k:'timer',l:'⏱ Timer'},{k:'checkpoints',l:'▦ Checkpoints'}].map(v=>(<button key={v.k} onClick={()=>changeView(v.k)} style={{flex:'1 1 0',padding:'9px 8px',borderRadius:8,border:'none',background:view===v.k?'rgba(74,222,128,0.15)':'transparent',color:view===v.k?XT_COLOR:TH.textMuted,fontSize:14,fontWeight:view===v.k?700:500,cursor:'pointer',fontFamily:'inherit'}}>{v.l}</button>))}
       </div>
 
-      <div style={{...label,display:'flex',justifyContent:'space-between'}}>
-        <span>Target calories</span>
-        <span style={{color:TH.textSec}}>{pb!=null ? `PB: ${pb} kcal` : `No ${dur} min PB yet`}</span>
-      </div>
-      <input type="number" inputMode="numeric" value={target} onChange={e=>setTarget(e.target.value)} placeholder="e.g. 300" style={{...inputStyle,fontSize:20,fontWeight:600,padding:'12px',marginBottom:8}} />
-      {pb!=null && (<div style={{display:'flex',gap:6,marginBottom:16}}>
-        {[{l:'90%',m:0.9},{l:'95%',m:0.95},{l:'PB',m:1},{l:'PB+5%',m:1.05}].map(p=>{ const active=hasTarget && Math.round(targetNum)===Math.round(pb*p.m); return (<button key={p.l} onClick={()=>applyPreset(p.m)} style={{...chip(active),padding:'6px 4px',fontSize:12}}>{p.l}</button>); })}
-      </div>)}
-      {pb==null && <div style={{marginBottom:16}} />}
-
-      <div style={label}>Goal</div>
-      <div style={{display:'flex',gap:8,marginBottom:16}}>
-        <button onClick={()=>setMode('beat')} style={chip(mode==='beat')}>To beat</button>
-        <button onClick={()=>setMode('match')} style={chip(mode==='match')}>To match</button>
-      </div>
-
-      <div style={label}>Show calories every</div>
-      <div style={{display:'flex',gap:8,marginBottom:isCustom?8:18}}>
-        {XT_SPLITS.map(s=>(<button key={s} onClick={()=>setSplit(s)} style={chip(split===s)}>{s} min</button>))}
-        <button onClick={()=>setSplit('custom')} style={chip(isCustom)}>Custom</button>
-      </div>
-      {isCustom && (<input type="number" inputMode="decimal" value={customSplit} onChange={e=>setCustomSplit(e.target.value)} placeholder={`Minutes (1–${dur})`} style={{...inputStyle,marginBottom:18}} />)}
-
-      {perSplit!=null ? (<>
-        <div style={{textAlign:'center',padding:'1rem',borderRadius:TH.radiusSm,background:'rgba(74,222,128,0.08)',border:`1px solid ${XT_COLOR}55`,marginBottom:14}}>
-          <div style={{fontSize:40,fontWeight:700,fontFamily:TH.heading,color:XT_COLOR,lineHeight:1.1}}>{fmt1(perSplit)}</div>
-          <div style={{fontSize:13,color:TH.textSec,marginTop:4}}>kcal {splitMins===1?'per minute':`every ${fmtMins(splitMins)} min`}</div>
-          <div style={{fontSize:12,color:TH.textMuted,marginTop:8}}>
-            {mode==='beat'?'Aim for':'Hit'} {Math.ceil(goal)} kcal in {dur} min
-            {diffFromPb!=null && diffFromPb!==0 && <span> • {diffFromPb>0?'+':''}{diffFromPb} vs PB</span>}
-            {diffFromPb===0 && <span> • equals PB</span>}
-          </div>
+      {timerLocked ? (
+        <div style={{fontSize:12,color:TH.textSec,textAlign:'center',marginBottom:14}}>
+          {dur} min • {mode==='beat'?`beat ${Math.floor(targetNum)} (aim ${Math.ceil(goal)})`:`match ${Math.ceil(goal)}`} kcal • {fmt1(perMin)} kcal/min
         </div>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
-          <span style={{fontSize:12,color:TH.textMuted,fontWeight:500}}>Checkpoints — be at or above</span>
+      ) : (<>
+        <div style={label}>Workout length</div>
+        <div style={{display:'flex',gap:8,marginBottom:16}}>
+          {XT_DURATIONS.map(d=>(<button key={d.key} onClick={()=>changeDur(d.key)} style={chip(dur===d.key)}>{d.label}</button>))}
+        </div>
+
+        <div style={{...label,display:'flex',justifyContent:'space-between'}}>
+          <span>Target calories</span>
+          <span style={{color:TH.textSec}}>{pb!=null ? `PB: ${pb} kcal` : `No ${dur} min PB yet`}</span>
+        </div>
+        <input type="number" inputMode="numeric" value={target} onChange={e=>setTarget(e.target.value)} placeholder="e.g. 300" style={{...inputStyle,fontSize:20,fontWeight:600,padding:'12px',marginBottom:8}} />
+        {pb!=null && (<div style={{display:'flex',gap:6,marginBottom:16}}>
+          {[{l:'90%',m:0.9},{l:'95%',m:0.95},{l:'PB',m:1},{l:'PB+5%',m:1.05}].map(p=>{ const active=hasTarget && Math.round(targetNum)===Math.round(pb*p.m); return (<button key={p.l} onClick={()=>applyPreset(p.m)} style={{...chip(active),padding:'6px 4px',fontSize:12}}>{p.l}</button>); })}
+        </div>)}
+        {pb==null && <div style={{marginBottom:16}} />}
+
+        <div style={label}>Goal</div>
+        <div style={{display:'flex',gap:8,marginBottom:16}}>
+          <button onClick={()=>setMode('beat')} style={chip(mode==='beat')}>To beat</button>
+          <button onClick={()=>setMode('match')} style={chip(mode==='match')}>To match</button>
+        </div>
+      </>)}
+
+      {view==='timer' && (!hasTarget ? (<div style={{textAlign:'center',padding:'1rem',color:TH.textMuted,fontSize:13}}>Enter a target to use the timer</div>) : (<>
+        {!started && (<>
+          <div style={label}>Start the timer when the machine shows</div>
+          <div style={{display:'flex',gap:8,marginBottom:16}}>
+            {XT_START_FROM.map(s=>(<button key={s} onClick={()=>changeStartFrom(s)} style={chip(startFrom===s)}>{fmtClock(s)}</button>))}
+          </div>
+        </>)}
+
+        <div style={{textAlign:'center',padding:'1rem 0.5rem 1.1rem',borderRadius:TH.radiusSm,background:'rgba(74,222,128,0.08)',border:`1px solid ${XT_COLOR}55`,marginBottom:12}}>
+          <div style={{fontSize:30,fontWeight:700,fontFamily:TH.heading,color:TH.text,fontVariantNumeric:'tabular-nums'}}>{fmtClock(elapsed)}<span style={{fontSize:16,color:TH.textMuted,fontWeight:500}}> / {fmtClock(totalSecs)}</span></div>
+          <div style={{fontSize:13,color:TH.textSec,marginTop:6}}>{finished ? 'Finished — you needed' : 'Be at or above'}</div>
+          <div style={{fontSize:'min(30vw, 140px)',fontWeight:800,fontFamily:TH.heading,color:XT_COLOR,lineHeight:1,margin:'4px 0',fontVariantNumeric:'tabular-nums'}}>{targetNow}</div>
+          <div style={{fontSize:13,color:TH.textSec}}>kcal</div>
+          {!finished && secsToNext!=null && <div style={{fontSize:13,color:TH.textMuted,marginTop:8}}>{nextCal} in {secsToNext}s</div>}
+          <div style={{height:6,borderRadius:3,background:TH.cardAlt,margin:'12px 8px 0',overflow:'hidden'}}><div style={{height:'100%',width:`${(elapsed/totalSecs)*100}%`,background:XT_COLOR,borderRadius:3}} /></div>
+        </div>
+
+        <div style={{display:'flex',gap:8,marginBottom:12}}>
+          {!started && <button onClick={timerStart} style={bigBtn(true)}>▶ Start at {fmtClock(startFrom)}</button>}
+          {started && running && <button onClick={timerPause} style={bigBtn(true)}>❚❚ Pause</button>}
+          {started && !running && !finished && <button onClick={timerResume} style={bigBtn(true)}>▶ Resume</button>}
+          {started && <button onClick={timerReset} style={bigBtn(false)}>↺ Reset</button>}
+        </div>
+
+        {started && !finished && (<>
+          <div style={{...label,textAlign:'center'}}>Nudge timer to match the machine</div>
           <div style={{display:'flex',gap:6}}>
-            {[{d:-1,s:'−',dis:cpSize===0},{d:1,s:'+',dis:cpSize===XT_CP_SIZES.length-1}].map(b=>(<button key={b.s} onClick={()=>changeCpSize(b.d)} disabled={b.dis} aria-label={b.d>0?'Bigger boxes':'Smaller boxes'} style={{width:40,height:36,borderRadius:8,border:`1px solid ${b.dis?TH.border:XT_COLOR+'55'}`,background:b.dis?'transparent':'rgba(74,222,128,0.10)',color:b.dis?TH.textMuted:XT_COLOR,fontSize:20,fontWeight:700,lineHeight:1,cursor:b.dis?'default':'pointer',fontFamily:'inherit',opacity:b.dis?0.5:1}}>{b.s}</button>))}
+            {[-5,-1,1,5].map(d=>(<button key={d} onClick={()=>nudge(d)} style={nudgeBtn}>{d>0?'+':'−'}{Math.abs(d)}s</button>))}
           </div>
+        </>)}
+      </>))}
+
+      {view==='checkpoints' && (<>
+        <div style={label}>Show calories every</div>
+        <div style={{display:'flex',gap:8,marginBottom:isCustom?8:18}}>
+          {XT_SPLITS.map(s=>(<button key={s} onClick={()=>setSplit(s)} style={chip(split===s)}>{s} min</button>))}
+          <button onClick={()=>setSplit('custom')} style={chip(isCustom)}>Custom</button>
         </div>
-        <div style={{display:'grid',gridTemplateColumns:`repeat(${cp.cols},1fr)`,gap:cp.gap}}>
-          {checkpoints.map(c=>(<div key={c.t} style={{background:c.t===dur?'rgba(74,222,128,0.10)':TH.cardAlt,border:`1px solid ${c.t===dur?XT_COLOR+'55':TH.border}`,borderRadius:cp.cols===2?12:8,padding:cp.pad,textAlign:'center',minWidth:0}}>
-            <div style={{fontSize:cp.lbl,color:TH.textMuted}}>{fmtMins(c.t)} min</div>
-            <div style={{fontSize:cp.num,fontWeight:700,lineHeight:1.15,color:c.t===dur?XT_COLOR:TH.text}}>{c.cals}</div>
-          </div>))}
-        </div>
-      </>) : (<div style={{textAlign:'center',padding:'1rem',color:TH.textMuted,fontSize:13}}>{!hasTarget ? 'Enter a target to see your pace' : `Enter a custom split between 1 and ${dur} minutes`}</div>)}
+        {isCustom && (<input type="number" inputMode="decimal" value={customSplit} onChange={e=>setCustomSplit(e.target.value)} placeholder={`Minutes (1–${dur})`} style={{...inputStyle,marginBottom:18}} />)}
+
+        {perSplit!=null ? (<>
+          <div style={{textAlign:'center',padding:'1rem',borderRadius:TH.radiusSm,background:'rgba(74,222,128,0.08)',border:`1px solid ${XT_COLOR}55`,marginBottom:14}}>
+            <div style={{fontSize:40,fontWeight:700,fontFamily:TH.heading,color:XT_COLOR,lineHeight:1.1}}>{fmt1(perSplit)}</div>
+            <div style={{fontSize:13,color:TH.textSec,marginTop:4}}>kcal {splitMins===1?'per minute':`every ${fmtMins(splitMins)} min`}</div>
+            <div style={{fontSize:12,color:TH.textMuted,marginTop:8}}>
+              {mode==='beat'?'Aim for':'Hit'} {Math.ceil(goal)} kcal in {dur} min
+              {diffFromPb!=null && diffFromPb!==0 && <span> • {diffFromPb>0?'+':''}{diffFromPb} vs PB</span>}
+              {diffFromPb===0 && <span> • equals PB</span>}
+            </div>
+          </div>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+            <span style={{fontSize:12,color:TH.textMuted,fontWeight:500}}>Checkpoints — be at or above</span>
+            <div style={{display:'flex',gap:6}}>
+              {[{d:-1,s:'−',dis:cpSize===0},{d:1,s:'+',dis:cpSize===XT_CP_SIZES.length-1}].map(b=>(<button key={b.s} onClick={()=>changeCpSize(b.d)} disabled={b.dis} aria-label={b.d>0?'Bigger boxes':'Smaller boxes'} style={{width:40,height:36,borderRadius:8,border:`1px solid ${b.dis?TH.border:XT_COLOR+'55'}`,background:b.dis?'transparent':'rgba(74,222,128,0.10)',color:b.dis?TH.textMuted:XT_COLOR,fontSize:20,fontWeight:700,lineHeight:1,cursor:b.dis?'default':'pointer',fontFamily:'inherit',opacity:b.dis?0.5:1}}>{b.s}</button>))}
+            </div>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:`repeat(${cp.cols},1fr)`,gap:cp.gap}}>
+            {checkpoints.map(c=>(<div key={c.t} style={{background:c.t===dur?'rgba(74,222,128,0.10)':TH.cardAlt,border:`1px solid ${c.t===dur?XT_COLOR+'55':TH.border}`,borderRadius:cp.cols===2?12:8,padding:cp.pad,textAlign:'center',minWidth:0}}>
+              <div style={{fontSize:cp.lbl,color:TH.textMuted}}>{fmtMins(c.t)} min</div>
+              <div style={{fontSize:cp.num,fontWeight:700,lineHeight:1.15,color:c.t===dur?XT_COLOR:TH.text}}>{c.cals}</div>
+            </div>))}
+          </div>
+        </>) : (<div style={{textAlign:'center',padding:'1rem',color:TH.textMuted,fontSize:13}}>{!hasTarget ? 'Enter a target to see your pace' : `Enter a custom split between 1 and ${dur} minutes`}</div>)}
+      </>)}
     </div>
   </div>);
 }
