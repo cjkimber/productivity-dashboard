@@ -1203,6 +1203,57 @@ function XTPaceCalculator({ bestByDur, initialDuration, onClose }) {
   const bigBtn = (primary) => ({ flex:'1 1 0',padding:'16px 10px',borderRadius:12,border:`1px solid ${primary?XT_COLOR:TH.borderMed}`,background:primary?XT_COLOR:'transparent',color:primary?'#0A3320':TH.textSec,fontSize:17,fontWeight:700,cursor:'pointer',fontFamily:'inherit' });
   const nudgeBtn = { flex:'1 1 0',padding:'12px 4px',borderRadius:10,border:`1px solid ${TH.borderMed}`,background:TH.cardAlt,color:TH.text,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minWidth:0 };
 
+  // ── Full-screen timer ──
+  const [full,setFull] = useState(false);
+  function openFull() {
+    setFull(true);
+    // Also hide the browser bars where the phone allows it (Android/Chrome). iPhone ignores this and just uses the full page.
+    try { const el=document.documentElement; if(el.requestFullscreen && !document.fullscreenElement) el.requestFullscreen().catch(()=>{}); } catch(e) {}
+  }
+  function closeFull() {
+    setFull(false);
+    try { if(document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(()=>{}); } catch(e) {}
+  }
+  useEffect(() => {
+    // If the browser leaves full screen (e.g. back gesture), drop back to the normal panel too.
+    function onFs() { if(!document.fullscreenElement) setFull(false); }
+    try { document.addEventListener('fullscreenchange',onFs); } catch(e) {}
+    return () => { try { document.removeEventListener('fullscreenchange',onFs); } catch(e) {} };
+  }, []);
+  useEffect(() => () => { try { if(document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(()=>{}); } catch(e) {} }, []);
+
+  // Timer display + controls. big=true is the full-screen layout.
+  function renderTimerCore(big) {
+    const btn = big ? { ...bigBtn(true), padding:'20px 10px', fontSize:20 } : bigBtn(true);
+    const btn2 = big ? { ...bigBtn(false), padding:'20px 10px', fontSize:20 } : bigBtn(false);
+    const nb = big ? { ...nudgeBtn, padding:'16px 4px', fontSize:17 } : nudgeBtn;
+    const display = (<div style={big
+        ? {flex:1,minHeight:0,display:'flex',flexDirection:'column',justifyContent:'center',alignItems:'center',textAlign:'center'}
+        : {textAlign:'center',padding:'1rem 0.5rem 1.1rem',borderRadius:TH.radiusSm,background:'rgba(74,222,128,0.08)',border:`1px solid ${XT_COLOR}55`,marginBottom:12}}>
+      <div style={{fontSize:big?'min(12vw, 7vh)':30,fontWeight:700,fontFamily:TH.heading,color:TH.text,fontVariantNumeric:'tabular-nums'}}>{fmtClock(elapsed)}<span style={{fontSize:big?'0.5em':16,color:TH.textMuted,fontWeight:500}}> / {fmtClock(totalSecs)}</span></div>
+      <div style={{fontSize:big?18:13,color:TH.textSec,marginTop:big?10:6}}>{finished ? 'Finished — you needed' : 'Be at or above'}</div>
+      <div style={{fontSize:big?'min(48vw, 34vh)':'min(30vw, 140px)',fontWeight:800,fontFamily:TH.heading,color:XT_COLOR,lineHeight:1,margin:'4px 0',fontVariantNumeric:'tabular-nums'}}>{targetNow}</div>
+      <div style={{fontSize:big?18:13,color:TH.textSec}}>kcal</div>
+      {!finished && secsToNext!=null && <div style={{fontSize:big?18:13,color:TH.textMuted,marginTop:8}}>{nextCal} in {secsToNext}s</div>}
+      <div style={{height:big?10:6,borderRadius:5,background:TH.cardAlt,margin:'14px 8px 0',overflow:'hidden',width:big?'85%':'auto',alignSelf:big?'center':'auto'}}><div style={{height:'100%',width:`${(elapsed/totalSecs)*100}%`,background:XT_COLOR,borderRadius:5}} /></div>
+    </div>);
+    return (<>
+      {display}
+      <div style={{display:'flex',gap:8,marginBottom:12}}>
+        {!started && <button onClick={timerStart} style={btn}>▶ Start at {fmtClock(startFrom)}</button>}
+        {started && running && <button onClick={timerPause} style={btn}>❚❚ Pause</button>}
+        {started && !running && !finished && <button onClick={timerResume} style={btn}>▶ Resume</button>}
+        {started && <button onClick={timerReset} style={btn2}>↺ Reset</button>}
+      </div>
+      {started && !finished && (<>
+        <div style={{...label,textAlign:'center'}}>Nudge timer to match the machine</div>
+        <div style={{display:'flex',gap:6}}>
+          {[-5,-1,1,5].map(d=>(<button key={d} onClick={()=>nudge(d)} style={nb}>{d>0?'+':'−'}{Math.abs(d)}s</button>))}
+        </div>
+      </>)}
+    </>);
+  }
+
   return (<div onClick={() => { if(!timerLocked) onClose(); }} style={{position:'fixed',inset:0,background:'rgba(4,8,20,0.75)',zIndex:1100,display:'flex',alignItems:'flex-end',justifyContent:'center'}}>
     <div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:520,maxHeight:'92vh',overflowY:'auto',background:TH.card,borderTop:`1px solid ${TH.borderMed}`,borderLeft:`1px solid ${TH.border}`,borderRight:`1px solid ${TH.border}`,borderRadius:`${TH.radius}px ${TH.radius}px 0 0`,boxShadow:TH.shadow,padding:'1.1rem 1.1rem 1.5rem',boxSizing:'border-box'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
@@ -1250,28 +1301,8 @@ function XTPaceCalculator({ bestByDur, initialDuration, onClose }) {
           </div>
         </>)}
 
-        <div style={{textAlign:'center',padding:'1rem 0.5rem 1.1rem',borderRadius:TH.radiusSm,background:'rgba(74,222,128,0.08)',border:`1px solid ${XT_COLOR}55`,marginBottom:12}}>
-          <div style={{fontSize:30,fontWeight:700,fontFamily:TH.heading,color:TH.text,fontVariantNumeric:'tabular-nums'}}>{fmtClock(elapsed)}<span style={{fontSize:16,color:TH.textMuted,fontWeight:500}}> / {fmtClock(totalSecs)}</span></div>
-          <div style={{fontSize:13,color:TH.textSec,marginTop:6}}>{finished ? 'Finished — you needed' : 'Be at or above'}</div>
-          <div style={{fontSize:'min(30vw, 140px)',fontWeight:800,fontFamily:TH.heading,color:XT_COLOR,lineHeight:1,margin:'4px 0',fontVariantNumeric:'tabular-nums'}}>{targetNow}</div>
-          <div style={{fontSize:13,color:TH.textSec}}>kcal</div>
-          {!finished && secsToNext!=null && <div style={{fontSize:13,color:TH.textMuted,marginTop:8}}>{nextCal} in {secsToNext}s</div>}
-          <div style={{height:6,borderRadius:3,background:TH.cardAlt,margin:'12px 8px 0',overflow:'hidden'}}><div style={{height:'100%',width:`${(elapsed/totalSecs)*100}%`,background:XT_COLOR,borderRadius:3}} /></div>
-        </div>
-
-        <div style={{display:'flex',gap:8,marginBottom:12}}>
-          {!started && <button onClick={timerStart} style={bigBtn(true)}>▶ Start at {fmtClock(startFrom)}</button>}
-          {started && running && <button onClick={timerPause} style={bigBtn(true)}>❚❚ Pause</button>}
-          {started && !running && !finished && <button onClick={timerResume} style={bigBtn(true)}>▶ Resume</button>}
-          {started && <button onClick={timerReset} style={bigBtn(false)}>↺ Reset</button>}
-        </div>
-
-        {started && !finished && (<>
-          <div style={{...label,textAlign:'center'}}>Nudge timer to match the machine</div>
-          <div style={{display:'flex',gap:6}}>
-            {[-5,-1,1,5].map(d=>(<button key={d} onClick={()=>nudge(d)} style={nudgeBtn}>{d>0?'+':'−'}{Math.abs(d)}s</button>))}
-          </div>
-        </>)}
+        {renderTimerCore(false)}
+        <button onClick={openFull} style={{width:'100%',marginTop:12,padding:'12px',borderRadius:10,border:`1px solid ${XT_COLOR}55`,background:'rgba(74,222,128,0.10)',color:XT_COLOR,fontSize:15,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>⤢ Full screen</button>
       </>))}
 
       {view==='checkpoints' && (<>
@@ -1307,6 +1338,17 @@ function XTPaceCalculator({ bestByDur, initialDuration, onClose }) {
         </>) : (<div style={{textAlign:'center',padding:'1rem',color:TH.textMuted,fontSize:13}}>{!hasTarget ? 'Enter a target to see your pace' : `Enter a custom split between 1 and ${dur} minutes`}</div>)}
       </>)}
     </div>
+
+    {full && view==='timer' && hasTarget && (<div onClick={e=>e.stopPropagation()} style={{position:'fixed',inset:0,zIndex:1200,background:TH.bg,display:'flex',flexDirection:'column',padding:'max(14px, env(safe-area-inset-top)) 16px max(18px, env(safe-area-inset-bottom))',boxSizing:'border-box'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10}}>
+        <span style={{fontSize:13,color:TH.textSec}}>{dur} min • {mode==='beat'?`aim ${Math.ceil(goal)}`:`match ${Math.ceil(goal)}`} kcal • {fmt1(perMin)}/min</span>
+        <button onClick={closeFull} style={{background:'rgba(74,222,128,0.08)',border:`1px solid ${TH.borderMed}`,fontSize:15,fontWeight:600,color:TH.textSec,padding:'10px 14px',cursor:'pointer',borderRadius:10,fontFamily:'inherit',flexShrink:0}}>⤡ Exit</button>
+      </div>
+      {!started && (<div style={{display:'flex',gap:8,marginTop:14}}>
+        {XT_START_FROM.map(s=>(<button key={s} onClick={()=>changeStartFrom(s)} style={chip(startFrom===s)}>{fmtClock(s)}</button>))}
+      </div>)}
+      {renderTimerCore(true)}
+    </div>)}
   </div>);
 }
 
