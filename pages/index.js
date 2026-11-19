@@ -111,11 +111,11 @@ function Modal({ title,onClose,children }) {
         <button onClick={onClose} style={{ background:'rgba(77,212,255,0.08)',border:`1px solid ${TH.border}`,fontSize:18,color:TH.textSec,padding:'2px 8px',cursor:'pointer',borderRadius:8,lineHeight:'1.4' }}>×</button>
       </div>{children}</div></div>);
 }
-function StatCard({ label,value,sub }) {
+function StatCard({ label,value,sub,font }) {
   return (<div style={{ background:TH.card,borderRadius:TH.radiusSm,padding:'14px 16px',boxShadow:TH.shadowSm,border:`1px solid ${TH.border}`,position:'relative',overflow:'hidden' }}>
     <div style={{ position:'absolute',top:0,left:0,right:0,height:1,background:`linear-gradient(90deg, transparent, ${TH.borderGlow}, transparent)` }} />
     <div style={{ fontSize:11,color:TH.textMuted,marginBottom:5,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em' }}>{label}</div>
-    <div style={{ fontSize:24,fontWeight:800,fontFamily:TH.heading,color:TH.text }}>{value}</div>
+    <div style={{ fontSize:24,fontWeight:800,fontFamily:font||TH.heading,color:TH.text }}>{value}</div>
     {sub && <div style={{ fontSize:11,color:TH.textMuted,marginTop:3 }}>{sub}</div>}</div>);
 }
 function Btn({ onClick,children,variant='primary',style={} }) {
@@ -1090,6 +1090,8 @@ function RowingTab() {
 
 // ─── CROSS TRAINER TAB ──────────────────────────────────────────────────────
 const XT_COLOR = '#4ADE80';
+// X Trainer section font (trial). To go back, set this to TH.heading and remove the <Head> font link in CrossTrainerTab.
+const XT_FONT = "'Zilla Slab', serif";
 const XT_DURATIONS = [{key:20,label:'20 min'},{key:30,label:'30 min'}];
 const XT_SPLITS = [1,2,5];
 const XT_START_FROM = [0,5,10,15]; // seconds on the machine clock when you tap Start
@@ -1230,9 +1232,9 @@ function XTPaceCalculator({ bestByDur, initialDuration, onClose }) {
     const display = (<div style={big
         ? {flex:1,minHeight:0,display:'flex',flexDirection:'column',justifyContent:'center',alignItems:'center',textAlign:'center'}
         : {textAlign:'center',padding:'1rem 0.5rem 1.1rem',borderRadius:TH.radiusSm,background:'rgba(74,222,128,0.08)',border:`1px solid ${XT_COLOR}55`,marginBottom:12}}>
-      <div style={{fontSize:big?'min(12vw, 7vh)':30,fontWeight:700,fontFamily:TH.heading,color:TH.text,fontVariantNumeric:'tabular-nums'}}>{fmtClock(elapsed)}<span style={{fontSize:big?'0.5em':16,color:TH.textMuted,fontWeight:500}}> / {fmtClock(totalSecs)}</span></div>
+      <div style={{fontSize:big?'min(12vw, 7vh)':30,fontWeight:700,fontFamily:XT_FONT,color:TH.text,fontVariantNumeric:'tabular-nums'}}>{fmtClock(elapsed)}<span style={{fontSize:big?'0.5em':16,color:TH.textMuted,fontWeight:500}}> / {fmtClock(totalSecs)}</span></div>
       <div style={{fontSize:big?18:13,color:TH.textSec,marginTop:big?10:6}}>{finished ? 'Finished — you needed' : 'Be at or above'}</div>
-      <div style={{fontSize:big?'min(48vw, 34vh)':'min(30vw, 140px)',fontWeight:800,fontFamily:TH.heading,color:XT_COLOR,lineHeight:1,margin:'4px 0',fontVariantNumeric:'tabular-nums'}}>{targetNow}</div>
+      <div style={{fontSize:big?'min(48vw, 34vh)':'min(30vw, 140px)',fontWeight:800,fontFamily:XT_FONT,color:XT_COLOR,lineHeight:1,margin:'4px 0',fontVariantNumeric:'tabular-nums'}}>{targetNow}</div>
       <div style={{fontSize:big?18:13,color:TH.textSec}}>kcal</div>
       {!finished && secsToNext!=null && <div style={{fontSize:big?18:13,color:TH.textMuted,marginTop:8}}>{nextCal} in {secsToNext}s</div>}
       <div style={{height:big?10:6,borderRadius:5,background:TH.cardAlt,margin:'14px 8px 0',overflow:'hidden',width:big?'85%':'auto',alignSelf:big?'center':'auto'}}><div style={{height:'100%',width:`${(elapsed/totalSecs)*100}%`,background:XT_COLOR,borderRadius:5}} /></div>
@@ -1254,10 +1256,10 @@ function XTPaceCalculator({ bestByDur, initialDuration, onClose }) {
     </>);
   }
 
-  return (<div onClick={() => { if(!timerLocked) onClose(); }} style={{position:'fixed',inset:0,background:'rgba(4,8,20,0.75)',zIndex:1100,display:'flex',alignItems:'flex-end',justifyContent:'center'}}>
+  return (<div onClick={() => { if(!timerLocked) onClose(); }} style={{position:'fixed',inset:0,background:'rgba(4,8,20,0.75)',zIndex:1100,display:'flex',alignItems:'flex-end',justifyContent:'center',fontFamily:XT_FONT}}>
     <div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:520,maxHeight:'92vh',overflowY:'auto',background:TH.card,borderTop:`1px solid ${TH.borderMed}`,borderLeft:`1px solid ${TH.border}`,borderRight:`1px solid ${TH.border}`,borderRadius:`${TH.radius}px ${TH.radius}px 0 0`,boxShadow:TH.shadow,padding:'1.1rem 1.1rem 1.5rem',boxSizing:'border-box'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
-        <span style={{fontWeight:700,fontSize:16,fontFamily:TH.heading,color:TH.text}}>Pace calculator</span>
+        <span style={{fontWeight:700,fontSize:16,fontFamily:XT_FONT,color:TH.text}}>Pace calculator</span>
         <button onClick={handleClose} style={{background:'rgba(74,222,128,0.08)',border:`1px solid ${TH.border}`,fontSize:18,color:TH.textSec,padding:'4px 12px',cursor:'pointer',borderRadius:8}}>×</button>
       </div>
 
@@ -1315,7 +1317,7 @@ function XTPaceCalculator({ bestByDur, initialDuration, onClose }) {
 
         {perSplit!=null ? (<>
           <div style={{textAlign:'center',padding:'1rem',borderRadius:TH.radiusSm,background:'rgba(74,222,128,0.08)',border:`1px solid ${XT_COLOR}55`,marginBottom:14}}>
-            <div style={{fontSize:40,fontWeight:700,fontFamily:TH.heading,color:XT_COLOR,lineHeight:1.1}}>{fmt1(perSplit)}</div>
+            <div style={{fontSize:40,fontWeight:700,fontFamily:XT_FONT,color:XT_COLOR,lineHeight:1.1}}>{fmt1(perSplit)}</div>
             <div style={{fontSize:13,color:TH.textSec,marginTop:4}}>kcal {splitMins===1?'per minute':`every ${fmtMins(splitMins)} min`}</div>
             <div style={{fontSize:12,color:TH.textMuted,marginTop:8}}>
               {mode==='beat'?'Aim for':'Hit'} {Math.ceil(goal)} kcal in {dur} min
@@ -1375,17 +1377,20 @@ function CrossTrainerTab({ logs }) {
     { data: runningAvg, borderColor: TH.pink, backgroundColor: 'transparent', borderWidth: 2, borderDash: [6,4], pointRadius: 0, pointHoverRadius: 4, pointBackgroundColor: TH.pink, fill: false, tension: 0.35 },
   ]};
   const chartOpts = darkChartOpts({ yMin, yTicks: { callback: v => `${v}` }, tooltipLabel: v => `${v} kcal` });
+  chartOpts.scales.x.ticks.font = { size:11, family:XT_FONT };
+  chartOpts.scales.y.ticks.font = { size:10, family:XT_FONT };
 
-  return (<div>
+  return (<div style={{fontFamily:XT_FONT}}>
+    <Head><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;500;600;700&display=swap" /></Head>
     <div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:'1.25rem',alignItems:'center'}}>
       {XT_DURATIONS.map(d=>(<button key={d.key} onClick={()=>setDuration(d.key)} style={{padding:'8px 14px',borderRadius:8,border:`2px solid ${duration===d.key?XT_COLOR:TH.border}`,background:duration===d.key?'rgba(74,222,128,0.08)':'transparent',color:duration===d.key?XT_COLOR:TH.textMuted,fontSize:13,fontWeight:duration===d.key?600:400,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms ease'}}>{d.label}</button>))}
       <button onClick={()=>setCalcOpen(true)} style={{marginLeft:'auto',padding:'8px 14px',borderRadius:8,border:`1px solid ${XT_COLOR}55`,background:'rgba(74,222,128,0.10)',color:XT_COLOR,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:6}}>🧮 Pace calculator</button>
     </div>
 
     {inDur.length>=1 && (<div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginBottom:12}}>
-      <StatCard label="Latest" value={Math.round(latest)} sub="kcal" />
-      <StatCard label="Best" value={Math.round(best)} sub="kcal" />
-      <StatCard label="Average" value={avg} sub={`kcal • ${inDur.length} session${inDur.length===1?'':'s'}`} />
+      <StatCard font={XT_FONT} label="Latest" value={Math.round(latest)} sub="kcal" />
+      <StatCard font={XT_FONT} label="Best" value={Math.round(best)} sub="kcal" />
+      <StatCard font={XT_FONT} label="Average" value={avg} sub={`kcal • ${inDur.length} session${inDur.length===1?'':'s'}`} />
     </div>)}
 
     {inDur.length>=2 && (<div style={{marginBottom:'1.5rem'}}>
@@ -1414,7 +1419,7 @@ function CrossTrainerTab({ logs }) {
 
     {chartExpanded && (<div style={{position:'fixed',inset:0,background:'rgba(4,8,20,0.95)',zIndex:1100,display:'flex',flexDirection:'column',padding:'1.25rem'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
-        <span style={{fontWeight:700,fontSize:16,fontFamily:TH.heading,color:TH.text}}>Calories burned — {durLabel} sessions</span>
+        <span style={{fontWeight:700,fontSize:16,fontFamily:XT_FONT,color:TH.text}}>Calories burned — {durLabel} sessions</span>
         <button onClick={()=>setChartExpanded(false)} style={{background:'rgba(74,222,128,0.08)',border:`1px solid ${TH.border}`,fontSize:18,color:TH.textSec,padding:'4px 12px',cursor:'pointer',borderRadius:8}}>×</button>
       </div>
       <div style={{display:'flex',gap:14,fontSize:11,color:TH.textSec,marginBottom:8}}>
